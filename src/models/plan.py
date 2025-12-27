@@ -21,7 +21,7 @@ class OutputField(BaseModel):
     name: str
     label: str
     source_cell: str  # Excel cell this maps to
-    format: str  # 'text', 'number', 'currency', 'percentage', 'date'
+    format: str = "number"  # 'text', 'number', 'currency', 'percentage', 'date'
     calculation: Optional[str] = None  # description of calculation
 
 

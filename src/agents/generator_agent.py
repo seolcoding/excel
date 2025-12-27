@@ -2,7 +2,7 @@
 
 from pydantic import BaseModel
 
-from agents import Agent, function_tool
+from agents import Agent, AgentOutputSchema, function_tool
 
 from src.models import WebAppPlan, GeneratedWebApp, GeneratedCode
 from src.tools import (
@@ -210,7 +210,7 @@ def create_generator_agent() -> Agent:
         instructions=GENERATOR_INSTRUCTIONS,
         tools=[convert_formula, check_formula_complexity, get_js_helpers],
         model="gpt-5.2",  # SOTA model - excels at frontend UI & code generation
-        output_type=GeneratedWebApp,  # Structured output
+        output_type=AgentOutputSchema(GeneratedWebApp, strict_json_schema=False),  # Structured output
     )
 
 

@@ -283,32 +283,70 @@ def _extract_vba_procedures(code: str) -> list[str]:
 
 def _extract_print_settings(ws: Worksheet) -> PrintSettings:
     """Extract print settings from a worksheet."""
-    page_setup = ws.page_setup
-    margins = ws.page_margins
+    try:
+        page_setup = ws.page_setup
+        margins = ws.page_margins
 
-    # Get orientation
-    orientation = "landscape" if page_setup.orientation == "landscape" else "portrait"
+        # Get orientation (with safety checks)
+        orientation = "portrait"
+        if page_setup and hasattr(page_setup, 'orientation') and page_setup.orientation:
+            orientation = "landscape" if page_setup.orientation == "landscape" else "portrait"
 
-    # Get paper size
-    paper_size = PAPER_SIZES.get(page_setup.paperSize, "A4")
+        # Get paper size
+        paper_size = "A4"
+        if page_setup and hasattr(page_setup, 'paperSize') and page_setup.paperSize:
+            paper_size = PAPER_SIZES.get(page_setup.paperSize, "A4")
 
-    # Get margins (convert to inches if needed)
-    margin_dict = {
-        "top": float(margins.top) if margins.top else 0.75,
-        "bottom": float(margins.bottom) if margins.bottom else 0.75,
-        "left": float(margins.left) if margins.left else 0.7,
-        "right": float(margins.right) if margins.right else 0.7,
-    }
+        # Get margins (convert to inches if needed)
+        margin_dict = {"top": 0.75, "bottom": 0.75, "left": 0.7, "right": 0.7}
+        if margins:
+            margin_dict = {
+                "top": float(margins.top) if margins.top else 0.75,
+                "bottom": float(margins.bottom) if margins.bottom else 0.75,
+                "left": float(margins.left) if margins.left else 0.7,
+                "right": float(margins.right) if margins.right else 0.7,
+            }
 
-    return PrintSettings(
-        orientation=orientation,
-        paper_size=paper_size,
-        margins=margin_dict,
-        header=ws.oddHeader.center.text if ws.oddHeader and ws.oddHeader.center else None,
-        footer=ws.oddFooter.center.text if ws.oddFooter and ws.oddFooter.center else None,
-        fit_to_page=page_setup.fitToPage or False,
-        scale=page_setup.scale or 100,
-    )
+        # Get header/footer safely
+        header = None
+        footer = None
+        try:
+            if ws.oddHeader and hasattr(ws.oddHeader, 'center') and ws.oddHeader.center:
+                header = ws.oddHeader.center.text
+        except Exception:
+            pass
+        try:
+            if ws.oddFooter and hasattr(ws.oddFooter, 'center') and ws.oddFooter.center:
+                footer = ws.oddFooter.center.text
+        except Exception:
+            pass
+
+        fit_to_page = False
+        scale = 100
+        if page_setup:
+            fit_to_page = getattr(page_setup, 'fitToPage', False) or False
+            scale = getattr(page_setup, 'scale', 100) or 100
+
+        return PrintSettings(
+            orientation=orientation,
+            paper_size=paper_size,
+            margins=margin_dict,
+            header=header,
+            footer=footer,
+            fit_to_page=fit_to_page,
+            scale=scale,
+        )
+    except Exception:
+        # Return default settings if extraction fails
+        return PrintSettings(
+            orientation="portrait",
+            paper_size="A4",
+            margins={"top": 0.75, "bottom": 0.75, "left": 0.7, "right": 0.7},
+            header=None,
+            footer=None,
+            fit_to_page=False,
+            scale=100,
+        )
 
 
 def _calculate_complexity(formula_count: int, vba_count: int, sheet_count: int) -> str:

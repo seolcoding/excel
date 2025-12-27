@@ -1,112 +1,905 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>간이영수증</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-    <style>
-        body { font-family: 'Noto Sans KR', sans-serif; background: #eee; padding: 2rem; }
-        .receipt { background: white; max-width: 400px; margin: 0 auto; padding: 2rem; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        .receipt-header { text-align: center; border-bottom: 2px dashed #333; padding-bottom: 1rem; margin-bottom: 1rem; }
-        .receipt-title { font-size: 1.5rem; font-weight: bold; letter-spacing: 0.5rem; }
-        .receipt-row { display: flex; justify-content: space-between; padding: 0.25rem 0; }
-        .receipt-total { border-top: 2px solid #333; margin-top: 1rem; padding-top: 1rem; font-size: 1.25rem; font-weight: bold; }
-        .dotted { border-bottom: 1px dotted #999; flex: 1; margin: 0 0.5rem; }
-        @media print {
-            body { background: white; padding: 0; }
-            .receipt { box-shadow: none; max-width: 100%; }
-            .no-print { display: none !important; }
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>간이영수증 표준 양식</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap');
+
+    :root{
+      --excel-line: #111;
+      --excel-thin: 1px;
+      --excel-bg: #fff;
+      --muted: #6c757d;
+      --paper-w: 297mm;
+      --paper-h: 210mm;
+      --m-top: 19mm;
+      --m-bottom: 19mm;
+      --m-left: 18mm;
+      --m-right: 18mm;
+      --print-area-w: calc(var(--paper-w) - var(--m-left) - var(--m-right));
+      --print-area-h: calc(var(--paper-h) - var(--m-top) - var(--m-bottom));
+    }
+
+    html, body { height: 100%; }
+    body{
+      font-family: 'Noto Sans KR', system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background: #f7f7f9;
+      color: #111;
+    }
+
+    .app-shell{ max-width: 1200px; }
+
+    .excel-card{
+      background: var(--excel-bg);
+      border: 1px solid rgba(0,0,0,.1);
+      border-radius: 12px;
+    }
+
+    .section-title{
+      font-weight: 700;
+      font-size: 1.05rem;
+      margin: 0;
+    }
+
+    .help-text{ color: var(--muted); font-size: .875rem; }
+
+    .table thead th{ position: sticky; top: 0; background: #fff; z-index: 2; }
+
+    .money{ text-align: right; font-variant-numeric: tabular-nums; }
+    .mono{ font-variant-numeric: tabular-nums; }
+
+    .print-wrap{
+      width: var(--print-area-w);
+      min-height: var(--print-area-h);
+      background: #fff;
+      margin: 0 auto;
+      box-shadow: 0 8px 30px rgba(0,0,0,.10);
+      padding: 0;
+    }
+
+    /* 출력 템플릿(엑셀 느낌) */
+    .receipt-grid{
+      width: var(--print-area-w);
+      min-height: var(--print-area-h);
+      display: grid;
+      grid-template-columns: repeat(35, 1fr);
+      grid-auto-rows: 6mm;
+      position: relative;
+      background: #fff;
+      box-sizing: border-box;
+    }
+
+    .cell{
+      border: var(--excel-thin) solid var(--excel-line);
+      padding: 1.5mm 2mm;
+      font-size: 11pt;
+      line-height: 1.2;
+      display: flex;
+      align-items: center;
+      box-sizing: border-box;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    .cell.center{ justify-content: center; }
+    .cell.right{ justify-content: flex-end; text-align: right; }
+    .cell.small{ font-size: 10pt; }
+    .cell.title{ font-size: 16pt; font-weight: 700; }
+    .cell.no-border{ border: none; }
+
+    .hr-thick{ border-top: 2px solid var(--excel-line); }
+
+    .btn-icon{ white-space: nowrap; }
+
+    /* template mode section */
+    .template-box{ border: 1px dashed rgba(0,0,0,.25); border-radius: 10px; background: #fff; }
+
+    /* PRINT */
+    @page {
+      size: A4 landscape;
+      margin: 19mm 18mm 19mm 18mm;
+    }
+
+    @media print {
+      body{ background: #fff; }
+      .no-print{ display: none !important; }
+      .print-only{ display: block !important; }
+      .print-wrap{ box-shadow: none; margin: 0; }
+
+      /* 입력 요소 인쇄 시 테두리/배경 제거 */
+      input, select, textarea{ border: none !important; box-shadow: none !important; outline: none !important; }
+
+      /* 인쇄는 미리보기(템플릿)만 */
+      #screen-write{ display: none !important; }
+      #screen-preview{ display: block !important; }
+    }
+
+    .print-only{ display: none; }
+  </style>
 </head>
 <body>
-    <div x-data="receipt()">
-        <div class="text-center mb-3 no-print">
-            <button class="btn btn-primary" @click="window.print()">인쇄</button>
-            <a href="../index.html" class="btn btn-outline-secondary">목록으로</a>
-        </div>
+  <div class="container py-4 app-shell" x-data="appData()" x-init="init()">
 
-        <div class="receipt">
-            <div class="receipt-header">
-                <div class="receipt-title">영 수 증</div>
-                <small class="text-muted">RECEIPT</small>
-            </div>
-
-            <div class="mb-3">
-                <div class="receipt-row">
-                    <span>일자</span>
-                    <input type="date" x-model="date" class="border-0 text-end" style="width:150px">
-                </div>
-                <div class="receipt-row">
-                    <span>No.</span>
-                    <span x-text="receiptNo"></span>
-                </div>
-            </div>
-
-            <div class="mb-3 p-2 bg-light rounded">
-                <div class="receipt-row">
-                    <input type="text" x-model="recipient" placeholder="받는 분" class="border-0 bg-transparent fw-bold" style="width:60%">
-                    <span>귀하</span>
-                </div>
-            </div>
-
-            <div class="mb-3">
-                <div class="text-muted small mb-2">품목</div>
-                <template x-for="(item, idx) in items" :key="idx">
-                    <div class="receipt-row mb-1">
-                        <input type="text" x-model="item.name" class="border-0 border-bottom" style="width:50%" placeholder="품목명">
-                        <span class="dotted"></span>
-                        <input type="text" :value="item.amount.toLocaleString()"
-                               @input="item.amount = parseInt($event.target.value.replace(/,/g,'')) || 0; calculate()"
-                               class="border-0 text-end" style="width:80px">원
-                    </div>
-                </template>
-                <button class="btn btn-sm btn-outline-secondary w-100 mt-2 no-print" @click="addItem()">+ 항목 추가</button>
-            </div>
-
-            <div class="receipt-total">
-                <div class="receipt-row">
-                    <span>합 계</span>
-                    <span x-text="'₩ ' + total.toLocaleString()"></span>
-                </div>
-            </div>
-
-            <div class="mt-4 text-center small">
-                <p class="mb-1">위 금액을 정히 영수함</p>
-                <div class="mt-3">
-                    <input type="text" x-model="issuer" placeholder="발행인" class="border-0 border-bottom text-center">
-                    <span class="ms-2">(인)</span>
-                </div>
-            </div>
-
-            <div class="mt-4 pt-3 border-top small text-muted text-center">
-                <input type="text" x-model="businessInfo" class="border-0 text-center w-100" placeholder="사업자 정보">
-            </div>
-        </div>
-
-        <footer class="text-center text-muted mt-3 small">
-            원본: 엑셀 간이영수증 표준 양식 v2.0.xlsx
-        </footer>
+    <!-- 상단 네비/액션 -->
+    <div class="d-flex flex-wrap gap-2 align-items-center justify-content-between mb-3 no-print">
+      <div>
+        <h1 class="h4 mb-0">간이영수증 표준 양식</h1>
+        <div class="help-text">엑셀 ‘간이영수증 표준 양식 v2.0’과 동일한 입력/조회/계산/인쇄 흐름을 웹에서 제공합니다.</div>
+      </div>
+      <div class="d-flex gap-2">
+        <button type="button" class="btn btn-outline-secondary btn-sm btn-icon" @click="go('write')" :disabled="screen==='write'">작성</button>
+        <button type="button" class="btn btn-outline-secondary btn-sm btn-icon" @click="go('preview')" :disabled="!canPreview">미리보기</button>
+        <button type="button" class="btn btn-primary btn-sm btn-icon" @click="print()" :disabled="!canPreview" aria-label="인쇄">인쇄</button>
+      </div>
     </div>
 
-    <script>
-        function receipt() {
-            return {
-                date: new Date().toISOString().split('T')[0],
-                receiptNo: 'R-' + Date.now().toString().slice(-6),
-                recipient: '',
-                items: [{ name: '', amount: 0 }],
-                total: 0,
-                issuer: '',
-                businessInfo: '사업자등록번호: 000-00-00000',
+    <!-- 작성 화면 -->
+    <section id="screen-write" x-show="screen==='write'" x-transition.opacity class="no-print">
+      <div class="row g-3">
+        <div class="col-12 col-lg-5">
+          <div class="excel-card p-3">
+            <div class="d-flex justify-content-between align-items-start mb-2">
+              <h2 class="section-title">영수증 기본정보</h2>
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" role="switch" id="templateMode" x-model="ui.templateMode">
+                <label class="form-check-label" for="templateMode">템플릿 모드(빈 서식)</label>
+              </div>
+            </div>
 
-                addItem() { this.items.push({ name: '', amount: 0 }); },
-                calculate() { this.total = this.items.reduce((s, i) => s + i.amount, 0); }
-            };
+            <div class="row g-2">
+              <div class="col-12">
+                <label class="form-label" for="customer_code">거래처 코드</label>
+                <input id="customer_code" class="form-control" type="text" x-model.trim="state.header.customer_code" @input.debounce.250ms="recalculateReceipt()" placeholder="예: CUST001" autocomplete="off" />
+                <div class="help-text mt-1">코드 입력 시 거래처명이 자동 조회됩니다 (VLOOKUP 대체).</div>
+                <template x-if="state.customer.lookup_error">
+                  <div class="text-danger small mt-1" x-text="state.customer.lookup_error"></div>
+                </template>
+              </div>
+              <div class="col-12">
+                <label class="form-label" for="customer_name">거래처명(자동)</label>
+                <input id="customer_name" class="form-control" type="text" :value="state.customer.customer_name" readonly aria-label="거래처명 자동" />
+              </div>
+
+              <div class="col-12">
+                <label class="form-label" for="receipt_title">영수증 제목/용도</label>
+                <input id="receipt_title" class="form-control" type="text" x-model.trim="state.header.receipt_title" @input.debounce.200ms="recalculateReceipt()" />
+              </div>
+
+              <div class="col-12 col-md-6">
+                <label class="form-label" for="issue_date">발행일</label>
+                <input id="issue_date" class="form-control" type="date" x-model="state.header.issue_date" @change="recalculateReceipt()" />
+              </div>
+
+              <div class="col-12 col-md-6">
+                <label class="form-label" for="issuer_contact">연락처</label>
+                <input id="issuer_contact" class="form-control" type="text" x-model.trim="state.header.issuer_contact" @input.debounce.200ms="recalculateReceipt()" placeholder="예: 010-0000-0000" />
+              </div>
+
+              <div class="col-12">
+                <label class="form-label" for="receiver_name">수신/귀하</label>
+                <input id="receiver_name" class="form-control" type="text" x-model.trim="state.header.receiver_name" @input.debounce.200ms="recalculateReceipt()" />
+              </div>
+
+              <div class="col-12">
+                <label class="form-label" for="issuer_name">발행자(상호/성명)</label>
+                <input id="issuer_name" class="form-control" type="text" x-model.trim="state.header.issuer_name" @input.debounce.200ms="recalculateReceipt()" />
+              </div>
+
+              <div class="col-12">
+                <label class="form-label" for="business_number">사업자등록번호</label>
+                <input id="business_number" class="form-control" type="text" x-model.trim="state.header.business_number" @input.debounce.200ms="recalculateReceipt()" placeholder="예: 123-45-67890" />
+              </div>
+            </div>
+
+            <hr>
+
+            <div class="d-flex gap-2 flex-wrap">
+              <button type="button" class="btn btn-outline-secondary btn-sm" @click="saveDraft()">임시저장</button>
+              <button type="button" class="btn btn-outline-secondary btn-sm" @click="loadDraft()">불러오기</button>
+              <button type="button" class="btn btn-outline-secondary btn-sm" @click="exportJSON()">JSON 내보내기</button>
+              <label class="btn btn-outline-secondary btn-sm mb-0" for="importFile">JSON 가져오기</label>
+              <input id="importFile" type="file" class="d-none" accept="application/json" @change="importJSON($event)" />
+              <button type="button" class="btn btn-outline-danger btn-sm" @click="resetAll()">초기화</button>
+            </div>
+
+            <div class="small text-muted mt-2" x-text="validation.summary"></div>
+          </div>
+
+          <template x-if="ui.templateMode">
+            <div class="template-box p-3 mt-3">
+              <h3 class="section-title mb-2">빈 서식(템플릿 기반 입력)</h3>
+              <div class="help-text mb-2">원본 엑셀은 113개 입력/103개 미러 셀입니다. 웹에서는 대표 입력만 제공하고, 추가 필드는 JSON으로 확장 가능합니다.</div>
+              <div class="row g-2">
+                <div class="col-12">
+                  <label class="form-label" for="tpl_bulk">빈 서식 입력(대량/JSON)</label>
+                  <textarea id="tpl_bulk" class="form-control" rows="6" x-model.trim="state.template.template_inputs_bulk" @input.debounce.300ms="recalculateReceipt()" placeholder='예: {"B12":"2025-01-01","D12":"상품명","H12":2,"J12":1000}'></textarea>
+                  <div class="help-text mt-1">키는 엑셀 셀 주소처럼 사용(B12, D12, H12, J12...).</div>
+                </div>
+              </div>
+            </div>
+          </template>
+        </div>
+
+        <div class="col-12 col-lg-7">
+          <div class="excel-card p-3">
+            <div class="d-flex justify-content-between align-items-start mb-2">
+              <h2 class="section-title">품목 입력(상세 내역)</h2>
+              <div class="d-flex gap-2">
+                <button type="button" class="btn btn-outline-primary btn-sm" @click="addItem()" aria-label="행 추가">행 추가</button>
+                <button type="button" class="btn btn-outline-secondary btn-sm" @click="fillSample()">예시 채우기</button>
+              </div>
+            </div>
+
+            <div class="table-responsive" style="max-height: 420px;">
+              <table class="table table-sm align-middle">
+                <thead>
+                  <tr>
+                    <th style="width: 64px;">No</th>
+                    <th>품목</th>
+                    <th style="width: 110px;" class="text-end">수량(E)</th>
+                    <th style="width: 140px;" class="text-end">단가(F)</th>
+                    <th style="width: 160px;" class="text-end">금액(G=F*E)</th>
+                    <th style="width: 64px;" class="text-center">삭제</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <template x-for="(it, idx) in state.items" :key="it.id">
+                    <tr>
+                      <td class="mono" x-text="idx+1"></td>
+                      <td>
+                        <input class="form-control form-control-sm" type="text" x-model.trim="it.name" @input.debounce.150ms="recalculateReceipt()" placeholder="품목명" aria-label="품목" />
+                      </td>
+                      <td>
+                        <input class="form-control form-control-sm text-end mono" type="number" step="1" min="0" x-model.number="it.qty" @input.debounce.150ms="recalculateReceipt()" aria-label="수량" />
+                      </td>
+                      <td>
+                        <input class="form-control form-control-sm text-end mono" type="number" step="1" min="0" x-model.number="it.unitPrice" @input.debounce.150ms="recalculateReceipt()" aria-label="단가" />
+                      </td>
+                      <td class="money mono" x-text="formatForPrint(it.amount,'currency')"></td>
+                      <td class="text-center">
+                        <button type="button" class="btn btn-sm btn-outline-danger" @click="removeItem(idx)" :disabled="state.items.length<=1" aria-label="행 삭제">×</button>
+                      </td>
+                    </tr>
+                  </template>
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <th colspan="4" class="text-end">합계</th>
+                    <th class="money mono" x-text="formatForPrint(state.totals.grandTotal,'currency')"></th>
+                    <th></th>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+
+            <div class="help-text">※ 원본 엑셀 표1[] 컬럼 정의가 제공되지 않아, 웹 표는 대표 컬럼(품목/수량/단가/금액)로 구현했습니다.</div>
+          </div>
+
+          <div class="excel-card p-3 mt-3">
+            <h2 class="section-title mb-2">DB/기초자료(영수증DB) - 계산 미러</h2>
+            <div class="help-text mb-2">엑셀 영수증DB의 E(수량), F(단가), G(금액=F*E) 열을 웹 품목과 동일한 개념으로 사용합니다.</div>
+            <div class="row g-2">
+              <div class="col-12">
+                <div class="small text-muted">I열(ArrayFormula)은 원본 수식이 누락되어 기본 비활성화 상태입니다.</div>
+                <div class="form-check mt-2">
+                  <input class="form-check-input" type="checkbox" id="enableI" x-model="ui.enableArrayI" @change="recalculateReceipt()">
+                  <label class="form-check-label" for="enableI">I열 배열수식 평가(고급)</label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- 미리보기/인쇄 화면 -->
+    <section id="screen-preview" x-show="screen==='preview'" x-transition.opacity>
+      <div class="d-flex justify-content-between align-items-center mb-2 no-print">
+        <div>
+          <h2 class="section-title">영수증 미리보기/출력</h2>
+          <div class="help-text">인쇄는 A4 가로 / 여백 상하 19mm, 좌우 18mm 기준으로 최적화되어 있습니다.</div>
+        </div>
+        <div class="d-flex gap-2 no-print">
+          <button type="button" class="btn btn-outline-secondary btn-sm" @click="go('write')">작성으로</button>
+          <button type="button" class="btn btn-primary btn-sm" @click="print()" :disabled="!canPreview">인쇄</button>
+        </div>
+      </div>
+
+      <div class="print-wrap" role="document" aria-label="영수증 출력 문서">
+        <div class="receipt-grid" aria-label="영수증 템플릿">
+
+          <!-- 상단 타이틀 영역 (대략적 배치) -->
+          <div class="cell no-border title center" style="grid-column: 1 / span 35; grid-row: 1 / span 2;">
+            <span x-text="printBindings.title_mirror || '간이영수증'"></span>
+          </div>
+
+          <!-- 거래처 정보 행 (C3/J3 미러) -->
+          <div class="cell" style="grid-column: 1 / span 6; grid-row: 3;">거래처 코드</div>
+          <div class="cell" style="grid-column: 7 / span 10; grid-row: 3;">
+            <span x-text="printBindings.customer_code_mirror"></span>
+          </div>
+          <div class="cell" style="grid-column: 17 / span 6; grid-row: 3;">거래처명</div>
+          <div class="cell" style="grid-column: 23 / span 13; grid-row: 3;">
+            <span x-text="printBindings.customer_name_mirror"></span>
+          </div>
+
+          <!-- 발행일/사업자/연락처 -->
+          <div class="cell" style="grid-column: 1 / span 6; grid-row: 4;">발행일</div>
+          <div class="cell" style="grid-column: 7 / span 10; grid-row: 4;">
+            <span x-text="printBindings.issue_date_mirror"></span>
+          </div>
+          <div class="cell" style="grid-column: 17 / span 6; grid-row: 4;">사업자번호</div>
+          <div class="cell" style="grid-column: 23 / span 13; grid-row: 4;">
+            <span x-text="printBindings.business_number_mirror"></span>
+          </div>
+
+          <div class="cell" style="grid-column: 1 / span 6; grid-row: 5;">수신/귀하</div>
+          <div class="cell" style="grid-column: 7 / span 10; grid-row: 5;">
+            <span x-text="printBindings.receiver_name_mirror"></span>
+          </div>
+          <div class="cell" style="grid-column: 17 / span 6; grid-row: 5;">연락처</div>
+          <div class="cell" style="grid-column: 23 / span 13; grid-row: 5;">
+            <span x-text="printBindings.issuer_contact_mirror"></span>
+          </div>
+
+          <div class="cell" style="grid-column: 1 / span 6; grid-row: 6;">발행자</div>
+          <div class="cell" style="grid-column: 7 / span 29; grid-row: 6;">
+            <span x-text="printBindings.issuer_name_mirror"></span>
+          </div>
+
+          <!-- 품목 헤더 -->
+          <div class="cell center" style="grid-column: 1 / span 4; grid-row: 8;">No</div>
+          <div class="cell center" style="grid-column: 5 / span 13; grid-row: 8;">품목</div>
+          <div class="cell center" style="grid-column: 18 / span 5; grid-row: 8;">수량</div>
+          <div class="cell center" style="grid-column: 23 / span 6; grid-row: 8;">단가</div>
+          <div class="cell center" style="grid-column: 29 / span 7; grid-row: 8;">금액</div>
+
+          <!-- 품목 1~10행 (필요 시 확대 가능) -->
+          <template x-for="row in 10" :key="row">
+            <template>
+              <div class="cell center" :style="`grid-column: 1 / span 4; grid-row: ${8+row};`" x-text="row"></div>
+              <div class="cell" :style="`grid-column: 5 / span 13; grid-row: ${8+row};`" x-text="(state.items[row-1]?.name)||''"></div>
+              <div class="cell right" :style="`grid-column: 18 / span 5; grid-row: ${8+row};`" x-text="formatForPrint(state.items[row-1]?.qty ?? '', 'number')"></div>
+              <div class="cell right" :style="`grid-column: 23 / span 6; grid-row: ${8+row};`" x-text="formatForPrint(state.items[row-1]?.unitPrice ?? '', 'currencyNoSymbol')"></div>
+              <div class="cell right" :style="`grid-column: 29 / span 7; grid-row: ${8+row};`" x-text="formatForPrint(state.items[row-1]?.amount ?? '', 'currency')"></div>
+            </template>
+          </template>
+
+          <!-- 합계 -->
+          <div class="cell" style="grid-column: 1 / span 28; grid-row: 20;">합계</div>
+          <div class="cell right" style="grid-column: 29 / span 7; grid-row: 20; font-weight:700;" x-text="formatForPrint(state.totals.grandTotal,'currency')"></div>
+
+          <!-- 하단 날짜(엑셀 TODAY 미러) -->
+          <div class="cell no-border small" style="grid-column: 1 / span 35; grid-row: 22; justify-content:flex-end;">
+            출력일: <span class="ms-1" x-text="formatForPrint(state.meta.today,'date')"></span>
+          </div>
+
+        </div>
+      </div>
+
+      <div class="alert alert-warning mt-3 no-print" role="alert">
+        엑셀 원본의 ‘영수증’ 시트는 다수의 배열수식(표 기반 자동 확장)을 포함합니다. 현재 버전은 <b>핵심 기능(거래처 조회, 품목 금액, 합계, 미러/인쇄)</b>에 맞춰 템플릿을 재현했습니다. 표1[] 컬럼/배치/배열수식 원문이 제공되면 1:1 셀 단위 재현(AB3, AE12~AI28 등 165개)을 확장할 수 있습니다.
+      </div>
+    </section>
+
+  </div>
+
+  <script>
+    /* ===== Excel formula helper functions (tool-provided) ===== */
+    function _sum(...args) {
+        return args.flat().reduce((a, b) => (parseFloat(a) || 0) + (parseFloat(b) || 0), 0);
+    }
+
+    function _sumRange(rangeData) {
+        if (Array.isArray(rangeData)) {
+            return rangeData.flat().reduce((a, b) => (parseFloat(a) || 0) + (parseFloat(b) || 0), 0);
         }
-    </script>
+        return parseFloat(rangeData) || 0;
+    }
+
+    function _average(...args) {
+        const flat = args.flat().filter(x => x !== null && x !== '' && !isNaN(x));
+        return flat.length ? _sum(...flat) / flat.length : 0;
+    }
+
+    function _averageRange(rangeData) {
+        if (Array.isArray(rangeData)) {
+            const flat = rangeData.flat().filter(x => x !== null && x !== '' && !isNaN(x));
+            return flat.length ? _sumRange(flat) / flat.length : 0;
+        }
+        return parseFloat(rangeData) || 0;
+    }
+
+    function _count(...args) {
+        return args.flat().filter(x => typeof x === 'number' && !isNaN(x)).length;
+    }
+
+    function _counta(...args) {
+        return args.flat().filter(x => x !== null && x !== '' && x !== undefined).length;
+    }
+
+    function _and(...args) {
+        return args.every(x => Boolean(x));
+    }
+
+    function _or(...args) {
+        return args.some(x => Boolean(x));
+    }
+
+    function _round(num, digits = 0) {
+        const factor = Math.pow(10, digits);
+        return Math.round(num * factor) / factor;
+    }
+
+    function _roundUp(num, digits = 0) {
+        const factor = Math.pow(10, digits);
+        return Math.ceil(num * factor) / factor;
+    }
+
+    function _roundDown(num, digits = 0) {
+        const factor = Math.pow(10, digits);
+        return Math.floor(num * factor) / factor;
+    }
+
+    function _len(text) {
+        return String(text).length;
+    }
+
+    function _left(text, numChars = 1) {
+        return String(text).substring(0, numChars);
+    }
+
+    function _right(text, numChars = 1) {
+        const str = String(text);
+        return str.substring(str.length - numChars);
+    }
+
+    function _mid(text, startNum, numChars) {
+        return String(text).substring(startNum - 1, startNum - 1 + numChars);
+    }
+
+    function _trim(text) {
+        return String(text).trim();
+    }
+
+    function _upper(text) {
+        return String(text).toUpperCase();
+    }
+
+    function _lower(text) {
+        return String(text).toLowerCase();
+    }
+
+    function _concat(...args) {
+        return args.join('');
+    }
+
+    // Number formatting
+    function formatNumber(num, decimals = 0) {
+        return new Intl.NumberFormat('ko-KR', {
+            minimumFractionDigits: decimals,
+            maximumFractionDigits: decimals
+        }).format(num);
+    }
+
+    function formatCurrency(num) {
+        return new Intl.NumberFormat('ko-KR', {
+            style: 'currency',
+            currency: 'KRW',
+            maximumFractionDigits: 0
+        }).format(num);
+    }
+
+    function formatPercent(num, decimals = 1) {
+        return new Intl.NumberFormat('ko-KR', {
+            style: 'percent',
+            minimumFractionDigits: decimals,
+            maximumFractionDigits: decimals
+        }).format(num / 100);
+    }
+
+    /* ===== Small helpers ===== */
+    function safeNumber(v){
+      if (v === null || v === undefined || v === '') return 0;
+      const n = Number(v);
+      return Number.isFinite(n) ? n : 0;
+    }
+
+    function toISODate(d){
+      const dt = (d instanceof Date) ? d : new Date(d);
+      if (!dt || isNaN(dt.getTime())) return '';
+      const y = dt.getFullYear();
+      const m = String(dt.getMonth()+1).padStart(2,'0');
+      const da = String(dt.getDate()).padStart(2,'0');
+      return `${y}-${m}-${da}`;
+    }
+
+    /* Excel TEXT(date,"m월 d일") 최소 구현 */
+    function excelText(value, format){
+      if (!value) return '';
+      const d = new Date(value);
+      if (isNaN(d.getTime())) return '';
+      if (format === 'm월 d일'){
+        return `${d.getMonth()+1}월 ${d.getDate()}일`;
+      }
+      return toISODate(d);
+    }
+
+    function appData(){
+      return {
+        screen: 'write',
+        ui: {
+          templateMode: false,
+          enableArrayI: false,
+        },
+
+        // 거래처 마스터(샘플). 실제 운영에서는 API/업로드로 대체 권장.
+        customerTable: [
+          { code: 'CUST001', name: '가나다상사' },
+          { code: 'CUST002', name: '대한유통' },
+          { code: 'CUST003', name: '샘플거래처(테스트)' },
+        ],
+
+        state: {
+          header: {
+            customer_code: '',      // 영수증!C3
+            receipt_title: '간이영수증', // 영수증!F4
+            issue_date: '',         // 영수증!F5
+            receiver_name: '',      // 영수증!F6
+            issuer_name: '',        // 영수증!F7
+            business_number: '',    // 영수증!M5
+            issuer_contact: '',     // 영수증!M7
+          },
+          customer: {
+            customer_name: '',      // 영수증!J3
+            lookup_error: '',
+          },
+          items: [
+            { id: crypto.randomUUID(), name: '', qty: 0, unitPrice: 0, amount: 0 },
+          ],
+          totals: {
+            grandTotal: 0,
+          },
+          meta: {
+            today: new Date(),
+          },
+          template: {
+            template_inputs_bulk: '',
+            template_outputs_bulk: {},
+          }
+        },
+
+        printBindings: {
+          // mirrors
+          customer_code_mirror: '', // U3 = C3
+          customer_name_mirror: '', // AB3 = J3
+          title_mirror: '',         // X4 = F4
+          issue_date_mirror: '',    // X5 = F5
+          business_number_mirror: '', // AE5 = M5
+          receiver_name_mirror: '', // X6 = F6
+          issuer_name_mirror: '',   // X7 = F7
+          issuer_contact_mirror: '', // AE7 = M7
+        },
+
+        validation: {
+          ok: false,
+          summary: '',
+        },
+
+        init(){
+          // 엑셀 TODAY() 대응 (convert_formula: new Date())
+          this.state.meta.today = new Date();
+
+          // 초기 발행일 기본값: 오늘
+          if (!this.state.header.issue_date) this.state.header.issue_date = toISODate(new Date());
+
+          this.recalculateReceipt();
+        },
+
+        get canPreview(){
+          return this.validation.ok;
+        },
+
+        go(where){
+          if (where === 'preview'){
+            this.recalculateReceipt();
+            if (!this.validation.ok) return;
+          }
+          this.screen = where;
+        },
+
+        /* ====== Core functions (spec) ====== */
+        lookupCustomerName(customerCode, customerTable){
+          // Excel: =VLOOKUP(C3,표1[],2,0) (정확 일치)
+          const code = String(customerCode ?? '').trim();
+          if (!code) return { name: '', error: '' };
+          const found = (customerTable || []).find(r => String(r.code).trim() === code);
+          if (!found) return { name: '', error: '거래처 코드를 찾을 수 없습니다. (거래처 DB를 확인하세요)' };
+          return { name: found.name ?? '', error: '' };
+        },
+
+        calculateLineAmount(qty, unitPrice){
+          // Excel: 영수증DB!G2 =F2*E2
+          // (convert_formula 결과: data['F2']*data['E2'] -> 여기서는 qty/unitPrice 매개변수)
+          return safeNumber(qty) * safeNumber(unitPrice);
+        },
+
+        evaluateArrayFormulaIColumn(rowContext, tableContext){
+          // 영수증DB I열 ArrayFormula: 원본 수식 텍스트 미확보 -> 기본 비활성.
+          // enableArrayI가 켜졌을 때도 placeholder.
+          // 필요 시: rowContext(E,F,G 등) + tableContext(전체 배열)로 계산식 구현.
+          return null;
+        },
+
+        formatForPrint(value, formatType){
+          // formatType: 'date' | 'number' | 'currency' | 'currencyNoSymbol' | 'text'
+          if (value === null || value === undefined) return '';
+
+          if (formatType === 'date'){
+            if (value instanceof Date) return toISODate(value);
+            if (typeof value === 'string' && value.trim()==='') return '';
+            return toISODate(value);
+          }
+
+          if (formatType === 'number'){
+            if (value === '') return '';
+            const n = Number(value);
+            if (!Number.isFinite(n)) return '';
+            return formatNumber(n, 0);
+          }
+
+          if (formatType === 'currency'){
+            if (value === '') return '';
+            const n = Number(value);
+            if (!Number.isFinite(n)) return '';
+            return formatCurrency(n);
+          }
+
+          if (formatType === 'currencyNoSymbol'){
+            if (value === '') return '';
+            const n = Number(value);
+            if (!Number.isFinite(n)) return '';
+            return formatNumber(n, 0);
+          }
+
+          return String(value);
+        },
+
+        recalculateReceipt(){
+          // (a) customer_code -> lookup
+          const lookup = this.lookupCustomerName(this.state.header.customer_code, this.customerTable);
+          this.state.customer.customer_name = lookup.name;
+          this.state.customer.lookup_error = lookup.error;
+
+          // (b) items -> line amounts (영수증DB G열)
+          this.state.items.forEach(it => {
+            it.qty = safeNumber(it.qty);
+            it.unitPrice = safeNumber(it.unitPrice);
+            it.amount = this.calculateLineAmount(it.qty, it.unitPrice);
+          });
+
+          // (c) optional array I
+          if (this.ui.enableArrayI){
+            // placeholder call to show extension point
+            // (not used for totals in this version)
+            this.state.items.forEach((it, idx) => {
+              this.evaluateArrayFormulaIColumn({ idx, ...it }, this.state.items);
+            });
+          }
+
+          // (d) totals
+          this.state.totals.grandTotal = _sum(this.state.items.map(x => safeNumber(x.amount)));
+
+          // template bulk parsing (optional)
+          this.state.template.template_outputs_bulk = this.computeTemplateBulkOutputs();
+
+          // mirrors (엑셀 단순 참조들: =C3, =J3, =F4, =F5, =M5, =F6, =F7, =M7)
+          this.printBindings.customer_code_mirror = String(this.state.header.customer_code ?? '');
+          this.printBindings.customer_name_mirror = String(this.state.customer.customer_name ?? '');
+          this.printBindings.title_mirror = String(this.state.header.receipt_title ?? '');
+          this.printBindings.issue_date_mirror = this.formatForPrint(this.state.header.issue_date, 'date');
+          this.printBindings.business_number_mirror = String(this.state.header.business_number ?? '');
+          this.printBindings.receiver_name_mirror = String(this.state.header.receiver_name ?? '');
+          this.printBindings.issuer_name_mirror = String(this.state.header.issuer_name ?? '');
+          this.printBindings.issuer_contact_mirror = String(this.state.header.issuer_contact ?? '');
+
+          this.validate();
+        },
+
+        computeTemplateBulkOutputs(){
+          // 영수증(빈 서식) 대표 수식 일부만 샘플 구현:
+          // N12 = H12*J12
+          // T12 = IF(B12="","",TEXT(B12,"m월 d일"))
+          // V12 = D12&""
+          // AB12 = J12
+          // AF12 = N12
+          // ... (원본 100+개는 원문/셀맵 확정 후 확장)
+          const raw = String(this.state.template.template_inputs_bulk || '').trim();
+          if (!raw) return {};
+          let data = {};
+          try{
+            data = JSON.parse(raw);
+            if (typeof data !== 'object' || Array.isArray(data) || data === null) data = {};
+          }catch{
+            return { _error: '템플릿 입력 JSON 파싱 실패' };
+          }
+
+          const out = {};
+
+          // Converted formula notes (tool output had TEXT(...) tokens; implement safely)
+          const H12 = safeNumber(data['H12']);
+          const J12 = safeNumber(data['J12']);
+          out['N12'] = H12 * J12; // =H12*J12
+
+          const B12 = data['B12'];
+          out['T12'] = (B12 === '' || B12 === null || B12 === undefined) ? '' : excelText(B12, 'm월 d일');
+
+          const D12 = data['D12'];
+          out['V12'] = (D12 === null || D12 === undefined) ? '' : String(D12);
+
+          out['AB12'] = J12; // =J12
+          out['AF12'] = out['N12'];
+
+          return out;
+        },
+
+        validate(){
+          const errs = [];
+          const h = this.state.header;
+
+          if (!String(h.customer_code||'').trim()) errs.push('거래처 코드는 필수입니다.');
+          if (this.state.customer.lookup_error) errs.push('거래처 코드 조회가 필요합니다.');
+          if (!String(h.issue_date||'').trim()) errs.push('발행일은 필수입니다.');
+
+          // items numeric validation
+          this.state.items.forEach((it, idx) => {
+            if (!Number.isFinite(Number(it.qty)) || it.qty < 0) errs.push(`${idx+1}행 수량이 올바르지 않습니다.`);
+            if (!Number.isFinite(Number(it.unitPrice)) || it.unitPrice < 0) errs.push(`${idx+1}행 단가가 올바르지 않습니다.`);
+          });
+
+          this.validation.ok = errs.length === 0;
+          this.validation.summary = this.validation.ok
+            ? '미리보기/인쇄가 가능합니다.'
+            : `검증 실패: ${errs.join(' / ')}`;
+        },
+
+        /* ===== UI actions ===== */
+        addItem(){
+          if (this.state.items.length >= 50) return; // 엑셀 2~51행 대응
+          this.state.items.push({ id: crypto.randomUUID(), name: '', qty: 0, unitPrice: 0, amount: 0 });
+          this.recalculateReceipt();
+        },
+
+        removeItem(idx){
+          if (this.state.items.length <= 1) return;
+          this.state.items.splice(idx, 1);
+          this.recalculateReceipt();
+        },
+
+        fillSample(){
+          this.state.header.customer_code = 'CUST001';
+          this.state.header.receipt_title = '간이영수증';
+          this.state.header.issue_date = toISODate(new Date());
+          this.state.header.receiver_name = '홍길동';
+          this.state.header.issuer_name = '가나다상사';
+          this.state.header.business_number = '123-45-67890';
+          this.state.header.issuer_contact = '010-1234-5678';
+          this.state.items = [
+            { id: crypto.randomUUID(), name: '상품 A', qty: 2, unitPrice: 15000, amount: 0 },
+            { id: crypto.randomUUID(), name: '상품 B', qty: 1, unitPrice: 32000, amount: 0 },
+          ];
+          this.recalculateReceipt();
+        },
+
+        print(){
+          this.recalculateReceipt();
+          if (!this.validation.ok) return;
+          this.screen = 'preview';
+          // 화면 전환 후 인쇄 스타일 적용을 위해 한 프레임 지연
+          setTimeout(() => window.print(), 50);
+        },
+
+        /* ===== LocalStorage / JSON ===== */
+        saveDraft(){
+          const payload = {
+            version: 1,
+            savedAt: new Date().toISOString(),
+            state: this.state,
+            ui: this.ui,
+          };
+          localStorage.setItem('simple-receipt-draft', JSON.stringify(payload));
+          this.validation.summary = '임시저장 완료 (브라우저 LocalStorage).';
+        },
+
+        loadDraft(){
+          const raw = localStorage.getItem('simple-receipt-draft');
+          if (!raw){ this.validation.summary = '저장된 임시저장이 없습니다.'; return; }
+          try{
+            const payload = JSON.parse(raw);
+            if (payload?.state) this.state = payload.state;
+            if (payload?.ui) this.ui = { ...this.ui, ...payload.ui };
+            // today 갱신
+            this.state.meta.today = new Date();
+            // items id 보정
+            this.state.items = (this.state.items||[]).map(it => ({ id: it.id || crypto.randomUUID(), name: it.name||'', qty: safeNumber(it.qty), unitPrice: safeNumber(it.unitPrice), amount: safeNumber(it.amount) }));
+            if (!this.state.items.length) this.state.items = [{ id: crypto.randomUUID(), name: '', qty: 0, unitPrice: 0, amount: 0 }];
+            this.recalculateReceipt();
+            this.validation.summary = '불러오기 완료.';
+          }catch{
+            this.validation.summary = '불러오기 실패: 데이터가 손상되었습니다.';
+          }
+        },
+
+        exportJSON(){
+          const data = {
+            version: 1,
+            exportedAt: new Date().toISOString(),
+            state: this.state,
+            ui: this.ui,
+            customerTable: this.customerTable,
+          };
+          const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `간이영수증_${toISODate(new Date())}.json`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          URL.revokeObjectURL(url);
+        },
+
+        importJSON(evt){
+          const file = evt.target.files?.[0];
+          if (!file) return;
+          const reader = new FileReader();
+          reader.onload = () => {
+            try{
+              const payload = JSON.parse(String(reader.result||''));
+              if (payload?.state) this.state = payload.state;
+              if (payload?.ui) this.ui = { ...this.ui, ...payload.ui };
+              if (payload?.customerTable) this.customerTable = payload.customerTable;
+              this.state.meta.today = new Date();
+              this.state.items = (this.state.items||[]).map(it => ({ id: it.id || crypto.randomUUID(), name: it.name||'', qty: safeNumber(it.qty), unitPrice: safeNumber(it.unitPrice), amount: safeNumber(it.amount) }));
+              if (!this.state.items.length) this.state.items = [{ id: crypto.randomUUID(), name: '', qty: 0, unitPrice: 0, amount: 0 }];
+              this.recalculateReceipt();
+              this.validation.summary = '가져오기 완료.';
+            }catch{
+              this.validation.summary = '가져오기 실패: JSON 형식이 올바르지 않습니다.';
+            }
+          };
+          reader.readAsText(file);
+          evt.target.value = '';
+        },
+
+        resetAll(){
+          this.state.header = {
+            customer_code: '',
+            receipt_title: '간이영수증',
+            issue_date: toISODate(new Date()),
+            receiver_name: '',
+            issuer_name: '',
+            business_number: '',
+            issuer_contact: '',
+          };
+          this.state.customer = { customer_name: '', lookup_error: '' };
+          this.state.items = [{ id: crypto.randomUUID(), name: '', qty: 0, unitPrice: 0, amount: 0 }];
+          this.state.totals = { grandTotal: 0 };
+          this.state.meta.today = new Date();
+          this.state.template = { template_inputs_bulk: '', template_outputs_bulk: {} };
+          this.ui.templateMode = false;
+          this.ui.enableArrayI = false;
+          this.recalculateReceipt();
+          this.screen = 'write';
+        },
+      }
+    }
+  </script>
 </body>
 </html>

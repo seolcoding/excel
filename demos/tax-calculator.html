@@ -1,218 +1,771 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>종합소득세 간이 계산기</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-    <style>
-        body {
-            font-family: 'Noto Sans KR', sans-serif;
-            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-            min-height: 100vh;
-            padding: 2rem 0;
-        }
-        .app-container { max-width: 1000px; margin: 0 auto; }
-        .card { border: none; border-radius: 16px; box-shadow: 0 10px 40px rgba(0,0,0,0.15); }
-        .card-header { background: white; border-radius: 16px 16px 0 0 !important; }
-        .result-highlight { background: #11998e; color: white; padding: 1.5rem; border-radius: 12px; }
-        .tax-bracket { font-size: 0.85rem; }
-        @media print { body { background: white !important; } .no-print { display: none !important; } }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>종합소득세 간이 계산기</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <style>
+    :root{
+      --app-max: 920px;
+      --ink: #111827;
+      --muted: #6b7280;
+      --line: #e5e7eb;
+      --bg-soft: #f8fafc;
+      --accent: #0d6efd;
+      --danger: #b42318;
+      --refund: #0f766e;
+    }
+
+    body{
+      color: var(--ink);
+      background: #fff;
+      font-family: "Noto Sans KR", system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    }
+
+    .app-wrap{
+      max-width: var(--app-max);
+    }
+
+    .subtle{
+      color: var(--muted);
+      font-size: .95rem;
+    }
+
+    .card{
+      border: 1px solid var(--line);
+      box-shadow: 0 0 0 rgba(0,0,0,0);
+    }
+
+    .section-title{
+      font-weight: 700;
+      font-size: 1.05rem;
+      margin: 0;
+    }
+
+    .help{
+      color: var(--muted);
+      font-size: .85rem;
+      margin-top: .25rem;
+    }
+
+    .money{
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .readonly-output{
+      background: var(--bg-soft);
+      border: 1px solid var(--line);
+    }
+
+    .result-total{
+      font-size: 1.25rem;
+      font-weight: 800;
+      letter-spacing: -0.01em;
+    }
+
+    .is-refund{
+      color: var(--refund);
+    }
+
+    .is-pay{
+      color: var(--ink);
+    }
+
+    .error{
+      color: var(--danger);
+      font-size: .85rem;
+      margin-top: .25rem;
+    }
+
+    .kbd-hint{
+      font-size: .85rem;
+      color: var(--muted);
+    }
+
+    .table-excel{
+      border: 1px solid var(--line);
+    }
+    .table-excel th, .table-excel td{
+      border-bottom: 1px solid var(--line);
+      padding: .5rem .6rem;
+      vertical-align: middle;
+    }
+    .table-excel thead th{
+      background: #f3f4f6;
+      font-weight: 700;
+    }
+
+    @media (max-width: 576px){
+      .result-total{ font-size: 1.15rem; }
+    }
+
+    /* Print */
+    @page{
+      size: A4 portrait;
+      margin: 19mm 18mm 19mm 18mm;
+    }
+
+    @media print{
+      body{ background: #fff; }
+      .container{ max-width: none !important; }
+      .no-print{ display:none !important; }
+      .card{ border: 1px solid #cbd5e1; }
+      a[href]:after{ content: ""; }
+      input, select, textarea{ border: 1px solid #cbd5e1 !important; }
+      .readonly-output{ background: #fff !important; }
+      .help{ display:none !important; }
+    }
+  </style>
 </head>
 <body>
-    <div class="app-container" x-data="taxCalculator()">
-        <div class="text-center text-white mb-4">
-            <h1 class="fw-bold">종합소득세 간이 계산기</h1>
-            <p class="opacity-75">연간 소득을 입력하면 예상 세금을 계산합니다</p>
+  <div class="container py-4 app-wrap" x-data="appData()" x-init="init()">
+    <!-- Header -->
+    <header class="mb-3">
+      <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
+        <div>
+          <h1 class="h3 mb-1">종합소득세 간이 계산기</h1>
+          <div class="subtle">
+            엑셀 <span class="fw-semibold">'종합소득세 엑셀 간이 계산기 v2.1'</span> 기반 웹 변환본 · 참고용(세무 상담/신고 대체 불가)
+          </div>
         </div>
-
-        <div class="row g-4">
-            <div class="col-lg-5">
-                <div class="card">
-                    <div class="card-header p-4">
-                        <h5 class="mb-0">소득 정보</h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="mb-3">
-                            <label class="form-label">연간 총 소득 (원)</label>
-                            <div class="input-group">
-                                <input type="text" class="form-control form-control-lg"
-                                       x-model="incomeFormatted"
-                                       @input="updateIncome($event)"
-                                       placeholder="50,000,000">
-                                <span class="input-group-text">원</span>
-                            </div>
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label">기본 공제 (원)</label>
-                            <div class="input-group">
-                                <input type="text" class="form-control"
-                                       x-model="deductionFormatted"
-                                       @input="updateDeduction($event)"
-                                       placeholder="1,500,000">
-                                <span class="input-group-text">원</span>
-                            </div>
-                            <small class="text-muted">기본공제 150만원 (본인)</small>
-                        </div>
-
-                        <button class="btn btn-success btn-lg w-100 no-print" @click="calculate()">
-                            세금 계산하기
-                        </button>
-                    </div>
-                </div>
-
-                <!-- 세율 안내 -->
-                <div class="card mt-3">
-                    <div class="card-body tax-bracket">
-                        <h6 class="mb-3">2024년 종합소득세율</h6>
-                        <table class="table table-sm mb-0">
-                            <thead><tr><th>과세표준</th><th>세율</th></tr></thead>
-                            <tbody>
-                                <tr><td>1,400만원 이하</td><td>6%</td></tr>
-                                <tr><td>5,000만원 이하</td><td>15%</td></tr>
-                                <tr><td>8,800만원 이하</td><td>24%</td></tr>
-                                <tr><td>1.5억원 이하</td><td>35%</td></tr>
-                                <tr><td>3억원 이하</td><td>38%</td></tr>
-                                <tr><td>5억원 이하</td><td>40%</td></tr>
-                                <tr><td>10억원 이하</td><td>42%</td></tr>
-                                <tr><td>10억원 초과</td><td>45%</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <div class="col-lg-7">
-                <div class="card">
-                    <div class="card-header p-4 d-flex justify-content-between">
-                        <h5 class="mb-0">계산 결과</h5>
-                        <button class="btn btn-sm btn-outline-success no-print" @click="window.print()">인쇄</button>
-                    </div>
-                    <div class="card-body">
-                        <div class="row g-3 mb-4">
-                            <div class="col-6">
-                                <div class="p-3 bg-light rounded">
-                                    <small class="text-muted">총 소득</small>
-                                    <div class="fs-5 fw-bold" x-text="formatCurrency(income)"></div>
-                                </div>
-                            </div>
-                            <div class="col-6">
-                                <div class="p-3 bg-light rounded">
-                                    <small class="text-muted">과세표준</small>
-                                    <div class="fs-5 fw-bold" x-text="formatCurrency(taxableIncome)"></div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="result-highlight text-center mb-4">
-                            <small class="opacity-75">예상 종합소득세</small>
-                            <div class="fs-2 fw-bold" x-text="formatCurrency(calculatedTax)"></div>
-                            <small class="opacity-75">적용 최고세율: <span x-text="maxRate"></span>%</small>
-                        </div>
-
-                        <div class="row g-3">
-                            <div class="col-6">
-                                <div class="p-3 border rounded">
-                                    <small class="text-muted">지방소득세 (10%)</small>
-                                    <div class="fs-5 fw-bold" x-text="formatCurrency(localTax)"></div>
-                                </div>
-                            </div>
-                            <div class="col-6">
-                                <div class="p-3 border rounded">
-                                    <small class="text-muted">총 납부세액</small>
-                                    <div class="fs-5 fw-bold text-danger" x-text="formatCurrency(totalTax)"></div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="mt-4 p-3 bg-success bg-opacity-10 rounded">
-                            <div class="d-flex justify-content-between">
-                                <span>세후 예상 소득</span>
-                                <span class="fs-4 fw-bold text-success" x-text="formatCurrency(afterTaxIncome)"></span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+        <div class="d-flex gap-2 no-print">
+          <button type="button" class="btn btn-outline-secondary" @click="resetAll()">초기화</button>
+          <button type="button" class="btn btn-primary" @click="print()">인쇄</button>
         </div>
+      </div>
+    </header>
 
-        <footer class="text-center text-white-50 mt-4 small">
-            원본: 종합소득세 엑셀 간이 계산기 v2.1.xlsx |
-            <a href="../index.html" class="text-white">데모 목록으로</a>
-        </footer>
+    <!-- Error summary -->
+    <div class="alert alert-warning" x-show="errorSummary.length" x-transition role="status" aria-live="polite">
+      <div class="fw-semibold mb-1">입력값을 확인해 주세요</div>
+      <ul class="mb-0">
+        <template x-for="msg in errorSummary" :key="msg">
+          <li x-text="msg"></li>
+        </template>
+      </ul>
     </div>
 
-    <script>
-        function taxCalculator() {
-            return {
-                income: 50000000,
-                incomeFormatted: '50,000,000',
-                deduction: 1500000,
-                deductionFormatted: '1,500,000',
-                taxableIncome: 0,
-                calculatedTax: 0,
-                localTax: 0,
-                totalTax: 0,
-                afterTaxIncome: 0,
-                maxRate: 0,
+    <main class="d-grid gap-3">
+      <!-- (1) 기본정보 및 소득 입력 -->
+      <section class="card">
+        <div class="card-header bg-white">
+          <h2 class="section-title">기본정보 및 소득 입력</h2>
+        </div>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-12 col-lg-6">
+              <label class="form-label" for="tax_year">과세연도</label>
+              <input id="tax_year" type="number" inputmode="numeric" class="form-control money" placeholder="예: 2025"
+                     aria-required="true"
+                     x-model="inputs.tax_year" @input="onInput()" />
+              <div class="help no-print">예: 2024, 2025</div>
+              <div class="error" role="alert" x-show="errors.tax_year" x-text="errors.tax_year"></div>
+            </div>
 
-                // 2024년 세율 구간
-                brackets: [
-                    { limit: 14000000, rate: 0.06, deduction: 0 },
-                    { limit: 50000000, rate: 0.15, deduction: 1260000 },
-                    { limit: 88000000, rate: 0.24, deduction: 5760000 },
-                    { limit: 150000000, rate: 0.35, deduction: 15440000 },
-                    { limit: 300000000, rate: 0.38, deduction: 19940000 },
-                    { limit: 500000000, rate: 0.40, deduction: 25940000 },
-                    { limit: 1000000000, rate: 0.42, deduction: 35940000 },
-                    { limit: Infinity, rate: 0.45, deduction: 65940000 }
-                ],
+            <div class="col-12 col-lg-6">
+              <label class="form-label" for="filing_type">신고유형</label>
+              <select id="filing_type" class="form-select" aria-required="true"
+                      x-model="inputs.filing_type" @change="onInput()">
+                <option value="">선택</option>
+                <option value="general">일반(기본)</option>
+                <option value="simple">간편(참고)</option>
+                <option value="other">기타</option>
+              </select>
+              <div class="help no-print">엑셀 원본의 선택 로직이 일부 미공개인 경우 결과가 다를 수 있습니다.</div>
+              <div class="error" role="alert" x-show="errors.filing_type" x-text="errors.filing_type"></div>
+            </div>
 
-                init() { this.calculate(); },
+            <div class="col-12 col-lg-6">
+              <label class="form-label" for="income_total">종합소득금액</label>
+              <input id="income_total" type="number" inputmode="numeric" class="form-control money" aria-describedby="help_income_total"
+                     x-model="inputs.income_total" @input="onInput()" />
+              <div id="help_income_total" class="help no-print">단위: 원</div>
+              <div class="error" role="alert" x-show="errors.income_total" x-text="errors.income_total"></div>
+            </div>
 
-                updateIncome(e) {
-                    const val = e.target.value.replace(/[^\d]/g, '');
-                    this.income = parseInt(val) || 0;
-                    this.incomeFormatted = this.income.toLocaleString('ko-KR');
-                    this.calculate();
-                },
+            <div class="col-12 col-lg-6">
+              <label class="form-label" for="income_business">사업소득 금액</label>
+              <input id="income_business" type="number" inputmode="numeric" class="form-control money" aria-describedby="help_income_business"
+                     x-model="inputs.income_business" @input="onInput()" />
+              <div id="help_income_business" class="help no-print">단위: 원</div>
+              <div class="error" role="alert" x-show="errors.income_business" x-text="errors.income_business"></div>
+            </div>
 
-                updateDeduction(e) {
-                    const val = e.target.value.replace(/[^\d]/g, '');
-                    this.deduction = parseInt(val) || 0;
-                    this.deductionFormatted = this.deduction.toLocaleString('ko-KR');
-                    this.calculate();
-                },
+            <div class="col-12 col-lg-6">
+              <label class="form-label" for="income_other">기타소득/근로·연금 등 합산(해당 시)</label>
+              <input id="income_other" type="number" inputmode="numeric" class="form-control money" aria-describedby="help_income_other"
+                     x-model="inputs.income_other" @input="onInput()" />
+              <div id="help_income_other" class="help no-print">단위: 원</div>
+              <div class="error" role="alert" x-show="errors.income_other" x-text="errors.income_other"></div>
+            </div>
 
-                calculate() {
-                    this.taxableIncome = Math.max(0, this.income - this.deduction);
+            <div class="col-12 col-lg-6">
+              <label class="form-label" for="non_taxable_adjustment">비과세/분리과세 등 조정금액(해당 시)</label>
+              <input id="non_taxable_adjustment" type="number" inputmode="numeric" class="form-control money" aria-describedby="help_non_taxable_adjustment"
+                     x-model="inputs.non_taxable_adjustment" @input="onInput()" />
+              <div id="help_non_taxable_adjustment" class="help no-print">단위: 원 (차감/가산 필요 시 음수/양수로 입력)</div>
+              <div class="error" role="alert" x-show="errors.non_taxable_adjustment" x-text="errors.non_taxable_adjustment"></div>
+            </div>
 
-                    // 누진세 계산
-                    let tax = 0;
-                    for (const b of this.brackets) {
-                        if (this.taxableIncome <= b.limit) {
-                            tax = this.taxableIncome * b.rate - b.deduction;
-                            this.maxRate = b.rate * 100;
-                            break;
-                        }
-                    }
-                    this.calculatedTax = Math.max(0, Math.round(tax));
-                    this.localTax = Math.round(this.calculatedTax * 0.1);
-                    this.totalTax = this.calculatedTax + this.localTax;
-                    this.afterTaxIncome = this.income - this.totalTax;
-                },
+            <!-- Outputs -->
+            <div class="col-12 col-lg-6">
+              <label class="form-label" for="tax_base">과세표준</label>
+              <input id="tax_base" class="form-control money readonly-output" type="text" readonly
+                     :value="formatKRW(outputs.tax_base)" />
+              <div class="help no-print">C14</div>
+            </div>
 
-                formatCurrency(v) {
-                    return new Intl.NumberFormat('ko-KR', {
-                        style: 'currency', currency: 'KRW', maximumFractionDigits: 0
-                    }).format(v);
-                }
-            };
+            <div class="col-12 col-lg-6">
+              <label class="form-label" for="tax_rate_band">적용세율 구간(과세연도-과세표준)</label>
+              <input id="tax_rate_band" class="form-control money readonly-output" type="text" readonly
+                     :value="formatKRW(outputs.tax_rate_band)" />
+              <div class="help no-print">C16</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- (2) 공제 입력 -->
+      <section class="card">
+        <div class="card-header bg-white">
+          <h2 class="section-title">공제 입력</h2>
+        </div>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-12 col-lg-6">
+              <label class="form-label" for="deduction_personal">인적공제(기본/추가) 합계</label>
+              <input id="deduction_personal" type="number" inputmode="numeric" class="form-control money" aria-describedby="help_deduction_personal"
+                     x-model="inputs.deduction_personal" @input="onInput()" />
+              <div id="help_deduction_personal" class="help no-print">단위: 원</div>
+            </div>
+
+            <div class="col-12 col-lg-6">
+              <label class="form-label" for="deduction_pension">연금보험료 공제</label>
+              <input id="deduction_pension" type="number" inputmode="numeric" class="form-control money" aria-describedby="help_deduction_pension"
+                     x-model="inputs.deduction_pension" @input="onInput()" />
+              <div id="help_deduction_pension" class="help no-print">단위: 원</div>
+            </div>
+
+            <div class="col-12 col-lg-6">
+              <label class="form-label" for="tax_credit_standard">세액공제(표준/기타) 합계</label>
+              <input id="tax_credit_standard" type="number" inputmode="numeric" class="form-control money" aria-describedby="help_tax_credit_standard"
+                     x-model="inputs.tax_credit_standard" @input="onInput()" />
+              <div id="help_tax_credit_standard" class="help no-print">단위: 원</div>
+            </div>
+
+            <div class="col-12 col-lg-6">
+              <label class="form-label" for="local_tax_adjustment">지방소득세 조정(가산/감면 등, 해당 시)</label>
+              <input id="local_tax_adjustment" type="number" inputmode="numeric" class="form-control money" aria-describedby="help_local_tax_adjustment"
+                     x-model="inputs.local_tax_adjustment" @input="onInput()" />
+              <div id="help_local_tax_adjustment" class="help no-print">단위: 원</div>
+            </div>
+
+            <!-- Outputs -->
+            <div class="col-12 col-lg-4">
+              <label class="form-label" for="deduction_total">소득공제 합계</label>
+              <input id="deduction_total" class="form-control money readonly-output" type="text" readonly
+                     :value="formatKRW(outputs.deduction_total)" />
+              <div class="help no-print">C18(단순화: 입력 공제 합계)</div>
+            </div>
+
+            <div class="col-12 col-lg-4">
+              <label class="form-label" for="tax_amount_calculated">산출세액</label>
+              <input id="tax_amount_calculated" class="form-control money readonly-output" type="text" readonly
+                     :value="formatKRW(outputs.tax_amount_calculated)" />
+              <div class="help no-print">C19(누진세율)</div>
+            </div>
+
+            <div class="col-12 col-lg-4">
+              <label class="form-label" for="tax_credit_total">세액공제 합계</label>
+              <input id="tax_credit_total" class="form-control money readonly-output" type="text" readonly
+                     :value="formatKRW(outputs.tax_credit_total)" />
+              <div class="help no-print">C20</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- (3) 계산 결과 -->
+      <section class="card">
+        <div class="card-header bg-white d-flex align-items-center justify-content-between gap-3 flex-wrap">
+          <h2 class="section-title">계산 결과</h2>
+          <div class="kbd-hint no-print">모든 입력 변경 시 자동 계산(약 150ms 지연)</div>
+        </div>
+        <div class="card-body" aria-live="polite">
+          <div class="row g-3">
+            <div class="col-12 col-lg-4">
+              <label class="form-label" for="tax_final">결정세액(국세)</label>
+              <input id="tax_final" class="form-control money readonly-output" type="text" readonly
+                     :value="formatKRW(outputs.tax_final)" />
+            </div>
+
+            <div class="col-12 col-lg-4">
+              <label class="form-label" for="local_income_tax">지방소득세</label>
+              <input id="local_income_tax" class="form-control money readonly-output" type="text" readonly
+                     :value="formatKRW(outputs.local_income_tax)" />
+            </div>
+
+            <div class="col-12 col-lg-4">
+              <label class="form-label" for="total_payable">납부(환급)세액 합계</label>
+              <input id="total_payable" class="form-control money readonly-output result-total"
+                     :class="outputs.total_payable < 0 ? 'is-refund' : 'is-pay'"
+                     type="text" readonly
+                     :value="formatKRW(outputs.total_payable)" />
+            </div>
+
+            <div class="col-12">
+              <label class="form-label" for="installment_hint">분납 안내/참고</label>
+              <textarea id="installment_hint" class="form-control readonly-output" rows="2" readonly
+                        x-text="outputs.installment_hint"></textarea>
+            </div>
+
+            <div class="col-12">
+              <label class="form-label" for="notes">비고</label>
+              <textarea id="notes" class="form-control readonly-output" rows="2" readonly
+                        x-text="outputs.notes"></textarea>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- (4) 세율표 / 중간값 (Accordion) -->
+      <section class="card">
+        <div class="card-header bg-white">
+          <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap">
+            <h2 class="section-title mb-0">세율표(누진세율) 및 구간 계산(내부표시/선택)</h2>
+            <button class="btn btn-sm btn-outline-primary no-print" type="button" @click="ui.showBrackets = !ui.showBrackets"
+                    :aria-expanded="ui.showBrackets.toString()" aria-controls="bracketsPanel">
+              <span x-text="ui.showBrackets ? '세율표 닫기' : '세율표 보기'"></span>
+            </button>
+          </div>
+        </div>
+        <div class="card-body" id="bracketsPanel" x-show="ui.showBrackets" x-transition>
+          <div class="row g-3">
+            <div class="col-12 col-lg-8">
+              <div class="table-responsive">
+                <table class="table table-sm mb-0 table-excel" aria-label="누진세율표">
+                  <thead>
+                    <tr>
+                      <th scope="col">구간(과세표준 상한)</th>
+                      <th scope="col" class="text-end">세율</th>
+                      <th scope="col" class="text-end">누진공제</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <template x-for="(b, idx) in brackets" :key="idx">
+                      <tr>
+                        <td x-text="b.upTo === Infinity ? '무제한' : formatKRW(b.upTo)"></td>
+                        <td class="text-end" x-text="(b.rate*100).toFixed(1) + '%'"></td>
+                        <td class="text-end" x-text="formatKRW(b.deduction)"></td>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+              <div class="help no-print mt-2">
+                안내: 이 표는 대표적인 종합소득세 누진세율(참고용)이며 과세연도/유형 등에 따라 다를 수 있습니다.
+                엑셀 원본의 K~M열 테이블과 다르면 결과가 달라질 수 있습니다.
+              </div>
+            </div>
+
+            <div class="col-12 col-lg-4">
+              <div class="p-3 rounded" style="border:1px solid var(--line); background: var(--bg-soft);">
+                <div class="fw-semibold mb-2">누진세 계산(중간값)</div>
+                <div class="d-flex justify-content-between"><span>M5</span><span class="money" x-text="formatKRW(outputs.progressive_tax_calc_m5)"></span></div>
+                <div class="d-flex justify-content-between"><span>M6</span><span class="money" x-text="formatKRW(outputs.progressive_tax_calc_m6)"></span></div>
+                <div class="d-flex justify-content-between"><span>M7</span><span class="money" x-text="formatKRW(outputs.progressive_tax_calc_m7)"></span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <footer class="subtle mt-1">
+        <div>※ 본 계산기는 참고용이며 실제 세액은 신고 유형/세법 개정/각종 공제·감면 요건에 따라 달라질 수 있습니다.</div>
+        <div class="no-print">버전: Web 변환 1.0 · 인쇄: A4 세로, 상/하 19mm 좌/우 18mm</div>
+      </footer>
+    </main>
+  </div>
+
+  <script>
+    /* ===== Excel formula helper functions (from get_js_helpers) ===== */
+    function _sum(...args) {
+        return args.flat().reduce((a, b) => (parseFloat(a) || 0) + (parseFloat(b) || 0), 0);
+    }
+
+    function _sumRange(rangeData) {
+        if (Array.isArray(rangeData)) {
+            return rangeData.flat().reduce((a, b) => (parseFloat(a) || 0) + (parseFloat(b) || 0), 0);
         }
-    </script>
+        return parseFloat(rangeData) || 0;
+    }
+
+    function _average(...args) {
+        const flat = args.flat().filter(x => x !== null && x !== '' && !isNaN(x));
+        return flat.length ? _sum(...flat) / flat.length : 0;
+    }
+
+    function _averageRange(rangeData) {
+        if (Array.isArray(rangeData)) {
+            const flat = rangeData.flat().filter(x => x !== null && x !== '' && !isNaN(x));
+            return flat.length ? _sumRange(flat) / flat.length : 0;
+        }
+        return parseFloat(rangeData) || 0;
+    }
+
+    function _count(...args) {
+        return args.flat().filter(x => typeof x === 'number' && !isNaN(x)).length;
+    }
+
+    function _counta(...args) {
+        return args.flat().filter(x => x !== null && x !== '' && x !== undefined).length;
+    }
+
+    function _and(...args) {
+        return args.every(x => Boolean(x));
+    }
+
+    function _or(...args) {
+        return args.some(x => Boolean(x));
+    }
+
+    function _round(num, digits = 0) {
+        const factor = Math.pow(10, digits);
+        return Math.round(num * factor) / factor;
+    }
+
+    function _roundUp(num, digits = 0) {
+        const factor = Math.pow(10, digits);
+        return Math.ceil(num * factor) / factor;
+    }
+
+    function _roundDown(num, digits = 0) {
+        const factor = Math.pow(10, digits);
+        return Math.floor(num * factor) / factor;
+    }
+
+    function _len(text) {
+        return String(text).length;
+    }
+
+    function _left(text, numChars = 1) {
+        return String(text).substring(0, numChars);
+    }
+
+    function _right(text, numChars = 1) {
+        const str = String(text);
+        return str.substring(str.length - numChars);
+    }
+
+    function _mid(text, startNum, numChars) {
+        return String(text).substring(startNum - 1, startNum - 1 + numChars);
+    }
+
+    function _trim(text) {
+        return String(text).trim();
+    }
+
+    function _upper(text) {
+        return String(text).toUpperCase();
+    }
+
+    function _lower(text) {
+        return String(text).toLowerCase();
+    }
+
+    function _concat(...args) {
+        return args.join('');
+    }
+
+    function formatNumber(num, decimals = 0) {
+        return new Intl.NumberFormat('ko-KR', {
+            minimumFractionDigits: decimals,
+            maximumFractionDigits: decimals
+        }).format(num);
+    }
+
+    function formatCurrency(num) {
+        return new Intl.NumberFormat('ko-KR', {
+            style: 'currency',
+            currency: 'KRW',
+            maximumFractionDigits: 0
+        }).format(num);
+    }
+
+    function formatPercent(num, decimals = 1) {
+        return new Intl.NumberFormat('ko-KR', {
+            style: 'percent',
+            minimumFractionDigits: decimals,
+            maximumFractionDigits: decimals
+        }).format(num / 100);
+    }
+
+    /* ===== App logic ===== */
+    function appData(){
+      return {
+        ui: {
+          showBrackets: false,
+        },
+
+        // Inputs (cell mapping)
+        inputs: {
+          tax_year: '',        // C3
+          filing_type: '',     // K4
+          income_total: 0,     // C10
+          income_business: 0,  // C11
+          income_other: 0,     // C12
+          non_taxable_adjustment: 0, // C13
+          deduction_personal: 0,     // K10
+          deduction_pension: 0,      // K11
+          tax_credit_standard: 0,    // K21
+          local_tax_adjustment: 0,   // F19
+        },
+
+        // Representative progressive tax table (참고용)
+        // upTo: 과세표준 상한, rate: 세율(0~1), deduction: 누진공제(원)
+        // NOTE: 엑셀 원본 K~M 표와 다를 수 있음.
+        brackets: [
+          { upTo: 14000000,  rate: 0.06, deduction: 0 },
+          { upTo: 50000000,  rate: 0.15, deduction: 1260000 },
+          { upTo: 88000000,  rate: 0.24, deduction: 5760000 },
+          { upTo: 150000000, rate: 0.35, deduction: 15440000 },
+          { upTo: 300000000, rate: 0.38, deduction: 19940000 },
+          { upTo: 500000000, rate: 0.40, deduction: 25940000 },
+          { upTo: 1000000000,rate: 0.42, deduction: 35940000 },
+          { upTo: Infinity,  rate: 0.45, deduction: 65940000 },
+        ],
+
+        // Validation state
+        errors: {},
+        errorSummary: [],
+
+        // Outputs (cell mapping)
+        outputs: {
+          tax_base: 0,             // C14
+          tax_rate_band: 0,        // C16 (note: in provided formulas C16 = C3 - C14)
+          deduction_total: 0,      // C18 (simplified)
+          tax_amount_calculated: 0,// C19
+          tax_credit_total: 0,     // C20
+          tax_final: 0,            // C22
+          local_income_tax: 0,     // C24
+          total_payable: 0,        // C25
+          installment_hint: '',    // C26
+          notes: '',               // C28
+          progressive_tax_calc_m5: 0, // M5
+          progressive_tax_calc_m6: 0, // M6
+          progressive_tax_calc_m7: 0, // M7
+        },
+
+        _debounceTimer: null,
+
+        init(){
+          this.calculateAll();
+        },
+
+        onInput(){
+          clearTimeout(this._debounceTimer);
+          this._debounceTimer = setTimeout(() => this.calculateAll(), 150);
+        },
+
+        resetAll(){
+          this.inputs = {
+            tax_year: '',
+            filing_type: '',
+            income_total: 0,
+            income_business: 0,
+            income_other: 0,
+            non_taxable_adjustment: 0,
+            deduction_personal: 0,
+            deduction_pension: 0,
+            tax_credit_standard: 0,
+            local_tax_adjustment: 0,
+          };
+          this.errors = {};
+          this.errorSummary = [];
+          this.calculateAll();
+        },
+
+        print(){ window.print(); },
+
+        // 원화 표시(요구사항)
+        formatKRW(value){
+          const n = Number(value);
+          if (!isFinite(n)) return '0원';
+          const sign = n < 0 ? '-' : '';
+          const abs = Math.abs(Math.round(n));
+          return sign + abs.toLocaleString('ko-KR') + '원';
+        },
+
+        // numeric parser
+        n(val){
+          if (val === null || val === undefined || val === '') return 0;
+          const num = Number(val);
+          return isFinite(num) ? num : 0;
+        },
+
+        validate(){
+          const e = {};
+          const summary = [];
+
+          const year = this.inputs.tax_year;
+          if (year === '' || year === null || year === undefined){
+            e.tax_year = '과세연도를 입력해 주세요.';
+            summary.push('과세연도는 필수입니다.');
+          } else {
+            const y = Number(year);
+            if (!Number.isInteger(y) || y < 2000 || y > 2100){
+              e.tax_year = '과세연도는 2000~2100 사이의 연도로 입력해 주세요.';
+              summary.push('과세연도 범위를 확인해 주세요.');
+            }
+          }
+
+          if (!this.inputs.filing_type){
+            e.filing_type = '신고유형을 선택해 주세요.';
+            summary.push('신고유형은 필수입니다.');
+          }
+
+          // 기본적으로 금액은 음수 허용(조정/환급 등)하지만, 일부는 음수 경고
+          const moneyFields = [
+            ['income_total','종합소득금액'],
+            ['income_business','사업소득 금액'],
+            ['income_other','기타소득/근로·연금 등'],
+            ['deduction_personal','인적공제 합계'],
+            ['deduction_pension','연금보험료 공제'],
+            ['tax_credit_standard','세액공제 합계'],
+          ];
+          for (const [k,label] of moneyFields){
+            const v = this.n(this.inputs[k]);
+            if (v < 0){
+              e[k] = `${label}은(는) 음수 입력을 권장하지 않습니다.`;
+            }
+          }
+
+          this.errors = e;
+          this.errorSummary = summary;
+        },
+
+        // 누진세율 테이블 + 엑셀의 K~M 패턴(M5/M6/M7 등)을 재현
+        // returns: {tax, bandIndex, mValues}
+        calculateProgressiveTax(taxBase, brackets){
+          const tb = Math.max(0, this.n(taxBase));
+
+          // Build K(row)=upper limit, L(row)=rate; L4 assumed 0 for M5 formula.
+          const K = brackets.map(b => b.upTo);
+          const L = brackets.map(b => b.rate);
+
+          // M values cumulative per Excel pattern:
+          // M5 = K5*L5 - K5*L4
+          // M6 = K6*L6 - K6*L5 + M5
+          // ... where indices shift; we emulate starting from first bracket as "row5".
+          const M = [];
+          for (let i=0; i<brackets.length; i++){
+            const prevRate = (i===0) ? 0 : L[i-1];
+            const prevM = (i===0) ? 0 : M[i-1];
+            const Ki = (K[i] === Infinity) ? K[i-1] : K[i]; // Infinity row doesn't define a finite K for this pattern; keep previous
+            const cur = (this.n(Ki) * this.n(L[i])) - (this.n(Ki) * this.n(prevRate)) + prevM;
+            M[i] = cur;
+          }
+
+          // Choose bracket for tb
+          let bandIndex = brackets.findIndex(b => tb <= b.upTo);
+          if (bandIndex < 0) bandIndex = brackets.length - 1;
+
+          // Tax calculation using deduction (누진공제) as in common: tax = tb*rate - deduction
+          // Excel C18 formula suggests: C16*VLOOKUP(rate) - VLOOKUP(deduction)
+          const rate = brackets[bandIndex].rate;
+          const deduction = brackets[bandIndex].deduction;
+          const tax = tb * rate - deduction;
+
+          return { tax: Math.max(0, tax), bandIndex, mValues: M };
+        },
+
+        calculateAll(){
+          this.validate();
+
+          // Normalize inputs
+          const tax_year = this.n(this.inputs.tax_year); // only for C16 mapping formula; year itself isn't tax base in real life
+          const income_total = this.n(this.inputs.income_total);
+          const income_business = this.n(this.inputs.income_business);
+          const income_other = this.n(this.inputs.income_other);
+          const non_taxable_adjustment = this.n(this.inputs.non_taxable_adjustment);
+
+          const deduction_personal = this.n(this.inputs.deduction_personal);
+          const deduction_pension = this.n(this.inputs.deduction_pension);
+          const tax_credit_standard = this.n(this.inputs.tax_credit_standard);
+          const local_tax_adjustment = this.n(this.inputs.local_tax_adjustment);
+
+          // Outputs aligned with plan, but note: provided Excel excerpt is incomplete.
+          // We implement a consistent domain-centric engine:
+
+          // (b) 공제합계
+          const deduction_total = Math.max(0, deduction_personal + deduction_pension);
+
+          // (c) 과세표준 (단순화): 종합소득금액(또는 합산) + 조정금액 - 소득공제
+          // Excel excerpt says C14 = SUM(C7:C13) but we don't have C7:C9 references; we map to visible inputs.
+          const gross = income_total + income_business + income_other + non_taxable_adjustment;
+          const tax_base = Math.max(0, gross - deduction_total);
+
+          // (d) 산출세액
+          const prog = this.calculateProgressiveTax(tax_base, this.brackets);
+          const tax_amount_calculated = prog.tax;
+
+          // (e) 세액공제합계
+          const tax_credit_total = Math.max(0, tax_credit_standard);
+
+          // (f) 결정세액(국세)
+          const tax_final = Math.max(0, tax_amount_calculated - tax_credit_total);
+
+          // (g) 지방소득세(일반적으로 10%) + 조정
+          const local_income_tax = Math.max(0, Math.round(tax_final * 0.10) + local_tax_adjustment);
+
+          // (h) 납부(환급)세액
+          const total_payable = (tax_final + local_income_tax);
+
+          // Installment hint (간단 로직)
+          let installment_hint = '';
+          if (total_payable >= 10000000){
+            installment_hint = '납부세액이 큰 경우 분납 대상이 될 수 있습니다. (기준/요건은 과세연도별로 상이)';
+          } else if (total_payable > 0){
+            installment_hint = '납부기한 내 납부해 주세요. (분납 요건 해당 시 별도 확인)';
+          } else {
+            installment_hint = '환급 예상: 실제 환급 여부/금액은 신고자료 및 심사에 따라 달라질 수 있습니다.';
+          }
+
+          // Notes
+          const notes = (Object.keys(this.errors).length)
+            ? '일부 입력값에 경고/오류가 있습니다. (계산은 계속 진행됨)'
+            : '정상 입력으로 계산되었습니다.';
+
+          // Extra: tax_rate_band output per provided formula C16 = C3 - C14
+          // This is likely not the real meaning; but to honor excerpt, we compute that literal too.
+          const tax_rate_band = this.n(tax_year) - this.n(tax_base);
+
+          // Map M5/M6/M7
+          const m5 = prog.mValues[0] ?? 0;
+          const m6 = prog.mValues[1] ?? 0;
+          const m7 = prog.mValues[2] ?? 0;
+
+          this.outputs = {
+            tax_base,
+            tax_rate_band,
+            deduction_total,
+            tax_amount_calculated,
+            tax_credit_total,
+            tax_final,
+            local_income_tax,
+            total_payable,
+            installment_hint,
+            notes,
+            progressive_tax_calc_m5: m5,
+            progressive_tax_calc_m6: m6,
+            progressive_tax_calc_m7: m7,
+          };
+        },
+      }
+    }
+  </script>
 </body>
 </html>

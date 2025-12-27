@@ -1,6 +1,6 @@
 """Planner Agent - Designs web app structure from Excel analysis."""
 
-from agents import Agent
+from agents import Agent, AgentOutputSchema
 
 from src.models import WebAppPlan
 
@@ -115,7 +115,7 @@ def create_planner_agent() -> Agent:
         instructions=PLANNER_INSTRUCTIONS,
         tools=[],  # No tools - pure LLM reasoning
         model="gpt-5.2",  # SOTA model for complex reasoning & architecture
-        output_type=WebAppPlan,  # Structured output
+        output_type=AgentOutputSchema(WebAppPlan, strict_json_schema=False),  # Structured output
     )
 
 

@@ -92,5 +92,5 @@ def create_analyzer_agent() -> Agent:
         name="Excel Analyzer",
         instructions=ANALYZER_INSTRUCTIONS,
         tools=[analyze_excel, get_sheet_cells],
-        model="gpt-5-mini",  # Cost-optimized, great for spreadsheet understanding
+        model="gpt-5-mini",  # SOTA cost-optimized model
     )

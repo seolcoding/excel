@@ -29,3 +29,5 @@ htmlcov/
 *.tmp
 *.temp
 .temp/
+refs/
+test_output.html

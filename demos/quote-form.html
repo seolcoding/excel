@@ -1,173 +1,795 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>자동화 견적서</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-    <style>
-        body { font-family: 'Noto Sans KR', sans-serif; background: #f5f5f5; }
-        .quote-container { max-width: 800px; margin: 2rem auto; }
-        .quote-paper { background: white; padding: 3rem; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        .quote-header { border-bottom: 3px double #333; padding-bottom: 1rem; margin-bottom: 2rem; }
-        .company-info { font-size: 0.9rem; }
-        .quote-table th { background: #f8f9fa; }
-        .total-section { background: #f8f9fa; padding: 1rem; margin-top: 1rem; }
-        @media print {
-            body { background: white; }
-            .quote-paper { box-shadow: none; padding: 0; }
-            .no-print { display: none !important; }
-            @page { size: A4; margin: 15mm; }
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>엑셀 자동화 견적서 (웹)</title>
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+  <!-- Korean font (CSS-only, optional) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root{
+      --excel-border:#2f2f2f;
+      --excel-grid:#cfcfcf;
+      --excel-header:#f3f4f6;
+      --excel-total:#eef2f7;
+      --focus:#0d6efd;
+      --danger:#dc3545;
+      --print-max:190mm;
+    }
+
+    html, body { height: 100%; }
+    body{
+      font-family: "Noto Sans KR", system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+      color:#111;
+      background:#fff;
+    }
+
+    .app-title{
+      font-weight: 700;
+      letter-spacing: -0.2px;
+    }
+
+    .excel-table{
+      width:100%;
+      border-collapse: collapse;
+      border: 1px solid var(--excel-border);
+      table-layout: fixed;
+    }
+    .excel-table th,
+    .excel-table td{
+      border: 1px solid var(--excel-grid);
+      padding: 6px 8px;
+      vertical-align: middle;
+      background:#fff;
+    }
+    .excel-table thead th{
+      background: var(--excel-header);
+      font-weight: 700;
+    }
+
+    .col-num{ width: 72px; }
+    .col-idx{ width: 64px; }
+
+    .num{
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .form-control.excel-input{
+      padding: 4px 6px;
+      height: 32px;
+      border-radius: 0;
+      font-variant-numeric: tabular-nums;
+      text-align: right;
+    }
+    .form-control.excel-input:focus{
+      border-color: var(--focus);
+      box-shadow: 0 0 0 .2rem rgba(13,110,253,.15);
+    }
+
+    .is-invalid.excel-input{
+      border-color: var(--danger);
+    }
+
+    .help-text{
+      font-size: 12px;
+      color:#6b7280;
+      margin-top: 4px;
+    }
+
+    .total-row td{
+      background: var(--excel-total);
+      font-weight: 700;
+      border-top: 2px solid var(--excel-border);
+    }
+
+    .grand-total{
+      border: 2px solid var(--excel-border);
+      background: var(--excel-total);
+      padding: 10px 12px;
+      display:flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+    }
+    .grand-total .label{ font-weight: 700; }
+    .grand-total .value{ font-weight: 800; font-size: 1.1rem; }
+
+    .print-area{
+      max-width: var(--print-max);
+      margin: 0 auto;
+    }
+
+    .screen-only{ display: block; }
+    .print-only{ display: none; }
+
+    .tab-btn{
+      border: 1px solid #e5e7eb;
+      background: #fff;
+    }
+
+    @media print{
+      @page{
+        size: A4 portrait;
+        margin: 19mm 18mm 19mm 18mm;
+      }
+
+      body{ background: #fff; }
+      .container{ max-width: none !important; }
+
+      .screen-only{ display: none !important; }
+      .print-only{ display: block !important; }
+
+      /* Ensure only preview prints */
+      .print-scope{ display: none !important; }
+      .print-scope.print-area{ display: block !important; }
+
+      /* Avoid page breaking inside key blocks */
+      .avoid-break{ break-inside: avoid; page-break-inside: avoid; }
+
+      /* Remove input look in print */
+      input, textarea, select, button{ display:none !important; }
+
+      /* Tables print crisp */
+      .excel-table th, .excel-table td{
+        border-color: #666 !important;
+      }
+    }
+  </style>
 </head>
+
 <body>
-    <div class="quote-container" x-data="quoteForm()">
-        <div class="mb-3 no-print">
-            <button class="btn btn-primary" @click="addItem()">항목 추가</button>
-            <button class="btn btn-success" @click="window.print()">인쇄 / PDF 저장</button>
-            <a href="../index.html" class="btn btn-outline-secondary">목록으로</a>
+  <div class="container py-4" x-data="appData()" x-init="init()">
+
+    <header class="mb-3">
+      <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-end gap-2">
+        <div>
+          <h1 class="h4 mb-1 app-title">엑셀 자동화 견적서 (웹)</h1>
+          <div class="text-secondary" style="font-size: 0.95rem;">엑셀 자동화 견적서 v1.0.xlsm 기반 · 견적 작성/합계/DB 동기화/링크/인쇄</div>
         </div>
+        <div class="screen-only d-flex gap-2">
+          <button type="button" class="btn btn-outline-secondary btn-sm" @click="resetQuote()">초기화</button>
+          <button type="button" class="btn btn-outline-primary btn-sm" @click="exportToPdf()">PDF 저장</button>
+          <button type="button" class="btn btn-primary btn-sm" @click="print()">인쇄</button>
+        </div>
+      </div>
 
-        <div class="quote-paper">
-            <div class="quote-header">
-                <div class="row">
-                    <div class="col-8">
-                        <h1 class="mb-3">견 적 서</h1>
-                        <div class="row">
-                            <div class="col-6">
-                                <p class="mb-1"><strong>견적번호:</strong> <span x-text="quoteNumber"></span></p>
-                                <p class="mb-1"><strong>견적일자:</strong> <input type="date" x-model="quoteDate" class="border-0 border-bottom"></p>
-                                <p class="mb-0"><strong>유효기간:</strong> 견적일로부터 30일</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-4 text-end company-info">
-                        <h5>주식회사 예시컴퍼니</h5>
-                        <p class="mb-1">서울시 강남구 테헤란로 123</p>
-                        <p class="mb-1">Tel: 02-1234-5678</p>
-                        <p class="mb-0">사업자번호: 123-45-67890</p>
-                    </div>
-                </div>
+      <!-- Tabs -->
+      <div class="screen-only mt-3">
+        <div class="btn-group" role="tablist" aria-label="상단 탭">
+          <button type="button" class="btn tab-btn" :class="activeTab==='quote' ? 'btn-primary text-white' : ''" @click="activeTab='quote'" role="tab" :aria-selected="activeTab==='quote'">견적서</button>
+          <button type="button" class="btn tab-btn" :class="activeTab==='products' ? 'btn-primary text-white' : ''" @click="activeTab='products'" role="tab" :aria-selected="activeTab==='products'">제품목록</button>
+          <button type="button" class="btn tab-btn" :class="activeTab==='lectures' ? 'btn-primary text-white' : ''" @click="activeTab='lectures'" role="tab" :aria-selected="activeTab==='lectures'">보충강의</button>
+        </div>
+      </div>
+    </header>
+
+    <!-- QUOTE TAB -->
+    <section x-show="activeTab==='quote'" x-transition.opacity class="print-scope">
+      <div class="row g-3">
+
+        <!-- Left: input form -->
+        <div class="col-12 col-lg-7">
+          <div class="card">
+            <div class="card-header bg-white">
+              <div class="d-flex justify-content-between align-items-center">
+                <div class="fw-bold">견적서 입력</div>
+                <div class="text-secondary" style="font-size:12px;">D/E/F(입력) · 합계는 자동 계산</div>
+              </div>
             </div>
 
-            <div class="mb-4">
-                <h5>수신</h5>
-                <div class="row g-3">
-                    <div class="col-md-6">
-                        <label class="form-label">회사명</label>
-                        <input type="text" class="form-control" x-model="customer.company" placeholder="고객사명">
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label">담당자</label>
-                        <input type="text" class="form-control" x-model="customer.contact" placeholder="담당자명">
-                    </div>
-                </div>
-            </div>
+            <div class="card-body">
+              <div class="mb-3">
+                <label class="form-label" for="quote_meta_c4">견적 메타 입력(C4)</label>
+                <input id="quote_meta_c4" type="text" class="form-control" x-model.trim="state.quote_meta_c4" @input="calculate()" placeholder="예: 고객명/프로젝트명 등" />
+                <div class="help-text">DB 연동(L2)에 즉시 반영됩니다.</div>
+              </div>
 
-            <table class="table quote-table">
-                <thead>
+              <div class="table-responsive">
+                <table class="excel-table" aria-label="견적 입력 테이블">
+                  <thead>
                     <tr>
-                        <th style="width:40px">No</th>
-                        <th>품목</th>
-                        <th style="width:100px">수량</th>
-                        <th style="width:120px">단가</th>
-                        <th style="width:130px">금액</th>
-                        <th style="width:50px" class="no-print"></th>
+                      <th class="col-idx">행</th>
+                      <th class="col-num">D</th>
+                      <th class="col-num">E</th>
+                      <th class="col-num">F</th>
+                      <th class="col-num">G(참고)</th>
                     </tr>
-                </thead>
-                <tbody>
-                    <template x-for="(item, idx) in items" :key="idx">
-                        <tr>
-                            <td x-text="idx + 1"></td>
-                            <td><input type="text" class="form-control form-control-sm" x-model="item.name"></td>
-                            <td><input type="number" class="form-control form-control-sm" x-model.number="item.qty" @input="calculate()"></td>
-                            <td><input type="text" class="form-control form-control-sm text-end"
-                                       :value="item.price.toLocaleString()"
-                                       @input="item.price = parseInt($event.target.value.replace(/,/g,'')) || 0; calculate()"></td>
-                            <td class="text-end fw-bold" x-text="(item.qty * item.price).toLocaleString() + '원'"></td>
-                            <td class="no-print">
-                                <button class="btn btn-sm btn-outline-danger" @click="removeItem(idx)">×</button>
-                            </td>
-                        </tr>
+                  </thead>
+                  <tbody>
+                    <template x-for="row in state.quoteRows" :key="row.rowNum">
+                      <tr>
+                        <td class="num" x-text="row.rowNum"></td>
+
+                        <td>
+                          <label class="visually-hidden" :for="'d_'+row.rowNum" x-text="'견적 항목 '+row.rowNum+' - 입력값(D)'">
+                          </label>
+                          <input
+                            class="form-control excel-input"
+                            type="number" step="1" inputmode="numeric"
+                            :id="'d_'+row.rowNum"
+                            x-model.number="row.d"
+                            @input="validateAndCalculateRow(row)"
+                            :class="row.errors.d ? 'is-invalid' : ''"
+                            :aria-describedby="'d_help_'+row.rowNum"
+                          />
+                          <div class="help-text" :id="'d_help_'+row.rowNum" x-show="row.errors.d" x-text="row.errors.d"></div>
+                        </td>
+
+                        <td>
+                          <label class="visually-hidden" :for="'e_'+row.rowNum" x-text="'견적 항목 '+row.rowNum+' - 입력값(E)'">
+                          </label>
+                          <input
+                            class="form-control excel-input"
+                            type="number" step="1" inputmode="numeric"
+                            :id="'e_'+row.rowNum"
+                            x-model.number="row.e"
+                            @input="validateAndCalculateRow(row)"
+                            :class="row.errors.e ? 'is-invalid' : ''"
+                            :aria-describedby="'e_help_'+row.rowNum"
+                          />
+                          <div class="help-text" :id="'e_help_'+row.rowNum" x-show="row.errors.e" x-text="row.errors.e"></div>
+                        </td>
+
+                        <td>
+                          <label class="visually-hidden" :for="'f_'+row.rowNum" x-text="'견적 항목 '+row.rowNum+' - 입력값(F)'">
+                          </label>
+                          <input
+                            class="form-control excel-input"
+                            type="number" step="1" inputmode="numeric"
+                            :id="'f_'+row.rowNum"
+                            x-model.number="row.f"
+                            @input="validateAndCalculateRow(row)"
+                            :class="row.errors.f ? 'is-invalid' : ''"
+                            :aria-describedby="'f_help_'+row.rowNum"
+                          />
+                          <div class="help-text" :id="'f_help_'+row.rowNum" x-show="row.errors.f" x-text="row.errors.f"></div>
+                        </td>
+
+                        <td class="num">
+                          <span x-text="formatCurrencySafe(row.g)"></span>
+                        </td>
+                      </tr>
                     </template>
-                </tbody>
-            </table>
 
-            <div class="total-section">
-                <div class="row">
-                    <div class="col-md-6"></div>
-                    <div class="col-md-6">
-                        <div class="d-flex justify-content-between mb-2">
-                            <span>공급가액</span>
-                            <span class="fw-bold" x-text="subtotal.toLocaleString() + '원'"></span>
-                        </div>
-                        <div class="d-flex justify-content-between mb-2">
-                            <span>부가세 (10%)</span>
-                            <span x-text="vat.toLocaleString() + '원'"></span>
-                        </div>
-                        <hr>
-                        <div class="d-flex justify-content-between fs-5">
-                            <strong>합계</strong>
-                            <strong class="text-primary" x-text="total.toLocaleString() + '원'"></strong>
-                        </div>
+                    <tr class="total-row" aria-live="polite">
+                      <td>합계(28)</td>
+                      <td class="num" x-text="formatNumberSafe(calc.sum_d28)"></td>
+                      <td class="num" x-text="formatNumberSafe(calc.sum_e28)"></td>
+                      <td class="num" x-text="formatNumberSafe(calc.sum_f28)"></td>
+                      <td class="num" x-text="formatNumberSafe(calc.sum_g28)"></td>
+                    </tr>
+
+                  </tbody>
+                </table>
+              </div>
+
+              <div class="mt-3 grand-total avoid-break" aria-live="polite">
+                <div class="label">총합(C8 / G8)</div>
+                <div class="value" x-text="formatCurrencySafe(calc.total_c8)"></div>
+              </div>
+
+              <div class="mt-3">
+                <details>
+                  <summary class="fw-semibold">고급(내부) · DB 연동</summary>
+                  <div class="mt-2 p-3 border rounded">
+                    <div class="row g-2 align-items-end">
+                      <div class="col-12 col-md-6">
+                        <label class="form-label" for="db_c4">DB 입력(C4)</label>
+                        <input id="db_c4" type="text" class="form-control" x-model.trim="state.db_c4" placeholder="(옵션) DB 시트 입력" />
+                      </div>
+                      <div class="col-12 col-md-6">
+                        <div class="form-label">DB 출력(L2) (DB!L2 = 견적서!C4)</div>
+                        <div class="p-2 border rounded bg-light num" aria-live="polite" x-text="state.db_l2"></div>
+                      </div>
                     </div>
-                </div>
-            </div>
+                    <div class="help-text mt-2">웹 앱에서는 견적 메타(C4) 변경 시 DB 출력(L2)이 즉시 동기화됩니다.</div>
+                  </div>
+                </details>
+              </div>
 
-            <div class="mt-4">
-                <h6>비고</h6>
-                <textarea class="form-control" rows="3" x-model="notes" placeholder="특이사항 입력"></textarea>
             </div>
-
-            <div class="mt-5 text-center">
-                <p>상기와 같이 견적합니다.</p>
-                <div class="mt-4">
-                    <p class="mb-0">주식회사 예시컴퍼니</p>
-                    <p class="text-muted">대표이사 홍길동 (인)</p>
-                </div>
-            </div>
+          </div>
         </div>
 
-        <footer class="text-center text-muted mt-3 small">
-            원본: 엑셀 자동화 견적서 v1.0.xlsm
-        </footer>
-    </div>
+        <!-- Right: preview/print area -->
+        <div class="col-12 col-lg-5">
+          <div class="card">
+            <div class="card-header bg-white">
+              <div class="d-flex justify-content-between align-items-center">
+                <div class="fw-bold">견적서 요약/미리보기</div>
+                <div class="text-secondary" style="font-size:12px;">이 영역이 인쇄됩니다(A4)</div>
+              </div>
+            </div>
+            <div class="card-body">
 
-    <script>
-        function quoteForm() {
-            const today = new Date().toISOString().split('T')[0];
-            return {
-                quoteNumber: 'QT-' + today.replace(/-/g, '') + '-001',
-                quoteDate: today,
-                customer: { company: '', contact: '' },
-                items: [
-                    { name: '상품 A', qty: 1, price: 100000 },
-                    { name: '상품 B', qty: 2, price: 50000 },
-                ],
-                notes: '',
-                subtotal: 0, vat: 0, total: 0,
+              <div class="print-area print-scope" id="printArea">
+                <div class="avoid-break">
+                  <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                      <div class="fw-bold" style="font-size: 1.1rem;">견적서</div>
+                      <div class="text-secondary" style="font-size: 0.9rem;">메타(C4): <span class="fw-semibold" x-text="state.quote_meta_c4 || '-' "></span></div>
+                    </div>
+                    <div class="text-secondary" style="font-size: 0.85rem; text-align:right;">
+                      <div x-text="nowText"></div>
+                      <div class="print-only">(인쇄본)</div>
+                    </div>
+                  </div>
 
-                init() { this.calculate(); },
+                  <hr class="my-3" />
 
-                addItem() {
-                    this.items.push({ name: '', qty: 1, price: 0 });
-                },
-                removeItem(idx) {
-                    if (this.items.length > 1) {
-                        this.items.splice(idx, 1);
-                        this.calculate();
-                    }
-                },
-                calculate() {
-                    this.subtotal = this.items.reduce((sum, i) => sum + (i.qty * i.price), 0);
-                    this.vat = Math.round(this.subtotal * 0.1);
-                    this.total = this.subtotal + this.vat;
-                }
-            };
+                  <div class="grand-total" aria-live="polite">
+                    <div class="label">견적 총액(미리보기)</div>
+                    <div class="value" x-text="formatCurrencySafe(calc.preview_total)"></div>
+                  </div>
+                </div>
+
+                <div class="mt-3">
+                  <table class="excel-table" aria-label="견적 미리보기 합계">
+                    <tbody>
+                      <tr>
+                        <th style="width:50%">합계 F28</th>
+                        <td class="num" x-text="formatCurrencySafe(calc.sum_f28)"></td>
+                      </tr>
+                      <tr>
+                        <th>합계 G28</th>
+                        <td class="num" x-text="formatCurrencySafe(calc.sum_g28)"></td>
+                      </tr>
+                      <tr class="total-row">
+                        <th>총합 (F28+G28)</th>
+                        <td class="num" x-text="formatCurrencySafe(calc.total_g8)"></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                  <div class="help-text mt-2">원본 수식: C8/G8 = SUM(F28:G28), D/E/F/G 28행은 각 열 11~27행 합계</div>
+                </div>
+
+                <div class="mt-3 avoid-break">
+                  <div class="fw-semibold mb-2">보충강의 바로가기</div>
+                  <ul class="mb-0">
+                    <template x-for="(link, idx) in lectureLinks" :key="idx">
+                      <li>
+                        <template x-if="link.visible">
+                          <a :href="link.href" target="_blank" rel="noopener noreferrer" x-text="link.text"></a>
+                        </template>
+                        <template x-if="!link.visible">
+                          <span class="text-secondary">(링크 없음)</span>
+                        </template>
+                      </li>
+                    </template>
+                  </ul>
+                </div>
+
+              </div>
+
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- PRODUCTS TAB -->
+    <section x-show="activeTab==='products'" x-transition.opacity class="screen-only">
+      <div class="card">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+          <div class="fw-bold">제품목록(참조)</div>
+          <div class="text-secondary" style="font-size:12px;">샘플 데이터(정적)</div>
+        </div>
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table table-sm table-striped align-middle" aria-label="제품목록 테이블">
+              <thead>
+                <tr>
+                  <th style="width:110px;">코드</th>
+                  <th>제품명</th>
+                  <th class="text-end" style="width:160px;">기준단가(원)</th>
+                </tr>
+              </thead>
+              <tbody>
+                <template x-for="p in products" :key="p.code">
+                  <tr>
+                    <td class="font-monospace" x-text="p.code"></td>
+                    <td x-text="p.name"></td>
+                    <td class="text-end" x-text="formatNumberSafe(p.price)"></td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+          <div class="text-secondary" style="font-size:12px;">※ 원본의 제품목록 시트(A1:C19)는 추후 업로드/관리 기능으로 확장 가능</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- LECTURES TAB -->
+    <section x-show="activeTab==='lectures'" x-transition.opacity class="screen-only">
+      <div class="card">
+        <div class="card-header bg-white">
+          <div class="fw-bold">보충강의 링크 관리</div>
+        </div>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-12 col-lg-7">
+              <div class="row g-2">
+                <template x-for="i in 5" :key="i">
+                  <div class="col-12">
+                    <label class="form-label" :for="'lecture_url_'+i" x-text="'보충강의 링크 '+i+'(URL)' "></label>
+                    <input
+                      class="form-control"
+                      type="url"
+                      :id="'lecture_url_'+i"
+                      x-model.trim="state['lecture_url_'+i]"
+                      @input="calculate()"
+                      placeholder="https://..."
+                    />
+                    <div class="help-text">URL이 비어 있으면 ‘바로가기’가 숨김 처리됩니다.</div>
+                  </div>
+                </template>
+              </div>
+            </div>
+
+            <div class="col-12 col-lg-5">
+              <div class="p-3 border rounded">
+                <div class="fw-semibold mb-2">바로가기 미리보기</div>
+                <ol class="mb-0">
+                  <template x-for="(link, idx) in lectureLinks" :key="idx">
+                    <li>
+                      <template x-if="link.visible">
+                        <a :href="link.href" target="_blank" rel="noopener noreferrer" x-text="link.text"></a>
+                      </template>
+                      <template x-if="!link.visible">
+                        <span class="text-secondary">(링크 없음)</span>
+                      </template>
+                    </li>
+                  </template>
+                </ol>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <script>
+    // ===== Excel formula helper functions (from tool) =====
+    function _sum(...args) {
+        return args.flat().reduce((a, b) => (parseFloat(a) || 0) + (parseFloat(b) || 0), 0);
+    }
+
+    function _sumRange(rangeData) {
+        if (Array.isArray(rangeData)) {
+            return rangeData.flat().reduce((a, b) => (parseFloat(a) || 0) + (parseFloat(b) || 0), 0);
         }
-    </script>
+        return parseFloat(rangeData) || 0;
+    }
+
+    function _average(...args) {
+        const flat = args.flat().filter(x => x !== null && x !== '' && !isNaN(x));
+        return flat.length ? _sum(...flat) / flat.length : 0;
+    }
+
+    function _averageRange(rangeData) {
+        if (Array.isArray(rangeData)) {
+            const flat = rangeData.flat().filter(x => x !== null && x !== '' && !isNaN(x));
+            return flat.length ? _sumRange(flat) / flat.length : 0;
+        }
+        return parseFloat(rangeData) || 0;
+    }
+
+    function _count(...args) {
+        return args.flat().filter(x => typeof x === 'number' && !isNaN(x)).length;
+    }
+
+    function _counta(...args) {
+        return args.flat().filter(x => x !== null && x !== '' && x !== undefined).length;
+    }
+
+    function _and(...args) {
+        return args.every(x => Boolean(x));
+    }
+
+    function _or(...args) {
+        return args.some(x => Boolean(x));
+    }
+
+    function _round(num, digits = 0) {
+        const factor = Math.pow(10, digits);
+        return Math.round(num * factor) / factor;
+    }
+
+    function _roundUp(num, digits = 0) {
+        const factor = Math.pow(10, digits);
+        return Math.ceil(num * factor) / factor;
+    }
+
+    function _roundDown(num, digits = 0) {
+        const factor = Math.pow(10, digits);
+        return Math.floor(num * factor) / factor;
+    }
+
+    function _len(text) {
+        return String(text).length;
+    }
+
+    function _left(text, numChars = 1) {
+        return String(text).substring(0, numChars);
+    }
+
+    function _right(text, numChars = 1) {
+        const str = String(text);
+        return str.substring(str.length - numChars);
+    }
+
+    function _mid(text, startNum, numChars) {
+        return String(text).substring(startNum - 1, startNum - 1 + numChars);
+    }
+
+    function _trim(text) {
+        return String(text).trim();
+    }
+
+    function _upper(text) {
+        return String(text).toUpperCase();
+    }
+
+    function _lower(text) {
+        return String(text).toLowerCase();
+    }
+
+    function _concat(...args) {
+        return args.join('');
+    }
+
+    // Number formatting
+    function formatNumber(num, decimals = 0) {
+        return new Intl.NumberFormat('ko-KR', {
+            minimumFractionDigits: decimals,
+            maximumFractionDigits: decimals
+        }).format(num);
+    }
+
+    function formatCurrency(num) {
+        return new Intl.NumberFormat('ko-KR', {
+            style: 'currency',
+            currency: 'KRW',
+            maximumFractionDigits: 0
+        }).format(num);
+    }
+
+    function formatPercent(num, decimals = 1) {
+        return new Intl.NumberFormat('ko-KR', {
+            style: 'percent',
+            minimumFractionDigits: decimals,
+            maximumFractionDigits: decimals
+        }).format(num / 100);
+    }
+
+    // ===== App =====
+
+    // Web replacement of Excel's HYPERLINK
+    function renderHyperlink(url, text) {
+      const u = (url || '').trim();
+      if (!u) return { visible: false, href: '', text };
+
+      // simple scheme validation
+      const isSafe = /^https?:\/\//i.test(u);
+      return {
+        visible: isSafe,
+        href: isSafe ? u : '',
+        text: text || '바로가기'
+      };
+    }
+
+    function appData(){
+      return {
+        activeTab: 'quote',
+        nowText: '',
+
+        // state (inputs + derived)
+        state: {
+          quote_meta_c4: '',
+
+          // D/E/F are explicit inputs; G(11..27) exists in original but inputs not provided.
+          // We keep G rows as 0 by default (can be expanded later).
+          quoteRows: [],
+
+          // DB
+          db_c4: '',
+          db_l2: '',
+
+          // lecture URLs
+          lecture_url_1: '',
+          lecture_url_2: '',
+          lecture_url_3: '',
+          lecture_url_4: '',
+          lecture_url_5: ''
+        },
+
+        // calculated outputs
+        calc: {
+          sum_d28: 0,
+          sum_e28: 0,
+          sum_f28: 0,
+          sum_g28: 0,
+          total_c8: 0,
+          total_g8: 0,
+          preview_total: 0
+        },
+
+        // reference table (sample)
+        products: [
+          { code: 'P-001', name: '샘플 제품 A', price: 10000 },
+          { code: 'P-002', name: '샘플 제품 B', price: 25000 },
+          { code: 'P-003', name: '샘플 제품 C', price: 50000 }
+        ],
+
+        get lectureLinks(){
+          return [
+            renderHyperlink(this.state.lecture_url_1, '바로가기'),
+            renderHyperlink(this.state.lecture_url_2, '바로가기'),
+            renderHyperlink(this.state.lecture_url_3, '바로가기'),
+            renderHyperlink(this.state.lecture_url_4, '바로가기'),
+            renderHyperlink(this.state.lecture_url_5, '바로가기')
+          ];
+        },
+
+        init(){
+          // build rows 11..27
+          this.state.quoteRows = Array.from({length: 17}, (_, i) => {
+            const rowNum = 11 + i;
+            return {
+              rowNum,
+              d: null,
+              e: null,
+              f: null,
+              g: 0,
+              errors: { d: '', e: '', f: '' }
+            };
+          });
+
+          this.updateNow();
+          setInterval(() => this.updateNow(), 1000 * 30);
+
+          this.calculate();
+        },
+
+        updateNow(){
+          const d = new Date();
+          const pad = (n) => String(n).padStart(2, '0');
+          this.nowText = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+        },
+
+        // formatting helpers safe
+        formatNumberSafe(v){
+          const n = Number(v);
+          return Number.isFinite(n) ? formatNumber(n, 0) : '0';
+        },
+        formatCurrencySafe(v){
+          const n = Number(v);
+          return Number.isFinite(n) ? formatCurrency(n) : formatCurrency(0);
+        },
+
+        // validation: allow empty -> treated as 0
+        validateNumberField(value){
+          if (value === null || value === '' || typeof value === 'undefined') return { ok: true, msg: '' };
+          const n = Number(value);
+          if (!Number.isFinite(n)) return { ok: false, msg: '숫자만 입력하세요.' };
+          if (n < 0) return { ok: false, msg: '0 이상 값을 입력하세요.' };
+          return { ok: true, msg: '' };
+        },
+
+        validateAndCalculateRow(row){
+          const vd = this.validateNumberField(row.d);
+          const ve = this.validateNumberField(row.e);
+          const vf = this.validateNumberField(row.f);
+
+          row.errors.d = vd.ok ? '' : vd.msg;
+          row.errors.e = ve.ok ? '' : ve.msg;
+          row.errors.f = vf.ok ? '' : vf.msg;
+
+          this.calculate();
+        },
+
+        // ===== Excel-derived computations =====
+
+        // calculateQuoteTotals(quoteRows)
+        calculateQuoteTotals(quoteRows){
+          const dRange = quoteRows.map(r => (Number(r.d) || 0));
+          const eRange = quoteRows.map(r => (Number(r.e) || 0));
+          const fRange = quoteRows.map(r => (Number(r.f) || 0));
+          const gRange = quoteRows.map(r => (Number(r.g) || 0));
+
+          // Converted from Excel:
+          // D28 = SUM(D11:D27)
+          // E28 = SUM(E11:E27)
+          // F28 = SUM(F11:F27)
+          // G28 = SUM(G11:G27)
+          const sum_d28 = _sumRange(dRange);
+          const sum_e28 = _sumRange(eRange);
+          const sum_f28 = _sumRange(fRange);
+          const sum_g28 = _sumRange(gRange);
+
+          // Converted from Excel: C8 = SUM(F28:G28), G8 = SUM(F28:G28)
+          const total = _sumRange([sum_f28, sum_g28]);
+
+          return {
+            sum_d28, sum_e28, sum_f28, sum_g28,
+            total_c8: total,
+            total_g8: total
+          };
+        },
+
+        // syncDbFromQuote(quoteMetaC4): DB!L2 = 견적서!C4
+        syncDbFromQuote(quoteMetaC4){
+          // From conversion: data['C4']
+          this.state.db_l2 = (quoteMetaC4 ?? '');
+        },
+
+        // resetQuote(): VBA 대체
+        resetQuote(){
+          this.state.quote_meta_c4 = '';
+          this.state.db_c4 = '';
+
+          this.state.lecture_url_1 = '';
+          this.state.lecture_url_2 = '';
+          this.state.lecture_url_3 = '';
+          this.state.lecture_url_4 = '';
+          this.state.lecture_url_5 = '';
+
+          this.state.quoteRows.forEach(r => {
+            r.d = null; r.e = null; r.f = null;
+            r.g = 0;
+            r.errors = { d:'', e:'', f:'' };
+          });
+
+          this.calculate();
+        },
+
+        // exportToPdf(fileName): 브라우저 인쇄 기반
+        exportToPdf(fileName){
+          // 브라우저 환경에서는 파일명 강제 저장이 제한적이므로, 인쇄 대화상자(PDF 저장)를 사용합니다.
+          // 파일명 추천용 문자열만 생성.
+          const d = new Date();
+          const pad = (n) => String(n).padStart(2,'0');
+          const suggested = fileName || `견적서_${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}.pdf`;
+          alert(`PDF로 저장하려면 인쇄 창에서 대상: "PDF로 저장"을 선택하세요.\n권장 파일명: ${suggested}`);
+          window.print();
+        },
+
+        print(){
+          window.print();
+        },
+
+        // calculate(state): orchestrator
+        calculate(){
+          // 1) quote totals
+          const totals = this.calculateQuoteTotals(this.state.quoteRows);
+          this.calc.sum_d28 = totals.sum_d28;
+          this.calc.sum_e28 = totals.sum_e28;
+          this.calc.sum_f28 = totals.sum_f28;
+          this.calc.sum_g28 = totals.sum_g28;
+          this.calc.total_c8 = totals.total_c8;
+          this.calc.total_g8 = totals.total_g8;
+
+          // 2) preview
+          this.calc.preview_total = this.calc.total_c8;
+
+          // 3) DB sync
+          this.syncDbFromQuote(this.state.quote_meta_c4);
+        }
+      };
+    }
+  </script>
 </body>
 </html>

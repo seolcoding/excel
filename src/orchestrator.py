@@ -17,12 +17,12 @@ from src.models import (
     TestStatus,
 )
 from src.agents import (
-    create_analyzer_agent,
     create_planner_agent,
     create_plan_prompt,
     create_generator_agent,
     create_generation_prompt,
 )
+from src.tools import analyze_excel_file
 
 
 @dataclass
@@ -66,8 +66,7 @@ class ExcelToWebAppOrchestrator:
         self.min_pass_rate = min_pass_rate
         self.progress_callback = progress_callback
 
-        # Create agents
-        self.analyzer = create_analyzer_agent()
+        # Create agents (Analyzer uses direct tool call, no agent needed)
         self.planner = create_planner_agent()
         self.generator = create_generator_agent()
 
@@ -168,23 +167,11 @@ class ExcelToWebAppOrchestrator:
             )
 
     async def _analyze(self, excel_path: str) -> Optional[ExcelAnalysis]:
-        """Run the Analyzer agent to extract Excel structure."""
+        """Analyze Excel file using direct tool call (no agent needed)."""
         try:
-            result = await Runner.run(
-                self.analyzer,
-                f"Analyze the Excel file at: {excel_path}",
-            )
-
-            # The analyzer returns a dict from the tool
-            if result.final_output:
-                # Parse the analysis from agent output
-                if isinstance(result.final_output, dict):
-                    return ExcelAnalysis(**result.final_output)
-                elif isinstance(result.final_output, ExcelAnalysis):
-                    return result.final_output
-
-            return None
-
+            # Direct tool call - more efficient than agent for pure parsing
+            analysis = analyze_excel_file(excel_path)
+            return analysis
         except Exception as e:
             print(f"Analysis error: {e}")
             return None
