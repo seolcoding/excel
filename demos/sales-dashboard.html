@@ -1,214 +1,1516 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>매출분석 대시보드</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <style>
-        body { font-family: 'Noto Sans KR', sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; }
-        .dashboard { max-width: 1400px; margin: 0 auto; padding: 2rem; }
-        .card { background: rgba(255,255,255,0.95); border: none; border-radius: 16px; box-shadow: 0 8px 32px rgba(0,0,0,0.1); }
-        .stat-card { text-align: center; padding: 1.5rem; }
-        .stat-value { font-size: 2.5rem; font-weight: bold; }
-        .stat-label { color: #666; font-size: 0.9rem; }
-        .stat-change { font-size: 0.85rem; }
-        .positive { color: #10b981; }
-        .negative { color: #ef4444; }
-        .chart-container { position: relative; height: 300px; }
-        .period-btn { border-radius: 20px; }
-        .period-btn.active { background: #667eea; color: white; }
-        @media print { body { background: white; } }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>매출현황 분석 대시보드</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;700&display=swap" rel="stylesheet">
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <style>
+    :root{
+      --app-bg:#f7f8fb;
+      --card-bg:#ffffff;
+      --border:#e6e8ef;
+      --text:#111827;
+      --muted:#6b7280;
+      --danger:#dc2626;
+      --primary:#2563eb;
+      --kpi-bg:#fbfbfd;
+      --shadow: 0 1px 2px rgba(16,24,40,.06), 0 1px 3px rgba(16,24,40,.1);
+      --radius: 12px;
+      --left-panel: 340px;
+      --a4-width: 190mm; /* 210mm - margins(18/18) */
+    }
+
+    html,body{height:100%;}
+    body{
+      font-family: "Noto Sans KR", system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+      background:var(--app-bg);
+      color:var(--text);
+    }
+
+    .app-shell{min-height:100vh;}
+
+    header.app-header{
+      background: var(--card-bg);
+      border-bottom:1px solid var(--border);
+      position: sticky;
+      top:0;
+      z-index: 1030;
+    }
+
+    .app-title{font-weight:700; letter-spacing:-.3px;}
+
+    .btn-primary{background:var(--primary); border-color:var(--primary);}
+
+    .layout{
+      display:grid;
+      grid-template-columns: var(--left-panel) 1fr;
+      gap: 16px;
+      align-items:start;
+    }
+
+    @media (max-width: 992px){
+      :root{--left-panel: 1fr;}
+      .layout{grid-template-columns: 1fr;}
+      .left-panel{position: static;}
+    }
+
+    .card{
+      background: var(--card-bg);
+      border:1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+
+    .left-panel{
+      position: sticky;
+      top: 74px;
+    }
+
+    .section-title{font-weight:700; font-size: 1rem;}
+
+    .form-text{color:var(--muted)}
+
+    .kpi-grid{display:grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px;}
+    @media (max-width: 1200px){.kpi-grid{grid-template-columns: repeat(2, minmax(0,1fr));}}
+    @media (max-width: 576px){.kpi-grid{grid-template-columns: 1fr;}}
+
+    .kpi-card{
+      padding: 14px 14px;
+      background: var(--kpi-bg);
+      border:1px solid var(--border);
+      border-radius: 12px;
+    }
+    .kpi-label{color:var(--muted); font-size:.875rem;}
+    .kpi-value{font-weight:800; font-size:1.25rem; text-align:right; margin-top:6px;}
+    .num-negative{color:var(--danger);}
+
+    .table-wrap{max-height: 420px; overflow:auto; border-top:1px solid var(--border);}
+    table{border-collapse:separate; border-spacing:0;}
+    thead th{
+      position: sticky;
+      top: 0;
+      background: #f3f4f6;
+      border-bottom:1px solid var(--border) !important;
+      z-index: 2;
+      white-space: nowrap;
+    }
+    tbody tr:hover{background:#f9fafb;}
+
+    .cell-ellipsis{
+      max-width: 260px;
+      overflow:hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      display:inline-block;
+      vertical-align: bottom;
+    }
+
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:4px 10px;
+      border:1px solid var(--border);
+      border-radius: 999px;
+      color:var(--muted);
+      background:#fff;
+      font-size:.8rem;
+    }
+
+    .status-dot{width:8px;height:8px;border-radius:50%;background:#9ca3af;display:inline-block;}
+    .status-ok{background:#16a34a;}
+    .status-warn{background:#f59e0b;}
+    .status-err{background:#dc2626;}
+
+    .chart-card{padding: 14px;}
+    .chart-area{width:100%; height: 240px;}
+    .chart-legend{display:flex; gap:10px; flex-wrap:wrap; color:var(--muted); font-size:.85rem;}
+
+    .sr-only{
+      position:absolute;
+      width:1px;
+      height:1px;
+      padding:0;
+      margin:-1px;
+      overflow:hidden;
+      clip:rect(0,0,0,0);
+      white-space:nowrap;
+      border:0;
+    }
+
+    .toast-wrap{
+      position: fixed;
+      right: 16px;
+      bottom: 16px;
+      z-index: 2000;
+      width: min(420px, calc(100vw - 32px));
+    }
+
+    /* Print */
+    @page{
+      size: A4 portrait;
+      margin: 19mm 18mm 19mm 18mm;
+    }
+
+    @media print{
+      body{background:#fff;}
+      header.app-header, .no-print, .toast-wrap, .modal{display:none !important;}
+      .layout{display:block;}
+      .left-panel{position: static;}
+      .card{box-shadow:none;}
+      .container{max-width: var(--a4-width) !important;}
+
+      /* Inputs show as text */
+      input, select, textarea{
+        border:none !important;
+        padding:0 !important;
+        height:auto !important;
+        box-shadow:none !important;
+        appearance:none !important;
+        background: transparent !important;
+      }
+
+      .table-wrap{max-height:none; overflow: visible;}
+      thead th{background:#f3f4f6 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact;}
+
+      .kpi-card{background:#fff;}
+
+      /* Ensure chart contrast */
+      .chart-card{border:1px solid #111 !important;}
+    }
+  </style>
 </head>
 <body>
-    <div class="dashboard" x-data="dashboard()">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h2 class="text-white mb-0">매출분석 대시보드</h2>
-            <div>
-                <button class="btn period-btn" :class="period === 'daily' ? 'active' : 'btn-light'" @click="setPeriod('daily')">일별</button>
-                <button class="btn period-btn" :class="period === 'weekly' ? 'active' : 'btn-light'" @click="setPeriod('weekly')">주별</button>
-                <button class="btn period-btn" :class="period === 'monthly' ? 'active' : 'btn-light'" @click="setPeriod('monthly')">월별</button>
-                <a href="../index.html" class="btn btn-outline-light ms-2">목록으로</a>
-            </div>
-        </div>
+  <div class="app-shell" x-data="appData()" x-init="init()">
 
-        <!-- 핵심 지표 -->
-        <div class="row g-4 mb-4">
-            <div class="col-md-3">
-                <div class="card stat-card">
-                    <div class="stat-value text-primary" x-text="formatCurrency(stats.totalSales)"></div>
-                    <div class="stat-label">총 매출</div>
-                    <div class="stat-change positive">▲ 12.5% vs 전기</div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card stat-card">
-                    <div class="stat-value text-success" x-text="stats.orderCount.toLocaleString()"></div>
-                    <div class="stat-label">주문 건수</div>
-                    <div class="stat-change positive">▲ 8.3% vs 전기</div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card stat-card">
-                    <div class="stat-value text-info" x-text="formatCurrency(stats.avgOrderValue)"></div>
-                    <div class="stat-label">평균 주문금액</div>
-                    <div class="stat-change positive">▲ 3.8% vs 전기</div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card stat-card">
-                    <div class="stat-value text-warning" x-text="stats.conversionRate + '%'"></div>
-                    <div class="stat-label">전환율</div>
-                    <div class="stat-change negative">▼ 0.5% vs 전기</div>
-                </div>
-            </div>
-        </div>
+    <header class="app-header">
+      <div class="container py-3">
+        <div class="d-flex flex-wrap gap-2 align-items-center justify-content-between">
+          <div>
+            <div class="app-title h5 mb-0">매출현황 분석 대시보드</div>
+            <div class="text-muted small">정규화된 매출 데이터를 업로드하고 조건별 요약/추이를 확인한 뒤 A4 보고서로 출력합니다.</div>
+          </div>
 
-        <div class="row g-4 mb-4">
-            <!-- 매출 추이 차트 -->
-            <div class="col-md-8">
-                <div class="card">
-                    <div class="card-header bg-white border-0 pt-3">
-                        <h5 class="mb-0">매출 추이</h5>
+          <div class="d-flex gap-2 align-items-center no-print">
+            <div class="d-flex flex-column">
+              <label for="dataFile" class="form-label small mb-1">데이터 파일 업로드</label>
+              <input id="dataFile" type="file" class="form-control form-control-sm" accept=".csv" @change="onFileChange($event)" aria-label="데이터 파일 업로드 (CSV)" />
+              <div class="form-text">현재 버전은 CSV를 지원합니다. (엑셀은 CSV로 저장 후 업로드)</div>
+            </div>
+            <div class="d-flex flex-column" style="min-width:180px">
+              <label for="sheetName" class="form-label small mb-1">가져올 시트명</label>
+              <input id="sheetName" type="text" class="form-control form-control-sm" x-model.trim="sheetName" placeholder="정규화데이터" aria-label="가져올 시트명" />
+              <div class="form-text">CSV는 시트 개념이 없어 무시됩니다.</div>
+            </div>
+            <div class="d-flex flex-column" style="max-width:130px">
+              <label for="headerRow" class="form-label small mb-1">헤더 행 번호</label>
+              <input id="headerRow" type="number" class="form-control form-control-sm" min="1" step="1" x-model.number="headerRow" aria-label="헤더 행 번호" />
+              <div class="form-text">CSV는 보통 1행</div>
+            </div>
+            <div class="d-flex flex-column justify-content-end">
+              <button type="button" class="btn btn-outline-secondary btn-sm" @click="openMappingModal()" :disabled="!rawHeaders.length">컬럼 매핑</button>
+              <button type="button" class="btn btn-primary btn-sm mt-2" @click="exportPrintReport()" :disabled="!rows.length">인쇄 / PDF</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main class="container py-3">
+      <div class="layout">
+
+        <!-- Left: Filter panel -->
+        <aside class="left-panel">
+          <div class="card p-3 mb-3">
+            <div class="d-flex justify-content-between align-items-center">
+              <div class="section-title">분석 조건(필터)</div>
+              <button class="btn btn-sm btn-outline-secondary no-print" type="button" @click="resetFilters()">초기화</button>
+            </div>
+            <hr class="my-2" />
+
+            <form aria-label="분석 조건" @submit.prevent="calculate()">
+              <div class="row g-2">
+                <div class="col-6">
+                  <label for="dateFrom" class="form-label">조회 시작일</label>
+                  <input id="dateFrom" type="date" class="form-control" x-model="filters.dateFrom" />
+                </div>
+                <div class="col-6">
+                  <label for="dateTo" class="form-label">조회 종료일</label>
+                  <input id="dateTo" type="date" class="form-control" x-model="filters.dateTo" />
+                </div>
+
+                <div class="col-6">
+                  <label for="groupBy" class="form-label">집계 기준</label>
+                  <select id="groupBy" class="form-select" x-model="filters.groupBy">
+                    <option value="일">일</option>
+                    <option value="주">주</option>
+                    <option value="월">월</option>
+                    <option value="분기">분기</option>
+                    <option value="연">연</option>
+                  </select>
+                </div>
+
+                <div class="col-6">
+                  <label for="topN" class="form-label">상위 N개 표시</label>
+                  <input id="topN" type="number" class="form-control" min="1" max="100" step="1" x-model.number="filters.topN" />
+                </div>
+
+                <div class="col-6">
+                  <label for="dimension1" class="form-label">분석 항목 1</label>
+                  <select id="dimension1" class="form-select" x-model="filters.dimension1">
+                    <template x-for="d in availableDimensions" :key="d.value">
+                      <option :value="d.value" x-text="d.label"></option>
+                    </template>
+                  </select>
+                </div>
+
+                <div class="col-6">
+                  <label for="dimension2" class="form-label">분석 항목 2(선택)</label>
+                  <select id="dimension2" class="form-select" x-model="filters.dimension2">
+                    <option value="">(없음)</option>
+                    <template x-for="d in availableDimensions" :key="d.value">
+                      <option :value="d.value" x-text="d.label"></option>
+                    </template>
+                  </select>
+                </div>
+
+                <div class="col-12">
+                  <div class="form-check mt-1">
+                    <input id="includeTax" class="form-check-input" type="checkbox" x-model="filters.includeTax" />
+                    <label for="includeTax" class="form-check-label">부가세 포함</label>
+                  </div>
+                  <div class="form-text">매출액 컬럼이 없고 공급가+세액이 있는 경우에 적용됩니다.</div>
+                </div>
+
+                <div class="col-12 no-print">
+                  <button type="submit" class="btn btn-primary w-100" :disabled="!rows.length || !isMappingValid">집계 적용</button>
+                </div>
+              </div>
+            </form>
+
+            <hr class="my-3" />
+
+            <div aria-label="데이터 품질 경고" class="small">
+              <div class="d-flex justify-content-between align-items-center">
+                <span class="text-muted">누락/파싱 이슈</span>
+                <span class="pill" :class="warnings.total>0 ? 'border-warning' : ''">
+                  <span class="status-dot" :class="warnings.total>0 ? 'status-warn' : 'status-ok'"></span>
+                  <span x-text="warnings.total>0 ? (warnings.total+'건') : '없음'"></span>
+                </span>
+              </div>
+              <template x-if="warnings.total>0">
+                <ul class="mt-2 mb-0 text-muted">
+                  <li>날짜 누락/파싱 실패: <strong x-text="warnings.badDate"></strong></li>
+                  <li>금액 누락/파싱 실패: <strong x-text="warnings.badSales"></strong></li>
+                  <li>수량 누락/파싱 실패: <strong x-text="warnings.badQty"></strong></li>
+                </ul>
+              </template>
+            </div>
+          </div>
+
+          <!-- Raw table controls -->
+          <div class="card p-3">
+            <div class="d-flex justify-content-between align-items-center">
+              <div class="section-title">정규화 데이터(원본)</div>
+              <div class="pill">
+                <span class="status-dot" :class="rows.length? 'status-ok':'status-err'"></span>
+                <span x-text="rows.length ? '적재됨' : '미적재'"></span>
+              </div>
+            </div>
+            <div class="row g-2 mt-1 no-print">
+              <div class="col-7">
+                <label for="globalSearch" class="form-label">전체 검색</label>
+                <input id="globalSearch" type="text" class="form-control" x-model.trim="table.globalSearch" placeholder="거래처/품목/메모 등" />
+              </div>
+              <div class="col-5">
+                <label for="pageSize" class="form-label">페이지 크기</label>
+                <select id="pageSize" class="form-select" x-model.number="table.pageSize">
+                  <option :value="20">20</option>
+                  <option :value="50">50</option>
+                  <option :value="100">100</option>
+                  <option :value="200">200</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="d-flex justify-content-between mt-2 small text-muted">
+              <div>총 행 수: <strong x-text="rowCount"></strong></div>
+              <div>총 컬럼 수: <strong x-text="columnCount"></strong></div>
+            </div>
+          </div>
+        </aside>
+
+        <!-- Right: Dashboard -->
+        <div>
+          <section class="card p-3 mb-3" aria-labelledby="sec-kpi">
+            <div class="d-flex justify-content-between align-items-center">
+              <h2 id="sec-kpi" class="section-title mb-0">매출 요약 KPI</h2>
+              <div class="text-muted small">필터 기준으로 자동 갱신</div>
+            </div>
+            <hr class="my-2" />
+
+            <div class="kpi-grid">
+              <div class="kpi-card">
+                <div class="kpi-label">총 매출액</div>
+                <div class="kpi-value" :class="kpis.totalSales<0?'num-negative':''" x-text="formatCurrency(kpis.totalSales)"></div>
+              </div>
+              <div class="kpi-card">
+                <div class="kpi-label">총 수량</div>
+                <div class="kpi-value" x-text="formatNumber(kpis.totalQty)"></div>
+              </div>
+              <div class="kpi-card">
+                <div class="kpi-label">거래 건수</div>
+                <div class="kpi-value" x-text="formatNumber(kpis.orderCount)"></div>
+              </div>
+              <div class="kpi-card">
+                <div class="kpi-label">건당 평균 매출</div>
+                <div class="kpi-value" x-text="formatCurrency(kpis.avgSales)"></div>
+              </div>
+            </div>
+
+            <div class="mt-2 small text-muted" aria-live="polite" x-text="ariaStatus"></div>
+          </section>
+
+          <section class="card p-3 mb-3" aria-labelledby="sec-trend">
+            <div class="d-flex justify-content-between align-items-center">
+              <h2 id="sec-trend" class="section-title mb-0">추이 차트 및 상위 항목</h2>
+              <div class="d-flex gap-2 no-print">
+                <button class="btn btn-sm btn-outline-secondary" type="button" @click="downloadSeriesCSV()" :disabled="!seriesSalesByPeriod.length">시계열 CSV</button>
+                <button class="btn btn-sm btn-outline-secondary" type="button" @click="downloadTopCSV()" :disabled="!topByDimension1.length">상위목록 CSV</button>
+              </div>
+            </div>
+            <hr class="my-2" />
+
+            <div class="row g-3">
+              <div class="col-12 col-xl-7">
+                <div class="card chart-card">
+                  <div class="d-flex justify-content-between align-items-center mb-2">
+                    <div class="fw-semibold">기간별 매출 추이</div>
+                    <div class="chart-legend">
+                      <span>기준: <strong x-text="filters.groupBy"></strong></span>
+                      <span>버킷: <strong x-text="seriesSalesByPeriod.length"></strong></span>
                     </div>
-                    <div class="card-body">
-                        <div class="chart-container">
-                            <canvas id="salesChart"></canvas>
+                  </div>
+                  <svg class="chart-area" role="img" aria-label="기간별 매출 추이 차트" :viewBox="'0 0 '+chart.w+' '+chart.h" preserveAspectRatio="none">
+                    <rect x="0" y="0" :width="chart.w" :height="chart.h" fill="#fff" />
+                    <g>
+                      <line :x1="chart.pad" :y1="chart.h-chart.pad" :x2="chart.w-chart.pad" :y2="chart.h-chart.pad" stroke="#111" stroke-width="1" />
+                      <line :x1="chart.pad" :y1="chart.pad" :x2="chart.pad" :y2="chart.h-chart.pad" stroke="#111" stroke-width="1" />
+                    </g>
+                    <polyline :points="seriesPolyline" fill="none" stroke="#111" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" />
+                    <g x-show="seriesSalesByPeriod.length">
+                      <template x-for="(p, idx) in seriesSalesByPeriod" :key="p.key">
+                        <g>
+                          <circle :cx="pointX(idx)" :cy="pointY(p.sales)" r="2.5" fill="#111" />
+                        </g>
+                      </template>
+                    </g>
+                  </svg>
+                  <div class="sr-only" id="trendAltText" x-text="seriesAltText"></div>
+                </div>
+              </div>
+
+              <div class="col-12 col-xl-5">
+                <div class="card p-0">
+                  <div class="p-3 d-flex justify-content-between align-items-center">
+                    <div class="fw-semibold" x-text="'분석 항목 1 상위 목록: ' + dimensionLabel(filters.dimension1)"></div>
+                    <div class="text-muted small">상위 <span x-text="filters.topN"></span></div>
+                  </div>
+                  <div class="table-wrap">
+                    <table class="table table-sm mb-0">
+                      <thead>
+                        <tr>
+                          <th scope="col">항목</th>
+                          <th scope="col" class="text-end">매출액</th>
+                          <th scope="col" class="text-end">비중</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <template x-if="!topByDimension1.length">
+                          <tr><td colspan="3" class="text-muted p-3">집계 결과가 없습니다.</td></tr>
+                        </template>
+                        <template x-for="r in topByDimension1" :key="r.key">
+                          <tr>
+                            <td><span class="cell-ellipsis" :title="r.key" x-text="r.key"></span></td>
+                            <td class="text-end" x-text="formatCurrency(r.sales)"></td>
+                            <td class="text-end" x-text="formatPercent((r.sales/(kpis.totalSales||1))*100, 1)"></td>
+                          </tr>
+                        </template>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+
+              <div class="col-12">
+                <div class="card p-0">
+                  <div class="p-3 d-flex justify-content-between align-items-center">
+                    <div class="fw-semibold">교차 분석(선택)</div>
+                    <div class="text-muted small">dimension1 × dimension2</div>
+                  </div>
+                  <div class="p-3 pt-0 text-muted small" x-show="!filters.dimension2">분석 항목 2를 선택하면 교차 분석 표가 표시됩니다.</div>
+                  <div class="table-wrap" x-show="filters.dimension2">
+                    <table class="table table-sm mb-0" aria-label="교차 분석 테이블">
+                      <thead>
+                        <tr>
+                          <th scope="col" x-text="dimensionLabel(filters.dimension1)"></th>
+                          <template x-for="c in cross.cols" :key="c">
+                            <th scope="col" class="text-end" x-text="c"></th>
+                          </template>
+                          <th scope="col" class="text-end">합계</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <template x-if="!cross.rows.length">
+                          <tr><td :colspan="(cross.cols.length+2)" class="text-muted p-3">집계 결과가 없습니다.</td></tr>
+                        </template>
+                        <template x-for="r in cross.rows" :key="r.key">
+                          <tr>
+                            <th scope="row"><span class="cell-ellipsis" :title="r.key" x-text="r.key"></span></th>
+                            <template x-for="c in cross.cols" :key="c">
+                              <td class="text-end" x-text="formatCurrency(r.values[c]||0)"></td>
+                            </template>
+                            <td class="text-end fw-semibold" x-text="formatCurrency(r.total)"></td>
+                          </tr>
+                        </template>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </section>
+
+          <section class="card p-0" aria-labelledby="sec-raw">
+            <div class="p-3 d-flex justify-content-between align-items-center">
+              <h2 id="sec-raw" class="section-title mb-0">정규화 데이터(원본) 미리보기</h2>
+              <div class="d-flex gap-2 align-items-center">
+                <div class="text-muted small" x-text="'표시: '+formatNumber(pagedRows.length)+' / '+formatNumber(filteredForTable.length)"></div>
+                <div class="no-print">
+                  <button class="btn btn-sm btn-outline-secondary" type="button" @click="prevPage()" :disabled="table.page<=1">이전</button>
+                  <button class="btn btn-sm btn-outline-secondary" type="button" @click="nextPage()" :disabled="(table.page*table.pageSize)>=filteredForTable.length">다음</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="table-wrap">
+              <table class="table table-hover table-sm mb-0" aria-label="정규화 데이터 테이블">
+                <thead>
+                  <tr>
+                    <template x-for="h in visibleHeaders" :key="h">
+                      <th scope="col">
+                        <div class="d-flex align-items-center justify-content-between gap-2">
+                          <span x-text="h"></span>
+                          <button type="button" class="btn btn-link p-0 no-print" style="text-decoration:none" @click="toggleSort(h)" :aria-sort="ariaSort(h)" :title="'정렬: '+h">
+                            <span x-text="sortIndicator(h)"></span>
+                          </button>
                         </div>
-                    </div>
-                </div>
+                      </th>
+                    </template>
+                  </tr>
+                </thead>
+                <tbody>
+                  <template x-if="!pagedRows.length">
+                    <tr><td :colspan="visibleHeaders.length" class="text-muted p-3">표시할 데이터가 없습니다.</td></tr>
+                  </template>
+                  <template x-for="(r, idx) in pagedRows" :key="r._rowId">
+                    <tr>
+                      <template x-for="h in visibleHeaders" :key="h">
+                        <td>
+                          <span class="cell-ellipsis" :title="stringifyCell(r[h])" x-text="stringifyCell(r[h])"></span>
+                        </td>
+                      </template>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
             </div>
-            <!-- 카테고리별 매출 -->
-            <div class="col-md-4">
-                <div class="card">
-                    <div class="card-header bg-white border-0 pt-3">
-                        <h5 class="mb-0">카테고리별 매출</h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="chart-container">
-                            <canvas id="categoryChart"></canvas>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+          </section>
 
-        <div class="row g-4">
-            <!-- 상위 상품 -->
-            <div class="col-md-6">
-                <div class="card">
-                    <div class="card-header bg-white border-0 pt-3">
-                        <h5 class="mb-0">TOP 5 상품</h5>
-                    </div>
-                    <div class="card-body p-0">
-                        <table class="table mb-0">
-                            <thead class="table-light">
-                                <tr><th>순위</th><th>상품명</th><th class="text-end">매출</th><th class="text-end">판매량</th></tr>
-                            </thead>
-                            <tbody>
-                                <template x-for="(product, i) in topProducts" :key="i">
-                                    <tr>
-                                        <td><span class="badge" :class="i < 3 ? 'bg-primary' : 'bg-secondary'" x-text="i+1"></span></td>
-                                        <td x-text="product.name"></td>
-                                        <td class="text-end" x-text="formatCurrency(product.sales)"></td>
-                                        <td class="text-end" x-text="product.qty.toLocaleString()"></td>
-                                    </tr>
-                                </template>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+          <footer class="text-muted small mt-3">
+            <div class="d-flex flex-wrap gap-2 justify-content-between">
+              <div>
+                <span class="me-2">상태:</span>
+                <span class="pill">
+                  <span class="status-dot" :class="isMappingValid ? 'status-ok' : (rows.length ? 'status-warn' : 'status-err')"></span>
+                  <span x-text="statusText"></span>
+                </span>
+              </div>
+              <div x-text="'마지막 집계: ' + (lastCalculatedAt || '-')" class=""></div>
             </div>
-            <!-- 지역별 매출 -->
-            <div class="col-md-6">
-                <div class="card">
-                    <div class="card-header bg-white border-0 pt-3">
-                        <h5 class="mb-0">지역별 매출</h5>
-                    </div>
-                    <div class="card-body p-0">
-                        <table class="table mb-0">
-                            <thead class="table-light">
-                                <tr><th>지역</th><th class="text-end">매출</th><th class="text-end">비중</th><th>추이</th></tr>
-                            </thead>
-                            <tbody>
-                                <template x-for="region in regions" :key="region.name">
-                                    <tr>
-                                        <td x-text="region.name"></td>
-                                        <td class="text-end" x-text="formatCurrency(region.sales)"></td>
-                                        <td class="text-end" x-text="region.share + '%'"></td>
-                                        <td>
-                                            <div class="progress" style="height:6px;width:80px">
-                                                <div class="progress-bar" :style="'width:' + region.share + '%'"></div>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                </template>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
+          </footer>
 
-        <footer class="text-center text-white-50 mt-4 small">원본: 엑셀 매출분석 대시보드 양식 v1.0.xlsx</footer>
+        </div>
+      </div>
+    </main>
+
+    <!-- Column mapping modal (simple) -->
+    <div class="modal fade" id="mappingModal" tabindex="-1" aria-labelledby="mappingModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="mappingModalLabel">컬럼 매핑(자동 추정 후 확인)</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기"></button>
+          </div>
+          <div class="modal-body">
+            <div class="alert alert-warning" role="alert" x-show="!isMappingValid">
+              필수 컬럼이 매핑되지 않았습니다. <strong>날짜</strong>와 <strong>매출액(또는 공급가)</strong>는 반드시 지정해야 합니다.
+            </div>
+
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label class="form-label">날짜 컬럼(필수)</label>
+                <select class="form-select" x-model="columnMap.dateCol">
+                  <option value="">(선택)</option>
+                  <template x-for="h in rawHeaders" :key="h"><option :value="h" x-text="h"></option></template>
+                </select>
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label">주문/전표ID(선택, 거래 건수 계산용)</label>
+                <select class="form-select" x-model="columnMap.orderIdCol">
+                  <option value="">(선택)</option>
+                  <template x-for="h in rawHeaders" :key="h"><option :value="h" x-text="h"></option></template>
+                </select>
+              </div>
+
+              <div class="col-md-4">
+                <label class="form-label">매출액 컬럼(권장)</label>
+                <select class="form-select" x-model="columnMap.salesCol">
+                  <option value="">(선택)</option>
+                  <template x-for="h in rawHeaders" :key="h"><option :value="h" x-text="h"></option></template>
+                </select>
+              </div>
+
+              <div class="col-md-4">
+                <label class="form-label">공급가 컬럼(대안)</label>
+                <select class="form-select" x-model="columnMap.supplyCol">
+                  <option value="">(선택)</option>
+                  <template x-for="h in rawHeaders" :key="h"><option :value="h" x-text="h"></option></template>
+                </select>
+              </div>
+
+              <div class="col-md-4">
+                <label class="form-label">세액(VAT) 컬럼(선택)</label>
+                <select class="form-select" x-model="columnMap.taxCol">
+                  <option value="">(선택)</option>
+                  <template x-for="h in rawHeaders" :key="h"><option :value="h" x-text="h"></option></template>
+                </select>
+              </div>
+
+              <div class="col-md-4">
+                <label class="form-label">수량 컬럼(선택)</label>
+                <select class="form-select" x-model="columnMap.qtyCol">
+                  <option value="">(선택)</option>
+                  <template x-for="h in rawHeaders" :key="h"><option :value="h" x-text="h"></option></template>
+                </select>
+              </div>
+
+              <div class="col-md-4">
+                <label class="form-label">거래처 컬럼(권장)</label>
+                <select class="form-select" x-model="columnMap.customerCol">
+                  <option value="">(선택)</option>
+                  <template x-for="h in rawHeaders" :key="h"><option :value="h" x-text="h"></option></template>
+                </select>
+              </div>
+
+              <div class="col-md-4">
+                <label class="form-label">품목 컬럼(권장)</label>
+                <select class="form-select" x-model="columnMap.itemCol">
+                  <option value="">(선택)</option>
+                  <template x-for="h in rawHeaders" :key="h"><option :value="h" x-text="h"></option></template>
+                </select>
+              </div>
+
+              <div class="col-12">
+                <div class="small text-muted">자동 추정된 컬럼 후보는 업로드 데이터의 헤더명(예: 일자/거래일/매출일, 매출액/금액, 공급가/세액, 수량, 거래처, 품목)을 기준으로 설정됩니다.</div>
+              </div>
+            </div>
+
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">닫기</button>
+            <button type="button" class="btn btn-primary" @click="confirmMapping()" :disabled="!columnMap.dateCol || (!columnMap.salesCol && !columnMap.supplyCol)">매핑 적용</button>
+          </div>
+        </div>
+      </div>
     </div>
 
-    <script>
-        function dashboard() {
-            return {
-                period: 'monthly',
-                stats: { totalSales: 158420000, orderCount: 2847, avgOrderValue: 55640, conversionRate: 3.2 },
-                topProducts: [
-                    { name: '프리미엄 노트북', sales: 45200000, qty: 124 },
-                    { name: '무선 이어폰 Pro', sales: 28500000, qty: 856 },
-                    { name: '스마트워치 S5', sales: 21300000, qty: 312 },
-                    { name: '태블릿 Air', sales: 18900000, qty: 189 },
-                    { name: '블루투스 스피커', sales: 12400000, qty: 445 }
-                ],
-                regions: [
-                    { name: '서울', sales: 63400000, share: 40 },
-                    { name: '경기', sales: 38000000, share: 24 },
-                    { name: '부산', sales: 22000000, share: 14 },
-                    { name: '대구', sales: 15800000, share: 10 },
-                    { name: '기타', sales: 19200000, share: 12 }
-                ],
-                formatCurrency(v) { return (v / 10000).toLocaleString() + '만원'; },
-                setPeriod(p) { this.period = p; },
-                init() {
-                    this.$nextTick(() => {
-                        // 매출 추이 차트
-                        new Chart(document.getElementById('salesChart'), {
-                            type: 'line',
-                            data: {
-                                labels: ['1월', '2월', '3월', '4월', '5월', '6월'],
-                                datasets: [{
-                                    label: '매출',
-                                    data: [12500, 14200, 13800, 15600, 16800, 15800],
-                                    borderColor: '#667eea',
-                                    backgroundColor: 'rgba(102,126,234,0.1)',
-                                    fill: true,
-                                    tension: 0.4
-                                }]
-                            },
-                            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
-                        });
-                        // 카테고리 차트
-                        new Chart(document.getElementById('categoryChart'), {
-                            type: 'doughnut',
-                            data: {
-                                labels: ['전자기기', '패션', '식품', '생활용품', '기타'],
-                                datasets: [{ data: [35, 25, 20, 12, 8], backgroundColor: ['#667eea', '#764ba2', '#f093fb', '#f5576c', '#4facfe'] }]
-                            },
-                            options: { responsive: true, maintainAspectRatio: false }
-                        });
-                    });
-                }
-            };
+    <div class="toast-wrap" aria-live="polite" aria-atomic="true">
+      <template x-for="t in toasts" :key="t.id">
+        <div class="alert" :class="t.type==='error' ? 'alert-danger' : (t.type==='warning' ? 'alert-warning' : 'alert-success')" role="status">
+          <div class="d-flex justify-content-between gap-2">
+            <div x-text="t.msg"></div>
+            <button class="btn-close" type="button" aria-label="닫기" @click="removeToast(t.id)"></button>
+          </div>
+        </div>
+      </template>
+    </div>
+
+  </div>
+
+  <!-- Bootstrap JS for modal (allowed: only Bootstrap CSS + Alpine in requirement, but modal needs JS. We'll implement minimal modal without bootstrap JS.) -->
+  <script>
+    // Minimal modal helper (no Bootstrap JS dependency)
+    function openModal(id){
+      const el = document.getElementById(id);
+      if(!el) return;
+      el.classList.add('show');
+      el.style.display='block';
+      el.removeAttribute('aria-hidden');
+      el.setAttribute('aria-modal','true');
+      el.setAttribute('role','dialog');
+      document.body.classList.add('modal-open');
+      const backdrop = document.createElement('div');
+      backdrop.className='modal-backdrop fade show';
+      backdrop.dataset.forModal=id;
+      document.body.appendChild(backdrop);
+
+      const close = (ev)=>{
+        if(ev.target.closest('[data-bs-dismiss="modal"], .btn-close') || ev.target === backdrop){
+          closeModal(id);
         }
-    </script>
+      };
+      el.__closeHandler = close;
+      el.addEventListener('click', close);
+      document.addEventListener('keydown', el.__escHandler = (e)=>{ if(e.key==='Escape') closeModal(id);});
+
+      // Focus first control
+      setTimeout(()=>{
+        const first = el.querySelector('select, button, input, [tabindex]:not([tabindex="-1"])');
+        if(first) first.focus();
+      }, 0);
+    }
+
+    function closeModal(id){
+      const el = document.getElementById(id);
+      if(!el) return;
+      el.classList.remove('show');
+      el.style.display='none';
+      el.setAttribute('aria-hidden','true');
+      el.removeAttribute('aria-modal');
+      document.body.classList.remove('modal-open');
+      const bd = document.querySelector(`.modal-backdrop[data-for-modal="${id}"]`);
+      if(bd) bd.remove();
+      if(el.__closeHandler) el.removeEventListener('click', el.__closeHandler);
+      if(el.__escHandler) document.removeEventListener('keydown', el.__escHandler);
+    }
+  </script>
+
+  <script>
+    // Excel formula helper functions (included as requested)
+    function _sum(...args) {
+        return args.flat().reduce((a, b) => (parseFloat(a) || 0) + (parseFloat(b) || 0), 0);
+    }
+
+    function _sumRange(rangeData) {
+        if (Array.isArray(rangeData)) {
+            return rangeData.flat().reduce((a, b) => (parseFloat(a) || 0) + (parseFloat(b) || 0), 0);
+        }
+        return parseFloat(rangeData) || 0;
+    }
+
+    function _average(...args) {
+        const flat = args.flat().filter(x => x !== null && x !== '' && !isNaN(x));
+        return flat.length ? _sum(...flat) / flat.length : 0;
+    }
+
+    function _averageRange(rangeData) {
+        if (Array.isArray(rangeData)) {
+            const flat = rangeData.flat().filter(x => x !== null && x !== '' && !isNaN(x));
+            return flat.length ? _sumRange(flat) / flat.length : 0;
+        }
+        return parseFloat(rangeData) || 0;
+    }
+
+    function _count(...args) {
+        return args.flat().filter(x => typeof x === 'number' && !isNaN(x)).length;
+    }
+
+    function _counta(...args) {
+        return args.flat().filter(x => x !== null && x !== '' && x !== undefined).length;
+    }
+
+    function _and(...args) {
+        return args.every(x => Boolean(x));
+    }
+
+    function _or(...args) {
+        return args.some(x => Boolean(x));
+    }
+
+    function _round(num, digits = 0) {
+        const factor = Math.pow(10, digits);
+        return Math.round(num * factor) / factor;
+    }
+
+    function _roundUp(num, digits = 0) {
+        const factor = Math.pow(10, digits);
+        return Math.ceil(num * factor) / factor;
+    }
+
+    function _roundDown(num, digits = 0) {
+        const factor = Math.pow(10, digits);
+        return Math.floor(num * factor) / factor;
+    }
+
+    function _len(text) {
+        return String(text).length;
+    }
+
+    function _left(text, numChars = 1) {
+        return String(text).substring(0, numChars);
+    }
+
+    function _right(text, numChars = 1) {
+        const str = String(text);
+        return str.substring(str.length - numChars);
+    }
+
+    function _mid(text, startNum, numChars) {
+        return String(text).substring(startNum - 1, startNum - 1 + numChars);
+    }
+
+    function _trim(text) {
+        return String(text).trim();
+    }
+
+    function _upper(text) {
+        return String(text).toUpperCase();
+    }
+
+    function _lower(text) {
+        return String(text).toLowerCase();
+    }
+
+    function _concat(...args) {
+        return args.join('');
+    }
+
+    // Number formatting
+    function formatNumber(num, decimals = 0) {
+        return new Intl.NumberFormat('ko-KR', {
+            minimumFractionDigits: decimals,
+            maximumFractionDigits: decimals
+        }).format(num);
+    }
+
+    function formatCurrency(num) {
+        return new Intl.NumberFormat('ko-KR', {
+            style: 'currency',
+            currency: 'KRW',
+            maximumFractionDigits: 0
+        }).format(num);
+    }
+
+    function formatPercent(num, decimals = 1) {
+        return new Intl.NumberFormat('ko-KR', {
+            style: 'percent',
+            minimumFractionDigits: decimals,
+            maximumFractionDigits: decimals
+        }).format(num / 100);
+    }
+
+    // Core app
+    function appData(){
+      return {
+        // Upload controls
+        sheetName: '정규화데이터',
+        headerRow: 2,
+
+        // Data
+        rows: [], // NormalizedRow[] (keeps original keys) + standardized fields
+        rawHeaders: [],
+        columnMap: {
+          dateCol: '',
+          salesCol: '',
+          supplyCol: '',
+          taxCol: '',
+          qtyCol: '',
+          orderIdCol: '',
+          customerCol: '',
+          itemCol: ''
+        },
+
+        // Filters
+        filters: {
+          dateFrom: '',
+          dateTo: '',
+          groupBy: '월',
+          dimension1: 'customer',
+          dimension2: '',
+          topN: 10,
+          includeTax: true
+        },
+
+        // Table state
+        table: {
+          globalSearch: '',
+          pageSize: 50,
+          page: 1,
+          sort: { key: '', dir: 'asc' }
+        },
+
+        // Outputs
+        kpis: { totalSales: 0, totalQty: 0, orderCount: 0, avgSales: 0 },
+        seriesSalesByPeriod: [], // {key, sales, qty, count}
+        topByDimension1: [], // {key, sales, qty, count}
+        cross: { cols: [], rows: [] },
+
+        warnings: { badDate: 0, badSales: 0, badQty: 0, total: 0 },
+
+        // UI
+        ariaStatus: '',
+        lastCalculatedAt: '',
+        toasts: [],
+
+        chart: { w: 760, h: 240, pad: 28 },
+
+        init(){
+          // set reasonable defaults
+          const now = new Date();
+          const first = new Date(now.getFullYear(), now.getMonth(), 1);
+          this.filters.dateFrom = this.toISODate(first);
+          this.filters.dateTo = this.toISODate(now);
+
+          // Recalculate on filter changes (debounced)
+          const debounced = this.debounce(() => this.calculate(), 200);
+          this.$watch('filters', () => { if(this.rows.length && this.isMappingValid) debounced(); }, { deep:true });
+          this.$watch('table.globalSearch', () => { this.table.page = 1; }, { deep:false });
+          this.$watch('table.pageSize', () => { this.table.page = 1; }, { deep:false });
+        },
+
+        // Derived UI lists
+        get rowCount(){ return this.rows.length; },
+        get columnCount(){ return this.rawHeaders.length; },
+
+        get statusText(){
+          if(!this.rows.length) return '데이터를 업로드하세요.';
+          if(!this.isMappingValid) return '컬럼 매핑이 필요합니다.';
+          return '정상';
+        },
+
+        get isMappingValid(){
+          return Boolean(this.columnMap.dateCol) && (Boolean(this.columnMap.salesCol) || Boolean(this.columnMap.supplyCol));
+        },
+
+        get availableDimensions(){
+          // internal standardized dimension keys
+          const list = [
+            { value:'customer', label:'거래처' },
+            { value:'item', label:'품목' },
+          ];
+          // Add original columns as optional dimensions too
+          const extras = this.rawHeaders
+            .filter(h => !this.isSystemHeader(h))
+            .slice(0, 40)
+            .map(h => ({ value: 'orig:' + h, label: '원본: ' + h }));
+          return list.concat(extras);
+        },
+
+        dimensionLabel(dim){
+          const found = this.availableDimensions.find(d => d.value === dim);
+          return found ? found.label : (dim || '(없음)');
+        },
+
+        isSystemHeader(h){
+          return ['_date','_sales','_qty','_customer','_item','_orderId','_rowId','_periodKey'].includes(h);
+        },
+
+        get visibleHeaders(){
+          // show standardized + first N raw headers
+          const base = this.rawHeaders.slice(0, 10);
+          // prefer showing mapped columns first
+          const mapped = [this.columnMap.dateCol, this.columnMap.salesCol, this.columnMap.supplyCol, this.columnMap.taxCol, this.columnMap.qtyCol, this.columnMap.customerCol, this.columnMap.itemCol]
+            .filter(Boolean);
+          const uniq = [...new Set([...mapped, ...base])].filter(Boolean);
+          return uniq.length ? uniq : this.rawHeaders.slice(0, 12);
+        },
+
+        // Table filtered/paged view
+        get filteredForTable(){
+          let arr = this.rows;
+          const q = (this.table.globalSearch || '').trim().toLowerCase();
+          if(q){
+            arr = arr.filter(r => {
+              for(const h of this.rawHeaders){
+                const v = r[h];
+                if(v==null) continue;
+                if(String(v).toLowerCase().includes(q)) return true;
+              }
+              return false;
+            });
+          }
+
+          // Sort
+          if(this.table.sort.key){
+            const { key, dir } = this.table.sort;
+            const sign = dir==='asc' ? 1 : -1;
+            arr = [...arr].sort((a,b) => {
+              const va = a[key];
+              const vb = b[key];
+              const na = this.toNumber(va, null);
+              const nb = this.toNumber(vb, null);
+              if(na!=null && nb!=null) return (na-nb)*sign;
+              return String(va ?? '').localeCompare(String(vb ?? ''), 'ko')*sign;
+            });
+          }
+
+          return arr;
+        },
+
+        get pagedRows(){
+          const start = (this.table.page-1)*this.table.pageSize;
+          return this.filteredForTable.slice(start, start+this.table.pageSize);
+        },
+
+        prevPage(){ this.table.page = Math.max(1, this.table.page-1); },
+        nextPage(){
+          const maxPage = Math.max(1, Math.ceil(this.filteredForTable.length / this.table.pageSize));
+          this.table.page = Math.min(maxPage, this.table.page+1);
+        },
+
+        toggleSort(h){
+          if(this.table.sort.key !== h){
+            this.table.sort = { key: h, dir: 'asc' };
+          } else {
+            this.table.sort.dir = this.table.sort.dir === 'asc' ? 'desc' : 'asc';
+          }
+        },
+
+        ariaSort(h){
+          if(this.table.sort.key !== h) return 'none';
+          return this.table.sort.dir === 'asc' ? 'ascending' : 'descending';
+        },
+
+        sortIndicator(h){
+          if(this.table.sort.key !== h) return '↕';
+          return this.table.sort.dir === 'asc' ? '↑' : '↓';
+        },
+
+        stringifyCell(v){
+          if(v==null) return '';
+          if(v instanceof Date) return this.toISODate(v);
+          return String(v);
+        },
+
+        // --- File handling ---
+        async onFileChange(evt){
+          const file = evt.target.files?.[0];
+          if(!file) return;
+          try{
+            await this.loadWorkbookData(file, this.sheetName, this.headerRow);
+            this.toast('success', `데이터를 불러왔습니다: ${file.name} (${formatNumber(this.rows.length)}행)`);
+            // infer mapping
+            const inferred = this.inferAndMapColumns(this.rawHeaders);
+            this.columnMap = { ...this.columnMap, ...inferred };
+
+            // Open mapping if invalid
+            if(!this.isMappingValid){
+              this.toast('warning', '필수 컬럼 매핑이 필요합니다. "컬럼 매핑"에서 확인하세요.');
+              this.openMappingModal();
+            } else {
+              this.normalizeRows();
+              this.calculate();
+            }
+          }catch(e){
+            console.error(e);
+            this.toast('error', '파일을 불러오는 중 오류가 발생했습니다. CSV 형식/인코딩을 확인하세요.');
+          } finally {
+            evt.target.value = '';
+          }
+        },
+
+        // Required function: loadWorkbookData(file, sheetName, headerRow)
+        async loadWorkbookData(file, sheetName, headerRow){
+          // Note: No external deps allowed. This implementation supports CSV only.
+          const text = await file.text();
+          const { headers, rows } = this.parseCSV(text);
+          this.rawHeaders = headers;
+          this.rows = rows.map((r, idx) => ({ ...r, _rowId: idx+1 }));
+          this.table.page = 1;
+        },
+
+        parseCSV(text){
+          // Basic RFC4180-ish parser (supports quotes, commas, CRLF)
+          const s = text.replace(/\uFEFF/g,'');
+          const lines = [];
+          let cur = '';
+          let inQuotes = false;
+          for(let i=0;i<s.length;i++){
+            const ch = s[i];
+            const next = s[i+1];
+            if(ch==='"'){
+              if(inQuotes && next==='"'){
+                cur += '"';
+                i++;
+              } else {
+                inQuotes = !inQuotes;
+              }
+            } else if(!inQuotes && (ch==='\n')){
+              lines.push(cur);
+              cur='';
+            } else if(!inQuotes && ch==='\r'){
+              // ignore
+            } else {
+              cur += ch;
+            }
+          }
+          if(cur.length) lines.push(cur);
+
+          const splitLine = (line)=>{
+            const out=[];
+            let c='';
+            let q=false;
+            for(let i=0;i<line.length;i++){
+              const ch=line[i];
+              const next=line[i+1];
+              if(ch==='"'){
+                if(q && next==='"'){ c+='"'; i++; }
+                else q=!q;
+              } else if(!q && ch===','){
+                out.push(c);
+                c='';
+              } else c+=ch;
+            }
+            out.push(c);
+            return out;
+          };
+
+          if(!lines.length) return { headers:[], rows:[] };
+
+          const header = splitLine(lines[0]).map(h => h.trim()).filter(h=>h!== '');
+          const headers = header.length ? header : splitLine(lines[0]).map((_,i)=>`열${i+1}`);
+
+          const rows = [];
+          for(let i=1;i<lines.length;i++){
+            if(!lines[i].trim()) continue;
+            const cols = splitLine(lines[i]);
+            const obj = {};
+            for(let j=0;j<headers.length;j++) obj[headers[j]] = (cols[j] ?? '').trim();
+            rows.push(obj);
+          }
+          return { headers, rows };
+        },
+
+        // Required function: inferAndMapColumns(headers)
+        inferAndMapColumns(headers){
+          const pick = (preds)=>{
+            for(const h of headers){
+              const hl = h.toLowerCase();
+              for(const p of preds){
+                if(typeof p === 'string'){
+                  if(hl.includes(p)) return h;
+                } else if(p instanceof RegExp){
+                  if(p.test(hl)) return h;
+                }
+              }
+            }
+            return '';
+          };
+
+          const dateCol = pick(['일자','거래일','매출일','date','날짜']);
+          const salesCol = pick(['매출액','매출','금액','amount','합계','총액','판매액']);
+          const supplyCol = pick(['공급가','공급액','net']);
+          const taxCol = pick(['세액','부가세','vat','tax']);
+          const qtyCol = pick(['수량','qty','quantity','수량합']);
+          const orderIdCol = pick(['주문번호','전표','invoice','order','거래번호','문서번호','id']);
+          const customerCol = pick(['거래처','고객','customer','매출처','상호']);
+          const itemCol = pick(['품목','상품','item','제품','sku','품명']);
+
+          return { dateCol, salesCol, supplyCol, taxCol, qtyCol, orderIdCol, customerCol, itemCol };
+        },
+
+        openMappingModal(){
+          if(!this.rawHeaders.length){
+            this.toast('warning','먼저 데이터를 업로드하세요.');
+            return;
+          }
+          openModal('mappingModal');
+        },
+
+        confirmMapping(){
+          closeModal('mappingModal');
+          if(!this.isMappingValid){
+            this.toast('error', '필수 컬럼(날짜 + 매출액/공급가) 매핑이 필요합니다.');
+            return;
+          }
+          this.normalizeRows();
+          this.calculate();
+        },
+
+        normalizeRows(){
+          // attach standardized fields to each row
+          this.warnings = { badDate:0, badSales:0, badQty:0, total:0 };
+
+          for(const r of this.rows){
+            const dt = this.parseDate(r[this.columnMap.dateCol]);
+            if(!dt) this.warnings.badDate++;
+            r._date = dt;
+
+            const sales = this.computeSales(r);
+            if(sales === null) this.warnings.badSales++;
+            r._sales = sales ?? 0;
+
+            const qty = this.columnMap.qtyCol ? this.toNumber(r[this.columnMap.qtyCol], null) : 0;
+            if(this.columnMap.qtyCol && qty === null) this.warnings.badQty++;
+            r._qty = qty ?? 0;
+
+            r._orderId = this.columnMap.orderIdCol ? String(r[this.columnMap.orderIdCol] ?? '').trim() : '';
+            r._customer = this.columnMap.customerCol ? String(r[this.columnMap.customerCol] ?? '').trim() : '';
+            r._item = this.columnMap.itemCol ? String(r[this.columnMap.itemCol] ?? '').trim() : '';
+          }
+          this.warnings.total = this.warnings.badDate + this.warnings.badSales + this.warnings.badQty;
+        },
+
+        computeSales(r){
+          // Return null if can't parse any
+          if(this.columnMap.salesCol){
+            const v = this.toNumber(r[this.columnMap.salesCol], null);
+            return v;
+          }
+          if(this.columnMap.supplyCol){
+            const supply = this.toNumber(r[this.columnMap.supplyCol], null);
+            if(supply===null) return null;
+            if(this.filters.includeTax && this.columnMap.taxCol){
+              const tax = this.toNumber(r[this.columnMap.taxCol], 0);
+              return (supply ?? 0) + (tax ?? 0);
+            }
+            return supply;
+          }
+          return null;
+        },
+
+        // Required function: applyFilters(rows, filters, columnMap)
+        applyFilters(rows, filters, columnMap){
+          const from = filters.dateFrom ? new Date(filters.dateFrom+'T00:00:00') : null;
+          const to = filters.dateTo ? new Date(filters.dateTo+'T23:59:59') : null;
+
+          const out = [];
+          for(const r of rows){
+            if(!r._date) continue;
+            if(from && r._date < from) continue;
+            if(to && r._date > to) continue;
+            out.push(r);
+          }
+          return out;
+        },
+
+        // Required function: calculateKPIs(filteredRows, filters, columnMap)
+        calculateKPIs(filteredRows, filters, columnMap){
+          let totalSales = 0;
+          let totalQty = 0;
+          let orderCount = 0;
+
+          if(columnMap.orderIdCol){
+            const set = new Set();
+            for(const r of filteredRows){
+              totalSales += (r._sales || 0);
+              totalQty += (r._qty || 0);
+              const id = r._orderId || r._rowId; // fallback
+              set.add(id);
+            }
+            orderCount = set.size;
+          } else {
+            for(const r of filteredRows){
+              totalSales += (r._sales || 0);
+              totalQty += (r._qty || 0);
+            }
+            orderCount = filteredRows.length;
+          }
+
+          const avgSales = orderCount ? totalSales / orderCount : 0;
+          return { totalSales, totalQty, orderCount, avgSales };
+        },
+
+        // Required: aggregateTimeSeries(filteredRows, groupBy, filters, columnMap)
+        aggregateTimeSeries(filteredRows, groupBy, filters, columnMap){
+          const map = new Map();
+          for(const r of filteredRows){
+            const key = this.periodKey(r._date, groupBy);
+            r._periodKey = key;
+            const cur = map.get(key) || { key, sales:0, qty:0, count:0 };
+            cur.sales += (r._sales||0);
+            cur.qty += (r._qty||0);
+            cur.count += 1;
+            map.set(key, cur);
+          }
+          return [...map.values()].sort((a,b)=>a.key.localeCompare(b.key));
+        },
+
+        // Required: aggregateTopN(filteredRows, dimension, topN, filters, columnMap)
+        aggregateTopN(filteredRows, dimension, topN, filters, columnMap){
+          const map = new Map();
+          for(const r of filteredRows){
+            const key = this.dimensionValue(r, dimension) || '(빈값)';
+            const cur = map.get(key) || { key, sales:0, qty:0, count:0 };
+            cur.sales += (r._sales||0);
+            cur.qty += (r._qty||0);
+            cur.count += 1;
+            map.set(key, cur);
+          }
+          return [...map.values()]
+            .sort((a,b)=> (b.sales - a.sales) || a.key.localeCompare(b.key,'ko'))
+            .slice(0, Math.max(1, topN||10));
+        },
+
+        // Required: aggregatePivot(filteredRows, dimension1, dimension2, filters, columnMap)
+        aggregatePivot(filteredRows, dimension1, dimension2, filters, columnMap){
+          if(!dimension2) return { cols: [], rows: [] };
+          const colSet = new Set();
+          const rowMap = new Map();
+
+          for(const r of filteredRows){
+            const rKey = this.dimensionValue(r, dimension1) || '(빈값)';
+            const cKey = this.dimensionValue(r, dimension2) || '(빈값)';
+            colSet.add(cKey);
+            if(!rowMap.has(rKey)) rowMap.set(rKey, { key: rKey, values: {}, total: 0 });
+            const rr = rowMap.get(rKey);
+            rr.values[cKey] = (rr.values[cKey]||0) + (r._sales||0);
+            rr.total += (r._sales||0);
+          }
+
+          const cols = [...colSet.values()].sort((a,b)=>String(a).localeCompare(String(b),'ko')).slice(0, 12); // keep printable
+          const rows = [...rowMap.values()]
+            .map(r => {
+              // limit to selected cols only
+              const values = {};
+              let total = 0;
+              for(const c of cols){
+                values[c] = r.values[c] || 0;
+                total += values[c];
+              }
+              return { key: r.key, values, total };
+            })
+            .sort((a,b)=> (b.total-a.total) || a.key.localeCompare(b.key,'ko'))
+            .slice(0, 30);
+
+          return { cols, rows };
+        },
+
+        // Required: calculate(rows, filters, columnMap)
+        calculate(){
+          if(!this.rows.length) return;
+          if(!this.isMappingValid){
+            this.ariaStatus = '컬럼 매핑이 필요합니다.';
+            return;
+          }
+
+          // Recompute standardized sales if includeTax toggled
+          this.normalizeRows();
+
+          const filtered = this.applyFilters(this.rows, this.filters, this.columnMap);
+          const k = this.calculateKPIs(filtered, this.filters, this.columnMap);
+          const series = this.aggregateTimeSeries(filtered, this.filters.groupBy, this.filters, this.columnMap);
+          const top = this.aggregateTopN(filtered, this.filters.dimension1, this.filters.topN, this.filters, this.columnMap);
+          const cross = this.aggregatePivot(filtered, this.filters.dimension1, this.filters.dimension2, this.filters, this.columnMap);
+
+          this.kpis = k;
+          this.seriesSalesByPeriod = series;
+          this.topByDimension1 = top;
+          this.cross = cross;
+
+          this.lastCalculatedAt = new Date().toLocaleString('ko-KR');
+          this.ariaStatus = `집계 완료: ${formatNumber(filtered.length)}행 기준`;
+        },
+
+        // Required: exportPrintReport(dashboardState)
+        exportPrintReport(){
+          if(!this.rows.length){
+            this.toast('warning','인쇄할 데이터가 없습니다.');
+            return;
+          }
+          if(!this.isMappingValid){
+            this.toast('error','인쇄 전에 컬럼 매핑을 완료하세요.');
+            this.openMappingModal();
+            return;
+          }
+          // Ensure calculation is up-to-date
+          this.calculate();
+          window.print();
+        },
+
+        // --- Helpers ---
+        toast(type, msg){
+          const id = Math.random().toString(36).slice(2);
+          this.toasts.push({ id, type, msg });
+          setTimeout(()=>this.removeToast(id), 5000);
+        },
+        removeToast(id){ this.toasts = this.toasts.filter(t => t.id !== id); },
+
+        toISODate(d){
+          const x = new Date(d);
+          const y = x.getFullYear();
+          const m = String(x.getMonth()+1).padStart(2,'0');
+          const day = String(x.getDate()).padStart(2,'0');
+          return `${y}-${m}-${day}`;
+        },
+
+        parseDate(v){
+          if(v==null) return null;
+          const s = String(v).trim();
+          if(!s) return null;
+          // Try ISO or common Korean formats
+          let d = null;
+          if(/^\d{4}-\d{2}-\d{2}/.test(s)) d = new Date(s);
+          else if(/^\d{4}\.\d{2}\.\d{2}/.test(s)) d = new Date(s.replaceAll('.','-'));
+          else if(/^\d{4}\/\d{2}\/\d{2}/.test(s)) d = new Date(s.replaceAll('/','-'));
+          else {
+            // Excel serial number possibility in CSV
+            const n = this.toNumber(s, null);
+            if(n!=null && n>20000 && n<90000){
+              // Excel serial (1900 date system)
+              d = new Date(Date.UTC(1899,11,30) + n*86400000);
+            } else {
+              const dd = new Date(s);
+              if(!isNaN(dd)) d = dd;
+            }
+          }
+          if(!d || isNaN(d)) return null;
+          return d;
+        },
+
+        toNumber(v, fallback=0){
+          if(v==null) return fallback;
+          if(typeof v === 'number' && !isNaN(v)) return v;
+          let s = String(v).trim();
+          if(!s) return fallback;
+          // remove currency/commas
+          s = s.replace(/[₩,\s]/g,'');
+          // handle parentheses for negatives
+          if(/^\(.*\)$/.test(s)) s = '-' + s.slice(1,-1);
+          const n = Number(s);
+          return isNaN(n) ? fallback : n;
+        },
+
+        periodKey(date, groupBy){
+          const d = new Date(date);
+          const y = d.getFullYear();
+          const m = d.getMonth()+1;
+          const dd = d.getDate();
+          if(groupBy==='일') return `${y}-${String(m).padStart(2,'0')}-${String(dd).padStart(2,'0')}`;
+          if(groupBy==='월') return `${y}-${String(m).padStart(2,'0')}`;
+          if(groupBy==='연') return `${y}`;
+          if(groupBy==='분기'){
+            const q = Math.floor((m-1)/3)+1;
+            return `${y}-Q${q}`;
+          }
+          if(groupBy==='주'){
+            // ISO week
+            const tmp = new Date(Date.UTC(y, d.getMonth(), dd));
+            const dayNum = tmp.getUTCDay() || 7;
+            tmp.setUTCDate(tmp.getUTCDate() + 4 - dayNum);
+            const yearStart = new Date(Date.UTC(tmp.getUTCFullYear(),0,1));
+            const weekNo = Math.ceil((((tmp - yearStart) / 86400000) + 1)/7);
+            return `${tmp.getUTCFullYear()}-W${String(weekNo).padStart(2,'0')}`;
+          }
+          return `${y}-${String(m).padStart(2,'0')}`;
+        },
+
+        dimensionValue(r, dim){
+          if(!dim) return '';
+          if(dim==='customer') return r._customer;
+          if(dim==='item') return r._item;
+          if(dim.startsWith('orig:')){
+            const h = dim.slice(5);
+            return String(r[h] ?? '').trim();
+          }
+          return '';
+        },
+
+        resetFilters(){
+          const now = new Date();
+          const first = new Date(now.getFullYear(), now.getMonth(), 1);
+          this.filters = {
+            dateFrom: this.toISODate(first),
+            dateTo: this.toISODate(now),
+            groupBy: '월',
+            dimension1: 'customer',
+            dimension2: '',
+            topN: 10,
+            includeTax: true
+          };
+          this.calculate();
+        },
+
+        debounce(fn, ms){
+          let t=null;
+          return (...args)=>{
+            clearTimeout(t);
+            t=setTimeout(()=>fn.apply(this,args), ms);
+          };
+        },
+
+        // Chart helpers
+        get seriesAltText(){
+          if(!this.seriesSalesByPeriod.length) return '표시할 시계열 데이터가 없습니다.';
+          const first = this.seriesSalesByPeriod[0];
+          const last = this.seriesSalesByPeriod[this.seriesSalesByPeriod.length-1];
+          const max = this.seriesSalesByPeriod.reduce((a,b)=> a.sales>b.sales?a:b);
+          return `기간 ${first.key}부터 ${last.key}까지 ${this.seriesSalesByPeriod.length}구간. 최대 매출은 ${max.key}의 ${formatCurrency(max.sales)} 입니다.`;
+        },
+
+        get seriesPolyline(){
+          const s = this.seriesSalesByPeriod;
+          if(!s.length) return '';
+          return s.map((p, idx)=> `${this.pointX(idx)},${this.pointY(p.sales)}`).join(' ');
+        },
+
+        pointX(idx){
+          const n = Math.max(1, this.seriesSalesByPeriod.length-1);
+          const w = this.chart.w - this.chart.pad*2;
+          return this.chart.pad + (idx/n)*w;
+        },
+
+        pointY(value){
+          const s = this.seriesSalesByPeriod;
+          const max = Math.max(1, ...s.map(x=>x.sales));
+          const h = this.chart.h - this.chart.pad*2;
+          const y = this.chart.pad + (1-(value/max))*h;
+          return y;
+        },
+
+        // Downloads
+        downloadSeriesCSV(){
+          const rows = this.seriesSalesByPeriod.map(r => ({ period: r.key, sales: r.sales, qty: r.qty, count: r.count }));
+          this.downloadCSV(rows, 'sales_series.csv');
+        },
+        downloadTopCSV(){
+          const rows = this.topByDimension1.map(r => ({ key: r.key, sales: r.sales, qty: r.qty, count: r.count }));
+          this.downloadCSV(rows, 'top_dimension.csv');
+        },
+        downloadCSV(rows, filename){
+          if(!rows.length){ this.toast('warning','다운로드할 데이터가 없습니다.'); return; }
+          const headers = Object.keys(rows[0]);
+          const esc = (v)=>{
+            const s = String(v ?? '');
+            if(/[\",\n]/.test(s)) return '"'+s.replaceAll('"','""')+'"';
+            return s;
+          };
+          const csv = [headers.join(','), ...rows.map(r => headers.map(h=>esc(r[h])).join(','))].join('\n');
+          const blob = new Blob([csv], { type:'text/csv;charset=utf-8;' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = filename;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          URL.revokeObjectURL(url);
+        },
+
+        // expose formatters to template
+        formatNumber,
+        formatCurrency,
+        formatPercent
+      }
+    }
+  </script>
 </body>
 </html>

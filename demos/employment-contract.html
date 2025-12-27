@@ -1,156 +1,1024 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>표준 근로계약서</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-    <style>
-        body { font-family: 'Noto Sans KR', sans-serif; background: #f9f9f9; }
-        .contract-container { max-width: 800px; margin: 2rem auto; }
-        .contract-paper { background: white; padding: 3rem; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        .contract-title { text-align: center; font-size: 1.75rem; font-weight: bold; margin-bottom: 2rem; letter-spacing: 0.3rem; }
-        .section-title { font-weight: bold; background: #f0f0f0; padding: 0.5rem; margin: 1.5rem 0 1rem; }
-        .form-row { display: flex; align-items: center; margin-bottom: 0.75rem; }
-        .form-row label { min-width: 120px; font-weight: 500; }
-        .form-row input, .form-row select { flex: 1; }
-        .signature-section { margin-top: 3rem; }
-        .signature-box { border: 1px solid #ddd; padding: 1rem; margin-bottom: 1rem; }
-        @media print { body { background: white; } .contract-paper { box-shadow: none; padding: 0; } .no-print { display: none !important; } @page { size: A4; margin: 20mm; } }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>표준 근로계약서 작성/출력</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <style>
+    :root{
+      --app-bg:#f6f7fb;
+      --panel-bg:#ffffff;
+      --border:#d7dbe3;
+      --muted:#6b7280;
+      --ink:#111827;
+      --excel-line:#2f2f2f;
+      --a4-w:210mm;
+      --a4-h:297mm;
+      --a4-margin-top:19mm;
+      --a4-margin-bottom:19mm;
+      --a4-margin-left:18mm;
+      --a4-margin-right:18mm;
+      --doc-font: "Noto Sans KR", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+      --doc-font-size: 11.5pt;
+      --doc-line-height: 1.35;
+    }
+
+    body{background:var(--app-bg); color:var(--ink); font-family:var(--doc-font);}
+
+    .app-header{position:sticky; top:0; z-index:10; background:rgba(246,247,251,0.92); backdrop-filter: blur(6px); border-bottom:1px solid rgba(0,0,0,0.06);}    
+    .card-panel{background:var(--panel-bg); border:1px solid var(--border); border-radius:12px;}
+
+    .section-title{font-size:0.95rem; font-weight:700;}
+    .help-text{color:var(--muted); font-size:0.85rem;}
+
+    .form-label.required::after{content:" *"; color:#dc2626; font-weight:700;}
+    .error-text{color:#dc2626; font-size:0.85rem;}
+
+    /* A4 preview */
+    .preview-shell{display:flex; justify-content:center; align-items:flex-start; padding:10px;}
+    .a4{
+      width: var(--a4-w);
+      min-height: var(--a4-h);
+      background:#fff;
+      border:1px solid var(--border);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+      transform-origin: top center;
+    }
+    .a4-inner{
+      padding: calc(var(--a4-margin-top)) calc(var(--a4-margin-right)) calc(var(--a4-margin-bottom)) calc(var(--a4-margin-left));
+      font-size: var(--doc-font-size);
+      line-height: var(--doc-line-height);
+      color:#111;
+    }
+
+    .doc-title{font-size: 18pt; font-weight:800; text-align:center; letter-spacing:0.02em; margin: 0 0 10mm 0;}
+
+    .doc-table{width:100%; border-collapse:collapse; table-layout:fixed;}
+    .doc-table th, .doc-table td{border:1px solid #222; padding:6px 8px; vertical-align:top;}
+    .doc-table th{background:#f3f4f6; font-weight:700; text-align:center;}
+
+    .doc-block{margin-top:6mm;}
+    .doc-p{margin: 0 0 2.5mm 0;}
+
+    .fill{display:inline-block; min-width: 40mm; border-bottom: 1px solid #222; padding:0 2mm;}
+    .fill.wide{min-width: 90mm;}
+    .fill.xwide{min-width: 120mm;}
+    .fill.short{min-width: 22mm;}
+
+    .checkbox{display:inline-block; min-width: 7mm; text-align:center; border:1px solid #222; line-height: 1.1; padding: 0.5mm 0;}
+
+    .muted{color:var(--muted);}
+
+    .signature-box{display:flex; gap:8mm; justify-content:space-between; margin-top:6mm;}
+    .sig-col{flex:1;}
+    .sig-line{display:flex; align-items:center; gap:3mm;}
+    .sig-img{max-height:22mm; max-width:45mm; object-fit:contain; border:1px solid #bbb; padding:1mm; background:#fff;}
+
+    .toolbar-btns .btn{white-space:nowrap;}
+
+    /* Mobile: tabs */
+    .mobile-tabs{display:none;}
+    @media (max-width: 991.98px){
+      .desktop-two-col{display:none;}
+      .mobile-tabs{display:block;}
+      .a4{width: 100%;}
+      .preview-shell{padding:0;}
+      .a4{box-shadow:none; border-radius:0;}
+    }
+
+    /* Print */
+    @page { size: A4 portrait; margin: 19mm 18mm; }
+
+    @media print{
+      body{background:#fff;}
+      .no-print{display:none !important;}
+      .a4{border:none; box-shadow:none; width:auto; min-height:auto; transform:none !important;}
+      .a4-inner{padding:0;}
+      .preview-shell{padding:0;}
+      .app-header{display:none !important;}
+    }
+  </style>
 </head>
 <body>
-    <div class="contract-container" x-data="contract()">
-        <div class="mb-3 no-print">
-            <button class="btn btn-success" @click="window.print()">인쇄 / PDF</button>
-            <button class="btn btn-outline-secondary" @click="reset()">초기화</button>
-            <a href="../index.html" class="btn btn-outline-secondary">목록으로</a>
+  <header class="app-header no-print">
+    <div class="container py-3" x-data="{}">
+      <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-2">
+        <div>
+          <h1 class="h5 mb-1">표준 근로계약서 작성/출력</h1>
+          <div class="help-text">서버 저장 없이 브라우저에서 작성하고 A4로 인쇄(PDF 저장)할 수 있습니다. (임시저장: 로컬스토리지)</div>
         </div>
-
-        <div class="contract-paper">
-            <div class="contract-title">표 준 근 로 계 약 서</div>
-
-            <p class="text-center mb-4">
-                <input type="text" x-model="employer.name" class="border-0 border-bottom fw-bold" placeholder="사업주명" style="width:150px">
-                (이하 "사업주"라 함)과
-                <input type="text" x-model="employee.name" class="border-0 border-bottom fw-bold" placeholder="근로자명" style="width:150px">
-                (이하 "근로자"라 함)은 다음과 같이 근로계약을 체결한다.
-            </p>
-
-            <div class="section-title">1. 근로계약기간</div>
-            <div class="form-row">
-                <label>계약기간</label>
-                <input type="date" class="form-control" x-model="contract.startDate" style="width:150px"> ~
-                <input type="date" class="form-control ms-2" x-model="contract.endDate" style="width:150px">
-                <span class="ms-2 text-muted">(기간의 정함이 없는 경우 공란)</span>
-            </div>
-
-            <div class="section-title">2. 근무장소</div>
-            <div class="form-row">
-                <label>근무장소</label>
-                <input type="text" class="form-control" x-model="contract.workplace" placeholder="근무지 주소">
-            </div>
-
-            <div class="section-title">3. 업무내용</div>
-            <div class="form-row">
-                <label>담당업무</label>
-                <input type="text" class="form-control" x-model="contract.duties" placeholder="담당 업무 내용">
-            </div>
-
-            <div class="section-title">4. 근로시간</div>
-            <div class="form-row">
-                <label>근무시간</label>
-                <input type="time" class="form-control" x-model="contract.workStart" style="width:120px"> ~
-                <input type="time" class="form-control ms-2" x-model="contract.workEnd" style="width:120px">
-            </div>
-            <div class="form-row">
-                <label>휴게시간</label>
-                <input type="text" class="form-control" x-model="contract.breakTime" placeholder="예: 12:00~13:00 (60분)">
-            </div>
-
-            <div class="section-title">5. 근무일 및 휴일</div>
-            <div class="form-row">
-                <label>근무일</label>
-                <input type="text" class="form-control" x-model="contract.workDays" placeholder="예: 월~금 (주 5일)">
-            </div>
-            <div class="form-row">
-                <label>주휴일</label>
-                <input type="text" class="form-control" x-model="contract.weeklyHoliday" placeholder="예: 매주 일요일">
-            </div>
-
-            <div class="section-title">6. 임금</div>
-            <div class="form-row">
-                <label>월급여</label>
-                <input type="text" class="form-control" x-model="contract.salaryFormatted"
-                       @input="contract.salary = parseInt($event.target.value.replace(/,/g,'')) || 0; contract.salaryFormatted = contract.salary.toLocaleString()"
-                       placeholder="0" style="width:180px"> 원
-            </div>
-            <div class="form-row">
-                <label>급여일</label>
-                매월 <input type="number" class="form-control" x-model="contract.payDay" min="1" max="31" style="width:80px"> 일
-            </div>
-            <div class="form-row">
-                <label>지급방법</label>
-                <select class="form-select" x-model="contract.payMethod" style="width:200px">
-                    <option value="계좌이체">근로자 명의 계좌로 이체</option>
-                    <option value="현금">현금 지급</option>
-                </select>
-            </div>
-
-            <div class="section-title">7. 연차유급휴가</div>
-            <p class="small text-muted">연차유급휴가는 근로기준법에서 정하는 바에 따라 부여함</p>
-
-            <div class="section-title">8. 기타</div>
-            <p class="small">이 계약에 정함이 없는 사항은 근로기준법령에 정하는 바에 따른다.</p>
-
-            <div class="signature-section">
-                <p class="text-center mb-4" x-text="new Date().toLocaleDateString('ko-KR', {year:'numeric',month:'long',day:'numeric'})"></p>
-
-                <div class="row">
-                    <div class="col-md-6">
-                        <div class="signature-box">
-                            <h6>사업주</h6>
-                            <div class="form-row"><label>사업체명</label><input type="text" class="form-control" x-model="employer.company"></div>
-                            <div class="form-row"><label>주소</label><input type="text" class="form-control" x-model="employer.address"></div>
-                            <div class="form-row"><label>대표자</label><input type="text" class="form-control" x-model="employer.name"> (서명)</div>
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="signature-box">
-                            <h6>근로자</h6>
-                            <div class="form-row"><label>주소</label><input type="text" class="form-control" x-model="employee.address"></div>
-                            <div class="form-row"><label>연락처</label><input type="tel" class="form-control" x-model="employee.phone"></div>
-                            <div class="form-row"><label>성명</label><input type="text" class="form-control" x-model="employee.name"> (서명)</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+        <div class="toolbar-btns d-flex gap-2">
+          <button type="button" class="btn btn-outline-secondary btn-sm" @click="$dispatch('app-save')">임시저장</button>
+          <button type="button" class="btn btn-outline-danger btn-sm" @click="$dispatch('app-reset')">초기화</button>
+          <button type="button" class="btn btn-primary btn-sm" @click="$dispatch('app-print')">인쇄(PDF)</button>
         </div>
+      </div>
+    </div>
+  </header>
 
-        <footer class="text-center text-muted mt-3 small">원본: 엑셀 표준 근로계약서 양식 v2.0.xlsx</footer>
+  <main class="container py-4" x-data="appData()" x-init="initializeApp()" @app-save.window="saveDraftToLocalStorage()" @app-reset.window="resetAll()" @app-print.window="printA4()">
+
+    <!-- Mobile tabs -->
+    <div class="mobile-tabs no-print mb-3">
+      <ul class="nav nav-tabs" role="tablist">
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" :class="{active: mobileTab==='form'}" type="button" role="tab" @click="mobileTab='form'">입력</button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" :class="{active: mobileTab==='preview'}" type="button" role="tab" @click="mobileTab='preview'">미리보기</button>
+        </li>
+      </ul>
     </div>
 
-    <script>
-        function contract() {
-            return {
-                employer: { company: '', name: '', address: '' },
-                employee: { name: '', address: '', phone: '' },
-                contract: {
-                    startDate: '', endDate: '',
-                    workplace: '', duties: '',
-                    workStart: '09:00', workEnd: '18:00', breakTime: '12:00~13:00 (60분)',
-                    workDays: '월~금 (주 5일)', weeklyHoliday: '매주 일요일',
-                    salary: 0, salaryFormatted: '', payDay: 25, payMethod: '계좌이체'
-                },
-                reset() {
-                    this.employer = { company: '', name: '', address: '' };
-                    this.employee = { name: '', address: '', phone: '' };
-                    this.contract = { startDate: '', endDate: '', workplace: '', duties: '', workStart: '09:00', workEnd: '18:00', breakTime: '12:00~13:00 (60분)', workDays: '월~금 (주 5일)', weeklyHoliday: '매주 일요일', salary: 0, salaryFormatted: '', payDay: 25, payMethod: '계좌이체' };
-                }
-            };
+    <!-- Desktop two columns -->
+    <div class="row g-3 desktop-two-col">
+      <div class="col-lg-5">
+        <div class="card-panel p-3 no-print">
+          <div class="d-flex align-items-start justify-content-between">
+            <div>
+              <div class="section-title">입력</div>
+              <div class="help-text">필수 항목을 입력하면 오른쪽 미리보기에 즉시 반영됩니다.</div>
+            </div>
+            <div class="text-end">
+              <div class="help-text">고용형태: <strong x-text="employment_type"></strong></div>
+              <div class="help-text" x-show="Object.keys(errors).length">오류 <span x-text="Object.keys(errors).length"></span>건</div>
+            </div>
+          </div>
+          <hr>
+          <div class="d-flex flex-column gap-3">
+            <!-- Employment type -->
+            <section>
+              <div class="section-title mb-2">계약 유형 선택</div>
+              <label class="form-label required" for="employment_type">고용 형태</label>
+              <select class="form-select" id="employment_type" x-model="employment_type" aria-required="true" @change="handleEmploymentTypeChange($event.target.value)">
+                <option value="정규직">정규직</option>
+                <option value="계약직">계약직</option>
+              </select>
+              <div class="help-text mt-1">계약직 선택 시 계약 시작일/종료일이 필수입니다.</div>
+            </section>
+
+            <!-- Basic info -->
+            <section>
+              <div class="section-title mb-2">기본 정보(사업주/근로자)</div>
+              <div class="row g-2">
+                <div class="col-12">
+                  <label class="form-label required" for="company_name">사업장명(회사명)</label>
+                  <input class="form-control" id="company_name" type="text" x-model.trim="company_name" :aria-invalid="errors.company_name? 'true':'false'" aria-required="true">
+                  <div class="error-text" role="alert" x-text="errors.company_name" x-show="errors.company_name"></div>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label required" for="company_ceo_name">대표자 성명</label>
+                  <input class="form-control" id="company_ceo_name" type="text" x-model.trim="company_ceo_name" :aria-invalid="errors.company_ceo_name? 'true':'false'" aria-required="true">
+                  <div class="error-text" role="alert" x-text="errors.company_ceo_name" x-show="errors.company_ceo_name"></div>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label" for="company_business_reg_no">사업자등록번호</label>
+                  <input class="form-control" id="company_business_reg_no" type="text" placeholder="예: 123-45-67890" x-model.trim="company_business_reg_no" :aria-invalid="errors.company_business_reg_no? 'true':'false'">
+                  <div class="error-text" role="alert" x-text="errors.company_business_reg_no" x-show="errors.company_business_reg_no"></div>
+                </div>
+                <div class="col-12">
+                  <label class="form-label required" for="company_address">사업장 주소</label>
+                  <input class="form-control" id="company_address" type="text" x-model.trim="company_address" :aria-invalid="errors.company_address? 'true':'false'" aria-required="true">
+                  <div class="error-text" role="alert" x-text="errors.company_address" x-show="errors.company_address"></div>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label required" for="worker_name">근로자 성명</label>
+                  <input class="form-control" id="worker_name" type="text" x-model.trim="worker_name" :aria-invalid="errors.worker_name? 'true':'false'" aria-required="true">
+                  <div class="error-text" role="alert" x-text="errors.worker_name" x-show="errors.worker_name"></div>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label" for="worker_birthdate">생년월일</label>
+                  <input class="form-control" id="worker_birthdate" type="date" x-model="worker_birthdate" :aria-invalid="errors.worker_birthdate? 'true':'false'">
+                  <div class="error-text" role="alert" x-text="errors.worker_birthdate" x-show="errors.worker_birthdate"></div>
+                </div>
+                <div class="col-12">
+                  <label class="form-label required" for="worker_address">근로자 주소</label>
+                  <input class="form-control" id="worker_address" type="text" x-model.trim="worker_address" :aria-invalid="errors.worker_address? 'true':'false'" aria-required="true">
+                  <div class="error-text" role="alert" x-text="errors.worker_address" x-show="errors.worker_address"></div>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label required" for="worker_phone">연락처</label>
+                  <input class="form-control" id="worker_phone" type="text" placeholder="예: 010-1234-5678" x-model.trim="worker_phone" :aria-invalid="errors.worker_phone? 'true':'false'" aria-required="true">
+                  <div class="error-text" role="alert" x-text="errors.worker_phone" x-show="errors.worker_phone"></div>
+                </div>
+              </div>
+            </section>
+
+            <!-- Work conditions -->
+            <section>
+              <div class="section-title mb-2">근로 조건(기간/장소/업무/시간)</div>
+              <div class="row g-2">
+                <template x-if="employment_type==='계약직'">
+                  <div class="col-12">
+                    <div class="alert alert-warning py-2 mb-0">계약직은 <strong>계약 시작일/종료일</strong>이 필수입니다.</div>
+                  </div>
+                </template>
+                <div class="col-md-6" x-show="employment_type==='계약직'">
+                  <label class="form-label" :class="{'required': employment_type==='계약직'}" for="contract_start_date">계약 시작일</label>
+                  <input class="form-control" id="contract_start_date" type="date" x-model="contract_start_date" :aria-invalid="errors.contract_start_date? 'true':'false'" :aria-required="employment_type==='계약직' ? 'true':'false'">
+                  <div class="error-text" role="alert" x-text="errors.contract_start_date" x-show="errors.contract_start_date"></div>
+                </div>
+                <div class="col-md-6" x-show="employment_type==='계약직'">
+                  <label class="form-label" :class="{'required': employment_type==='계약직'}" for="contract_end_date">계약 종료일</label>
+                  <input class="form-control" id="contract_end_date" type="date" x-model="contract_end_date" :aria-invalid="errors.contract_end_date? 'true':'false'" :aria-required="employment_type==='계약직' ? 'true':'false'">
+                  <div class="error-text" role="alert" x-text="errors.contract_end_date" x-show="errors.contract_end_date"></div>
+                </div>
+                <div class="col-12">
+                  <label class="form-label required" for="workplace">근무 장소</label>
+                  <input class="form-control" id="workplace" type="text" x-model.trim="workplace" :aria-invalid="errors.workplace? 'true':'false'" aria-required="true">
+                  <div class="error-text" role="alert" x-text="errors.workplace" x-show="errors.workplace"></div>
+                </div>
+                <div class="col-12">
+                  <label class="form-label required" for="job_description">담당 업무</label>
+                  <input class="form-control" id="job_description" type="text" x-model.trim="job_description" :aria-invalid="errors.job_description? 'true':'false'" aria-required="true">
+                  <div class="error-text" role="alert" x-text="errors.job_description" x-show="errors.job_description"></div>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label required" for="work_days">근무 요일</label>
+                  <select class="form-select" id="work_days" x-model="work_days" aria-required="true">
+                    <option>주 5일(월~금)</option>
+                    <option>주 6일(월~토)</option>
+                    <option>주 7일(월~일)</option>
+                    <option>교대/탄력(별도 기재)</option>
+                  </select>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label required" for="work_start_time">근로 시작 시각</label>
+                  <input class="form-control" id="work_start_time" type="text" placeholder="09:00" x-model.trim="work_start_time" :aria-invalid="errors.work_start_time? 'true':'false'" aria-required="true">
+                  <div class="error-text" role="alert" x-text="errors.work_start_time" x-show="errors.work_start_time"></div>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label required" for="work_end_time">근로 종료 시각</label>
+                  <input class="form-control" id="work_end_time" type="text" placeholder="18:00" x-model.trim="work_end_time" :aria-invalid="errors.work_end_time? 'true':'false'" aria-required="true">
+                  <div class="error-text" role="alert" x-text="errors.work_end_time" x-show="errors.work_end_time"></div>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label required" for="break_time">휴게시간</label>
+                  <input class="form-control" id="break_time" type="text" placeholder="12:00~13:00" x-model.trim="break_time" :aria-invalid="errors.break_time? 'true':'false'" aria-required="true">
+                  <div class="error-text" role="alert" x-text="errors.break_time" x-show="errors.break_time"></div>
+                </div>
+              </div>
+            </section>
+
+            <!-- Wage -->
+            <section>
+              <div class="section-title mb-2">임금(급여/지급일/지급방법)</div>
+              <div class="row g-2">
+                <div class="col-md-4">
+                  <label class="form-label required" for="wage_type">임금 형태</label>
+                  <select class="form-select" id="wage_type" x-model="wage_type" aria-required="true">
+                    <option>월급</option>
+                    <option>일급</option>
+                    <option>시급</option>
+                    <option>연봉</option>
+                  </select>
+                </div>
+                <div class="col-md-8">
+                  <label class="form-label required" for="wage_amount">임금 금액</label>
+                  <input class="form-control" id="wage_amount" type="number" min="0" step="1000" x-model.number="wage_amount" :aria-invalid="errors.wage_amount? 'true':'false'" aria-required="true">
+                  <div class="error-text" role="alert" x-text="errors.wage_amount" x-show="errors.wage_amount"></div>
+                  <div class="help-text mt-1">미리보기에는 <span x-text="formatWageAmount()"></span> 형태로 표시됩니다.</div>
+                </div>
+                <div class="col-12">
+                  <label class="form-label" for="wage_amount_text">임금 금액(한글 표기, 선택)</label>
+                  <input class="form-control" id="wage_amount_text" type="text" placeholder="예: 금 삼백만원정" x-model.trim="wage_amount_text">
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label required" for="payday">임금 지급일</label>
+                  <input class="form-control" id="payday" type="text" x-model.trim="payday" aria-required="true">
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label required" for="payment_method">지급 방법</label>
+                  <select class="form-select" id="payment_method" x-model="payment_method" aria-required="true">
+                    <option>근로자 계좌 입금</option>
+                    <option>현금 지급</option>
+                    <option>수표/기타</option>
+                  </select>
+                </div>
+                <div class="col-12">
+                  <label class="form-label" for="allowances">수당/상여(선택 기재)</label>
+                  <textarea class="form-control" id="allowances" rows="2" x-model.trim="allowances" placeholder="예: 식대 10만원, 교통비 10만원 등"></textarea>
+                </div>
+              </div>
+            </section>
+
+            <!-- Insurance & terms -->
+            <section>
+              <div class="section-title mb-2">사회보험/기타 조항</div>
+              <div class="row g-2">
+                <div class="col-12">
+                  <div class="d-flex flex-wrap gap-3">
+                    <div class="form-check">
+                      <input class="form-check-input" type="checkbox" id="insurance_national_pension" x-model="insurance_national_pension">
+                      <label class="form-check-label" for="insurance_national_pension">국민연금</label>
+                    </div>
+                    <div class="form-check">
+                      <input class="form-check-input" type="checkbox" id="insurance_health" x-model="insurance_health">
+                      <label class="form-check-label" for="insurance_health">건강보험</label>
+                    </div>
+                    <div class="form-check">
+                      <input class="form-check-input" type="checkbox" id="insurance_employment" x-model="insurance_employment">
+                      <label class="form-check-label" for="insurance_employment">고용보험</label>
+                    </div>
+                    <div class="form-check">
+                      <input class="form-check-input" type="checkbox" id="insurance_industrial_accident" x-model="insurance_industrial_accident">
+                      <label class="form-check-label" for="insurance_industrial_accident">산재보험</label>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-12">
+                  <label class="form-label" for="special_terms">특약사항</label>
+                  <textarea class="form-control" id="special_terms" rows="3" x-model.trim="special_terms" placeholder="필요 시 기재"></textarea>
+                </div>
+              </div>
+            </section>
+
+            <!-- Sign -->
+            <section>
+              <div class="section-title mb-2">서명/날짜</div>
+              <div class="row g-2">
+                <div class="col-md-6">
+                  <label class="form-label required" for="contract_date">계약 체결일</label>
+                  <input class="form-control" id="contract_date" type="date" x-model="contract_date" :aria-invalid="errors.contract_date? 'true':'false'" aria-required="true">
+                  <div class="error-text" role="alert" x-text="errors.contract_date" x-show="errors.contract_date"></div>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label" for="company_sign_name">사업주 서명 표기(성명)</label>
+                  <input class="form-control" id="company_sign_name" type="text" x-model.trim="company_sign_name" placeholder="미입력 시 대표자 성명 사용">
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label" for="worker_sign_name">근로자 서명 표기(성명)</label>
+                  <input class="form-control" id="worker_sign_name" type="text" x-model.trim="worker_sign_name" placeholder="미입력 시 근로자 성명 사용">
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label" for="company_signature">사업주 서명(이미지 업로드, 선택)</label>
+                  <input class="form-control" id="company_signature" type="file" accept="image/*" @change="onSignatureFileChange($event,'company')">
+                  <div class="help-text mt-1">로컬에서만 표시되며 서버로 업로드되지 않습니다.</div>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label" for="worker_signature">근로자 서명(이미지 업로드, 선택)</label>
+                  <input class="form-control" id="worker_signature" type="file" accept="image/*" @change="onSignatureFileChange($event,'worker')">
+                </div>
+              </div>
+            </section>
+
+            <section>
+              <div class="alert alert-info mb-0">
+                <div class="fw-semibold">개인정보 안내</div>
+                <div class="small">임시저장은 이 브라우저의 로컬스토리지에 저장됩니다. 공용 PC에서는 사용 후 초기화를 권장합니다.</div>
+              </div>
+            </section>
+
+          </div>
+        </div>
+      </div>
+
+      <div class="col-lg-7">
+        <div class="card-panel p-3">
+          <div class="d-flex align-items-center justify-content-between">
+            <div>
+              <div class="section-title">근로계약서 미리보기(A4)</div>
+              <div class="help-text">인쇄 시 이 영역만 출력됩니다.</div>
+            </div>
+            <div class="no-print d-flex align-items-center gap-2">
+              <label class="help-text" for="scale">화면 확대/축소</label>
+              <select class="form-select form-select-sm" id="scale" style="width:auto" x-model.number="previewScale">
+                <option :value="0.9">90%</option>
+                <option :value="0.95">95%</option>
+                <option :value="1">100%</option>
+                <option :value="1.05">105%</option>
+              </select>
+            </div>
+          </div>
+          <hr class="no-print">
+          <div class="preview-shell">
+            <div class="a4" :style="`transform: scale(${previewScale});`" aria-label="근로계약서 A4 미리보기">
+              <div class="a4-inner" x-html="print_preview_html"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mobile content -->
+    <div class="d-lg-none">
+      <div x-show="mobileTab==='form'" class="no-print">
+        <div class="card-panel p-3">
+          <!-- reuse same form by cloning via x-html is risky; keep a compact hint -->
+          <div class="alert alert-secondary mb-0">
+            <div class="fw-semibold">모바일 입력</div>
+            <div class="small">화면이 작은 경우 데스크톱 레이아웃 대신 입력/미리보기 탭을 제공합니다. 아래 버튼으로 전체 화면에서 입력을 진행하세요.</div>
+            <div class="mt-2 d-flex gap-2 flex-wrap">
+              <button class="btn btn-primary btn-sm" type="button" @click="mobileTab='preview'">미리보기로 이동</button>
+              <button class="btn btn-outline-secondary btn-sm" type="button" @click="scrollToTopAndFocus()">입력 시작(상단으로)</button>
+            </div>
+            <div class="small text-muted mt-2">* 모바일에서는 위의 데스크톱 폼이 그대로 표시되도록 설계하기 어렵기 때문에, 화면을 가로로 돌리거나 더 큰 화면 사용을 권장합니다.</div>
+          </div>
+        </div>
+      </div>
+      <div x-show="mobileTab==='preview'">
+        <div class="card-panel p-2">
+          <div class="d-flex align-items-center justify-content-between no-print px-2 pt-2">
+            <div class="section-title">미리보기</div>
+            <button class="btn btn-primary btn-sm" type="button" @click="printA4()">인쇄(PDF)</button>
+          </div>
+          <div class="preview-shell">
+            <div class="a4" :style="`transform: scale(${previewScale});`">
+              <div class="a4-inner" x-html="print_preview_html"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <script>
+    // Excel formula helper functions (included as requested; this app has no formulas)
+    function _sum(...args) {
+        return args.flat().reduce((a, b) => (parseFloat(a) || 0) + (parseFloat(b) || 0), 0);
+    }
+    function _sumRange(rangeData) {
+        if (Array.isArray(rangeData)) {
+            return rangeData.flat().reduce((a, b) => (parseFloat(a) || 0) + (parseFloat(b) || 0), 0);
         }
-    </script>
+        return parseFloat(rangeData) || 0;
+    }
+    function _average(...args) {
+        const flat = args.flat().filter(x => x !== null && x !== '' && !isNaN(x));
+        return flat.length ? _sum(...flat) / flat.length : 0;
+    }
+    function _averageRange(rangeData) {
+        if (Array.isArray(rangeData)) {
+            const flat = rangeData.flat().filter(x => x !== null && x !== '' && !isNaN(x));
+            return flat.length ? _sumRange(flat) / flat.length : 0;
+        }
+        return parseFloat(rangeData) || 0;
+    }
+    function _count(...args) {
+        return args.flat().filter(x => typeof x === 'number' && !isNaN(x)).length;
+    }
+    function _counta(...args) {
+        return args.flat().filter(x => x !== null && x !== '' && x !== undefined).length;
+    }
+    function _and(...args) {
+        return args.every(x => Boolean(x));
+    }
+    function _or(...args) {
+        return args.some(x => Boolean(x));
+    }
+    function _round(num, digits = 0) {
+        const factor = Math.pow(10, digits);
+        return Math.round(num * factor) / factor;
+    }
+    function _roundUp(num, digits = 0) {
+        const factor = Math.pow(10, digits);
+        return Math.ceil(num * factor) / factor;
+    }
+    function _roundDown(num, digits = 0) {
+        const factor = Math.pow(10, digits);
+        return Math.floor(num * factor) / factor;
+    }
+    function _len(text) {
+        return String(text).length;
+    }
+    function _left(text, numChars = 1) {
+        return String(text).substring(0, numChars);
+    }
+    function _right(text, numChars = 1) {
+        const str = String(text);
+        return str.substring(str.length - numChars);
+    }
+    function _mid(text, startNum, numChars) {
+        return String(text).substring(startNum - 1, startNum - 1 + numChars);
+    }
+    function _trim(text) {
+        return String(text).trim();
+    }
+    function _upper(text) {
+        return String(text).toUpperCase();
+    }
+    function _lower(text) {
+        return String(text).toLowerCase();
+    }
+    function _concat(...args) {
+        return args.join('');
+    }
+    function formatNumber(num, decimals = 0) {
+        return new Intl.NumberFormat('ko-KR', {
+            minimumFractionDigits: decimals,
+            maximumFractionDigits: decimals
+        }).format(num);
+    }
+    function formatCurrency(num) {
+        return new Intl.NumberFormat('ko-KR', {
+            style: 'currency',
+            currency: 'KRW',
+            maximumFractionDigits: 0
+        }).format(num);
+    }
+    function formatPercent(num, decimals = 1) {
+        return new Intl.NumberFormat('ko-KR', {
+            style: 'percent',
+            minimumFractionDigits: decimals,
+            maximumFractionDigits: decimals
+        }).format(num / 100);
+    }
+
+    function appData(){
+      return {
+        // UI state
+        mobileTab: 'form',
+        previewScale: 1,
+        errors: {},
+        _renderTimer: null,
+
+        // Contract state
+        employment_type: '정규직',
+
+        company_name: '',
+        company_ceo_name: '',
+        company_address: '',
+        company_business_reg_no: '',
+
+        worker_name: '',
+        worker_birthdate: '',
+        worker_address: '',
+        worker_phone: '',
+
+        contract_start_date: '',
+        contract_end_date: '',
+
+        workplace: '',
+        job_description: '',
+        work_days: '주 5일(월~금)',
+        work_start_time: '09:00',
+        work_end_time: '18:00',
+        break_time: '12:00~13:00',
+
+        wage_type: '월급',
+        wage_amount: null,
+        wage_amount_text: '',
+        payday: '매월 10일',
+        payment_method: '근로자 계좌 입금',
+        allowances: '',
+
+        insurance_national_pension: true,
+        insurance_health: true,
+        insurance_employment: true,
+        insurance_industrial_accident: true,
+        special_terms: '',
+
+        contract_date: '',
+        company_sign_name: '',
+        worker_sign_name: '',
+
+        company_signature_dataurl: '',
+        worker_signature_dataurl: '',
+
+        print_preview_html: '',
+
+        initializeApp(){
+          // Load draft if exists
+          const loaded = this.loadDraftFromLocalStorage();
+          if(!loaded){
+            // defaults already in data
+            this.employment_type = '정규직';
+          }
+
+          // initial render
+          this.handleEmploymentTypeChange(this.employment_type, {silent:true});
+          this.scheduleRender();
+
+          // reactive watch: Alpine doesn't have deep watch by default; use interval-free approach:
+          // attach input listeners via x-model: we call scheduleRender in an effect-like manner
+          this.$watch('employment_type', () => { this.handleEmploymentTypeChange(this.employment_type); });
+
+          const fieldsToWatch = [
+            'company_name','company_ceo_name','company_address','company_business_reg_no',
+            'worker_name','worker_birthdate','worker_address','worker_phone',
+            'contract_start_date','contract_end_date',
+            'workplace','job_description','work_days','work_start_time','work_end_time','break_time',
+            'wage_type','wage_amount','wage_amount_text','payday','payment_method','allowances',
+            'insurance_national_pension','insurance_health','insurance_employment','insurance_industrial_accident',
+            'special_terms','contract_date','company_sign_name','worker_sign_name',
+            'company_signature_dataurl','worker_signature_dataurl'
+          ];
+          fieldsToWatch.forEach(k => this.$watch(k, () => this.scheduleRender()));
+        },
+
+        scheduleRender(){
+          clearTimeout(this._renderTimer);
+          this._renderTimer = setTimeout(() => {
+            this.errors = this.validateForm();
+            this.renderContractPreview();
+          }, 160);
+        },
+
+        validateForm(){
+          const e = {};
+          const req = (key, label) => {
+            if(String(this[key] ?? '').trim() === '') e[key] = `${label}은(는) 필수 입력입니다.`;
+          };
+
+          req('company_name','사업장명');
+          req('company_ceo_name','대표자 성명');
+          req('company_address','사업장 주소');
+          req('worker_name','근로자 성명');
+          req('worker_address','근로자 주소');
+          req('worker_phone','연락처');
+          req('workplace','근무 장소');
+          req('job_description','담당 업무');
+          req('work_start_time','근로 시작 시각');
+          req('work_end_time','근로 종료 시각');
+          req('break_time','휴게시간');
+          req('contract_date','계약 체결일');
+
+          if(this.wage_amount === null || this.wage_amount === '' || Number(this.wage_amount) < 0 || Number.isNaN(Number(this.wage_amount))){
+            e.wage_amount = '임금 금액은 0 이상의 숫자여야 합니다.';
+          }
+
+          // 계약직: 기간 필수 + 선후
+          if(this.employment_type === '계약직'){
+            if(!this.contract_start_date) e.contract_start_date = '계약 시작일은 필수입니다.';
+            if(!this.contract_end_date) e.contract_end_date = '계약 종료일은 필수입니다.';
+            if(this.contract_start_date && this.contract_end_date){
+              const s = new Date(this.contract_start_date);
+              const t = new Date(this.contract_end_date);
+              if(s.getTime() > t.getTime()) e.contract_end_date = '계약 종료일은 시작일 이후여야 합니다.';
+            }
+          }
+
+          // phone
+          if(this.worker_phone){
+            const ok = /^\d{2,3}-\d{3,4}-\d{4}$/.test(this.worker_phone) || /^\d{9,11}$/.test(this.worker_phone.replace(/\D/g,''));
+            if(!ok) e.worker_phone = '연락처 형식이 올바르지 않습니다. (예: 010-1234-5678)';
+          }
+
+          // business reg no (optional)
+          if(this.company_business_reg_no){
+            const ok = /^\d{3}-\d{2}-\d{5}$/.test(this.company_business_reg_no) || /^\d{10}$/.test(this.company_business_reg_no.replace(/\D/g,''));
+            if(!ok) e.company_business_reg_no = '사업자등록번호 형식이 올바르지 않습니다. (예: 123-45-67890)';
+          }
+
+          // time HH:MM
+          const timeRe = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
+          if(this.work_start_time && !timeRe.test(this.work_start_time)) e.work_start_time = '시간 형식이 올바르지 않습니다. (HH:MM)';
+          if(this.work_end_time && !timeRe.test(this.work_end_time)) e.work_end_time = '시간 형식이 올바르지 않습니다. (HH:MM)';
+          // break time (loose)
+          if(this.break_time && this.break_time.length < 3) e.break_time = '휴게시간을 확인해 주세요.';
+
+          // birthdate (optional but if present should be date)
+          if(this.worker_birthdate){
+            const d = new Date(this.worker_birthdate);
+            if(Number.isNaN(d.getTime())) e.worker_birthdate = '생년월일 형식이 올바르지 않습니다.';
+          }
+
+          return e;
+        },
+
+        handleEmploymentTypeChange(employmentType, opts={}){
+          this.employment_type = employmentType;
+          // If switching to 정규직, clear contract period errors visually but keep values (user convenience)
+          if(employmentType === '정규직'){
+            // optional: do not force clear dates
+          }
+          if(!opts.silent) this.scheduleRender();
+        },
+
+        renderContractPreview(){
+          const state = this;
+          const bind = (v, fallback='') => {
+            const s = String(v ?? '').trim();
+            return s ? escapeHtml(s) : `<span class="muted">${escapeHtml(fallback)}</span>`;
+          };
+          const dateKR = (iso, fallback='') => {
+            if(!iso) return `<span class="muted">${escapeHtml(fallback)}</span>`;
+            const d = new Date(iso);
+            if(Number.isNaN(d.getTime())) return `<span class="muted">${escapeHtml(fallback)}</span>`;
+            return `${d.getFullYear()}년 ${String(d.getMonth()+1).padStart(2,'0')}월 ${String(d.getDate()).padStart(2,'0')}일`;
+          };
+          const check = (bool) => `<span class="checkbox">${bool ? '■' : '□'}</span>`;
+
+          const companySignText = (state.company_sign_name || state.company_ceo_name || '').trim();
+          const workerSignText = (state.worker_sign_name || state.worker_name || '').trim();
+
+          const wageAmountPretty = (state.wage_amount === null || state.wage_amount === '' || Number.isNaN(Number(state.wage_amount)))
+            ? `<span class="muted">(미입력)</span>`
+            : `${formatNumber(Number(state.wage_amount),0)}원`;
+
+          const allowancesBlock = state.allowances?.trim()
+            ? `<div class="doc-p"><strong>수당/상여:</strong> ${escapeHtml(state.allowances.trim())}</div>`
+            : `<div class="doc-p"><strong>수당/상여:</strong> <span class="muted">(선택)</span></div>`;
+
+          const specialTermsBlock = state.special_terms?.trim()
+            ? escapeHtml(state.special_terms.trim()).replace(/\n/g,'<br>')
+            : '<span class="muted">(없음)</span>';
+
+          const periodRow = (state.employment_type==='계약직')
+            ? `<tr>
+                <th style="width:22%">계약기간</th>
+                <td colspan="3">${dateKR(state.contract_start_date,'시작일')} ~ ${dateKR(state.contract_end_date,'종료일')}</td>
+              </tr>`
+            : '';
+
+          const template = `
+            <div class="doc-title">표준 근로계약서 (${escapeHtml(state.employment_type)})</div>
+
+            <table class="doc-table" aria-label="근로계약서 기본사항 표">
+              <tr>
+                <th style="width:22%">사업장명</th>
+                <td style="width:28%">${bind(state.company_name,'회사명')}</td>
+                <th style="width:22%">대표자</th>
+                <td style="width:28%">${bind(state.company_ceo_name,'대표자 성명')}</td>
+              </tr>
+              <tr>
+                <th>사업장 주소</th>
+                <td colspan="3">${bind(state.company_address,'주소')}</td>
+              </tr>
+              <tr>
+                <th>사업자등록번호</th>
+                <td colspan="3">${bind(state.company_business_reg_no,'(선택)')}</td>
+              </tr>
+              <tr>
+                <th>근로자 성명</th>
+                <td>${bind(state.worker_name,'성명')}</td>
+                <th>생년월일</th>
+                <td>${state.worker_birthdate ? dateKR(state.worker_birthdate,'') : '<span class="muted">(선택)</span>'}</td>
+              </tr>
+              <tr>
+                <th>근로자 주소</th>
+                <td colspan="3">${bind(state.worker_address,'주소')}</td>
+              </tr>
+              <tr>
+                <th>연락처</th>
+                <td colspan="3">${bind(state.worker_phone,'연락처')}</td>
+              </tr>
+            </table>
+
+            <div class="doc-block">
+              <table class="doc-table" aria-label="근로조건 표">
+                ${periodRow}
+                <tr>
+                  <th style="width:22%">근무장소</th>
+                  <td style="width:28%">${bind(state.workplace,'근무 장소')}</td>
+                  <th style="width:22%">담당업무</th>
+                  <td style="width:28%">${bind(state.job_description,'업무')}</td>
+                </tr>
+                <tr>
+                  <th>근무요일</th>
+                  <td>${bind(state.work_days,'요일')}</td>
+                  <th>근로시간</th>
+                  <td>${bind(state.work_start_time,'시작')} ~ ${bind(state.work_end_time,'종료')}</td>
+                </tr>
+                <tr>
+                  <th>휴게시간</th>
+                  <td colspan="3">${bind(state.break_time,'휴게시간')}</td>
+                </tr>
+              </table>
+            </div>
+
+            <div class="doc-block">
+              <table class="doc-table" aria-label="임금 표">
+                <tr>
+                  <th style="width:22%">임금형태</th>
+                  <td style="width:28%">${bind(state.wage_type,'월급/일급/시급/연봉')}</td>
+                  <th style="width:22%">임금금액</th>
+                  <td style="width:28%">${wageAmountPretty}</td>
+                </tr>
+                <tr>
+                  <th>한글표기</th>
+                  <td colspan="3">${state.wage_amount_text?.trim() ? escapeHtml(state.wage_amount_text.trim()) : '<span class="muted">(선택)</span>'}</td>
+                </tr>
+                <tr>
+                  <th>지급일</th>
+                  <td>${bind(state.payday,'예: 매월 10일')}</td>
+                  <th>지급방법</th>
+                  <td>${bind(state.payment_method,'계좌입금 등')}</td>
+                </tr>
+                <tr>
+                  <th>수당/상여</th>
+                  <td colspan="3">${state.allowances?.trim() ? escapeHtml(state.allowances.trim()).replace(/\n/g,'<br>') : '<span class="muted">(선택)</span>'}</td>
+                </tr>
+              </table>
+            </div>
+
+            <div class="doc-block">
+              <table class="doc-table" aria-label="사회보험 및 특약 표">
+                <tr>
+                  <th style="width:22%">사회보험</th>
+                  <td colspan="3">
+                    <div style="display:flex; flex-wrap:wrap; gap:6mm;">
+                      <div>${check(state.insurance_national_pension)} 국민연금</div>
+                      <div>${check(state.insurance_health)} 건강보험</div>
+                      <div>${check(state.insurance_employment)} 고용보험</div>
+                      <div>${check(state.insurance_industrial_accident)} 산재보험</div>
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <th>특약사항</th>
+                  <td colspan="3">${specialTermsBlock}</td>
+                </tr>
+              </table>
+            </div>
+
+            <div class="doc-block">
+              <p class="doc-p">본 계약은 근로기준법 및 관계 법령에 따라 작성되었으며, 당사자는 위 내용을 확인하고 이에 동의합니다.</p>
+              <p class="doc-p"><strong>계약 체결일:</strong> ${dateKR(state.contract_date,'날짜')}</p>
+
+              <div class="signature-box">
+                <div class="sig-col">
+                  <div class="doc-p"><strong>사업주</strong></div>
+                  <div class="sig-line">
+                    <div>성명: ${companySignText ? escapeHtml(companySignText) : '<span class="muted">(미입력)</span>'}</div>
+                    <div style="margin-left:auto;">(서명)</div>
+                  </div>
+                  ${state.company_signature_dataurl ? `<div class="mt-2"><img class="sig-img" alt="사업주 서명 이미지" src="${state.company_signature_dataurl}"></div>` : ''}
+                </div>
+
+                <div class="sig-col">
+                  <div class="doc-p"><strong>근로자</strong></div>
+                  <div class="sig-line">
+                    <div>성명: ${workerSignText ? escapeHtml(workerSignText) : '<span class="muted">(미입력)</span>'}</div>
+                    <div style="margin-left:auto;">(서명)</div>
+                  </div>
+                  ${state.worker_signature_dataurl ? `<div class="mt-2"><img class="sig-img" alt="근로자 서명 이미지" src="${state.worker_signature_dataurl}"></div>` : ''}
+                </div>
+              </div>
+
+              <div class="doc-block" style="margin-top:8mm;">
+                <div class="muted" style="font-size:10pt;">
+                  ※ 안내: 본 화면은 표준 근로계약서 내용을 웹에서 재구성한 템플릿입니다. 회사 내부 양식 요구사항에 따라 문구/표 항목을 조정해 사용하세요.
+                </div>
+              </div>
+            </div>
+          `;
+
+          this.print_preview_html = template;
+        },
+
+        printA4(){
+          // validate before print
+          this.errors = this.validateForm();
+          const hasErrors = Object.keys(this.errors).length > 0;
+          if(hasErrors){
+            alert('필수 입력/형식 오류가 있습니다. 오류를 수정한 뒤 인쇄해 주세요.');
+            return;
+          }
+          // Ensure preview up-to-date
+          this.renderContractPreview();
+          // print
+          window.print();
+        },
+
+        saveDraftToLocalStorage(){
+          const payload = {
+            employment_type: this.employment_type,
+            company_name: this.company_name,
+            company_ceo_name: this.company_ceo_name,
+            company_address: this.company_address,
+            company_business_reg_no: this.company_business_reg_no,
+            worker_name: this.worker_name,
+            worker_birthdate: this.worker_birthdate,
+            worker_address: this.worker_address,
+            worker_phone: this.worker_phone,
+            contract_start_date: this.contract_start_date,
+            contract_end_date: this.contract_end_date,
+            workplace: this.workplace,
+            job_description: this.job_description,
+            work_days: this.work_days,
+            work_start_time: this.work_start_time,
+            work_end_time: this.work_end_time,
+            break_time: this.break_time,
+            wage_type: this.wage_type,
+            wage_amount: this.wage_amount,
+            wage_amount_text: this.wage_amount_text,
+            payday: this.payday,
+            payment_method: this.payment_method,
+            allowances: this.allowances,
+            insurance_national_pension: this.insurance_national_pension,
+            insurance_health: this.insurance_health,
+            insurance_employment: this.insurance_employment,
+            insurance_industrial_accident: this.insurance_industrial_accident,
+            special_terms: this.special_terms,
+            contract_date: this.contract_date,
+            company_sign_name: this.company_sign_name,
+            worker_sign_name: this.worker_sign_name,
+            company_signature_dataurl: this.company_signature_dataurl,
+            worker_signature_dataurl: this.worker_signature_dataurl,
+            _savedAt: new Date().toISOString()
+          };
+          try{
+            localStorage.setItem('standard_employment_contract_draft_v1', JSON.stringify(payload));
+            alert('임시저장되었습니다. (이 브라우저에만 저장)');
+          }catch(err){
+            console.error(err);
+            alert('임시저장에 실패했습니다. 브라우저 저장공간/설정을 확인해 주세요.');
+          }
+        },
+
+        loadDraftFromLocalStorage(){
+          try{
+            const raw = localStorage.getItem('standard_employment_contract_draft_v1');
+            if(!raw) return false;
+            const data = JSON.parse(raw);
+            if(!data || typeof data !== 'object') return false;
+            Object.keys(data).forEach(k => {
+              if(k in this) this[k] = data[k];
+            });
+            return true;
+          }catch(err){
+            console.warn('draft load failed', err);
+            return false;
+          }
+        },
+
+        resetAll(){
+          const ok = confirm('입력 내용을 초기화할까요? (로컬 임시저장 데이터는 유지됩니다)');
+          if(!ok) return;
+          // Reset to defaults
+          this.employment_type = '정규직';
+          this.company_name = '';
+          this.company_ceo_name = '';
+          this.company_address = '';
+          this.company_business_reg_no = '';
+          this.worker_name = '';
+          this.worker_birthdate = '';
+          this.worker_address = '';
+          this.worker_phone = '';
+          this.contract_start_date = '';
+          this.contract_end_date = '';
+          this.workplace = '';
+          this.job_description = '';
+          this.work_days = '주 5일(월~금)';
+          this.work_start_time = '09:00';
+          this.work_end_time = '18:00';
+          this.break_time = '12:00~13:00';
+          this.wage_type = '월급';
+          this.wage_amount = null;
+          this.wage_amount_text = '';
+          this.payday = '매월 10일';
+          this.payment_method = '근로자 계좌 입금';
+          this.allowances = '';
+          this.insurance_national_pension = true;
+          this.insurance_health = true;
+          this.insurance_employment = true;
+          this.insurance_industrial_accident = true;
+          this.special_terms = '';
+          this.contract_date = '';
+          this.company_sign_name = '';
+          this.worker_sign_name = '';
+          this.company_signature_dataurl = '';
+          this.worker_signature_dataurl = '';
+          this.errors = {};
+          this.scheduleRender();
+        },
+
+        onSignatureFileChange(evt, who){
+          const file = evt?.target?.files?.[0];
+          if(!file){
+            if(who==='company') this.company_signature_dataurl='';
+            if(who==='worker') this.worker_signature_dataurl='';
+            return;
+          }
+          if(!file.type.startsWith('image/')){
+            alert('이미지 파일만 업로드할 수 있습니다.');
+            return;
+          }
+          const reader = new FileReader();
+          reader.onload = () => {
+            if(who==='company') this.company_signature_dataurl = reader.result;
+            if(who==='worker') this.worker_signature_dataurl = reader.result;
+          };
+          reader.readAsDataURL(file);
+        },
+
+        formatWageAmount(){
+          if(this.wage_amount === null || this.wage_amount === '' || Number.isNaN(Number(this.wage_amount))) return '(미입력)';
+          return `${formatNumber(Number(this.wage_amount),0)}원`;
+        },
+
+        scrollToTopAndFocus(){
+          window.scrollTo({top:0, behavior:'smooth'});
+          setTimeout(() => {
+            const el = document.getElementById('employment_type');
+            if(el) el.focus();
+          }, 250);
+        }
+      }
+    }
+
+    function escapeHtml(str){
+      return String(str)
+        .replaceAll('&','&amp;')
+        .replaceAll('<','&lt;')
+        .replaceAll('>','&gt;')
+        .replaceAll('"','&quot;')
+        .replaceAll("'",'&#39;');
+    }
+  </script>
 </body>
 </html>
