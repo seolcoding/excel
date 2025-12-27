@@ -1,0 +1,192 @@
+{% extends "base.html.j2" %}
+{# Form/Template - Fill-in-the-blank document for printing #}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <div class="card form-document">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">{{ form_title | default('서류 작성') }}</h5>
+                <div class="no-print">
+                    <button type="button" class="btn btn-sm btn-outline-secondary me-2"
+                            @click="reset()">
+                        초기화
+                    </button>
+                    <button type="button" class="btn btn-sm btn-primary"
+                            @click="print()">
+                        🖨️ 인쇄
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                {% block form_content %}
+                <div class="document-content">
+                    {% for section in sections %}
+                    <div class="form-section mb-4">
+                        {% if section.title %}
+                        <h6 class="section-title">{{ section.title }}</h6>
+                        {% endif %}
+
+                        <div class="row g-3">
+                            {% for field in section.fields %}
+                            <div class="col-{{ field.col_size | default('6') }}">
+                                <div class="form-field-inline">
+                                    <label class="field-label">{{ field.label }}</label>
+                                    <span class="field-separator">:</span>
+
+                                    {% if field.field_type == 'select' %}
+                                    <select class="form-control-inline" x-model="{{ field.name }}">
+                                        <option value="">선택</option>
+                                        {% for option in field.options %}
+                                        <option value="{{ option }}">{{ option }}</option>
+                                        {% endfor %}
+                                    </select>
+
+                                    {% elif field.field_type == 'date' %}
+                                    <input type="date" class="form-control-inline"
+                                           x-model="{{ field.name }}">
+
+                                    {% elif field.field_type == 'number' %}
+                                    <input type="number" class="form-control-inline"
+                                           x-model.number="{{ field.name }}"
+                                           placeholder="{{ field.placeholder | default('') }}">
+
+                                    {% elif field.field_type == 'textarea' %}
+                                    <textarea class="form-control-inline textarea"
+                                              x-model="{{ field.name }}"
+                                              rows="{{ field.rows | default(3) }}"
+                                              placeholder="{{ field.placeholder | default('') }}"></textarea>
+
+                                    {% else %}
+                                    <input type="text" class="form-control-inline"
+                                           x-model="{{ field.name }}"
+                                           placeholder="{{ field.placeholder | default('') }}">
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endfor %}
+
+                    {% if signature_section %}
+                    <div class="signature-section mt-5">
+                        <div class="row">
+                            <div class="col-6 text-center">
+                                <div class="signature-line"></div>
+                                <span class="signature-label">작성자</span>
+                            </div>
+                            <div class="col-6 text-center">
+                                <div class="signature-line"></div>
+                                <span class="signature-label">확인자</span>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    {% if date_section %}
+                    <div class="date-section mt-4 text-end">
+                        <span x-text="new Date().toLocaleDateString('ko-KR')"></span>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endblock %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block custom_styles %}
+{{ super() }}
+
+.form-document {
+    background: white;
+}
+
+.document-content {
+    font-size: 14px;
+    line-height: 1.8;
+}
+
+.section-title {
+    font-weight: 600;
+    color: #333;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid #0d6efd;
+    margin-bottom: 1rem;
+}
+
+.form-field-inline {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    padding: 0.25rem 0;
+}
+
+.field-label {
+    min-width: 80px;
+    font-weight: 500;
+    color: #495057;
+    flex-shrink: 0;
+}
+
+.field-separator {
+    color: #6c757d;
+}
+
+.form-control-inline {
+    flex: 1;
+    border: none;
+    border-bottom: 1px solid #ced4da;
+    padding: 0.25rem 0.5rem;
+    font-size: inherit;
+    background: transparent;
+}
+
+.form-control-inline:focus {
+    outline: none;
+    border-bottom-color: #0d6efd;
+}
+
+.form-control-inline.textarea {
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    resize: vertical;
+}
+
+.signature-section {
+    padding-top: 2rem;
+}
+
+.signature-line {
+    border-bottom: 1px solid #333;
+    height: 60px;
+    margin-bottom: 0.5rem;
+}
+
+.signature-label {
+    font-size: 12px;
+    color: #6c757d;
+}
+
+.date-section {
+    font-size: 14px;
+    color: #333;
+}
+
+@media print {
+    .form-document {
+        box-shadow: none !important;
+        border: none !important;
+    }
+
+    .form-control-inline {
+        border-bottom: 1px dotted #999;
+    }
+
+    .signature-line {
+        border-bottom: 1px solid #000;
+    }
+}
+{% endblock %}

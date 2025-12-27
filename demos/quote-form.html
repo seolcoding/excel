@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>자동화 견적서</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <style>
+        body { font-family: 'Noto Sans KR', sans-serif; background: #f5f5f5; }
+        .quote-container { max-width: 800px; margin: 2rem auto; }
+        .quote-paper { background: white; padding: 3rem; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .quote-header { border-bottom: 3px double #333; padding-bottom: 1rem; margin-bottom: 2rem; }
+        .company-info { font-size: 0.9rem; }
+        .quote-table th { background: #f8f9fa; }
+        .total-section { background: #f8f9fa; padding: 1rem; margin-top: 1rem; }
+        @media print {
+            body { background: white; }
+            .quote-paper { box-shadow: none; padding: 0; }
+            .no-print { display: none !important; }
+            @page { size: A4; margin: 15mm; }
+        }
+    </style>
+</head>
+<body>
+    <div class="quote-container" x-data="quoteForm()">
+        <div class="mb-3 no-print">
+            <button class="btn btn-primary" @click="addItem()">항목 추가</button>
+            <button class="btn btn-success" @click="window.print()">인쇄 / PDF 저장</button>
+            <a href="../index.html" class="btn btn-outline-secondary">목록으로</a>
+        </div>
+
+        <div class="quote-paper">
+            <div class="quote-header">
+                <div class="row">
+                    <div class="col-8">
+                        <h1 class="mb-3">견 적 서</h1>
+                        <div class="row">
+                            <div class="col-6">
+                                <p class="mb-1"><strong>견적번호:</strong> <span x-text="quoteNumber"></span></p>
+                                <p class="mb-1"><strong>견적일자:</strong> <input type="date" x-model="quoteDate" class="border-0 border-bottom"></p>
+                                <p class="mb-0"><strong>유효기간:</strong> 견적일로부터 30일</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-4 text-end company-info">
+                        <h5>주식회사 예시컴퍼니</h5>
+                        <p class="mb-1">서울시 강남구 테헤란로 123</p>
+                        <p class="mb-1">Tel: 02-1234-5678</p>
+                        <p class="mb-0">사업자번호: 123-45-67890</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mb-4">
+                <h5>수신</h5>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label">회사명</label>
+                        <input type="text" class="form-control" x-model="customer.company" placeholder="고객사명">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">담당자</label>
+                        <input type="text" class="form-control" x-model="customer.contact" placeholder="담당자명">
+                    </div>
+                </div>
+            </div>
+
+            <table class="table quote-table">
+                <thead>
+                    <tr>
+                        <th style="width:40px">No</th>
+                        <th>품목</th>
+                        <th style="width:100px">수량</th>
+                        <th style="width:120px">단가</th>
+                        <th style="width:130px">금액</th>
+                        <th style="width:50px" class="no-print"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <template x-for="(item, idx) in items" :key="idx">
+                        <tr>
+                            <td x-text="idx + 1"></td>
+                            <td><input type="text" class="form-control form-control-sm" x-model="item.name"></td>
+                            <td><input type="number" class="form-control form-control-sm" x-model.number="item.qty" @input="calculate()"></td>
+                            <td><input type="text" class="form-control form-control-sm text-end"
+                                       :value="item.price.toLocaleString()"
+                                       @input="item.price = parseInt($event.target.value.replace(/,/g,'')) || 0; calculate()"></td>
+                            <td class="text-end fw-bold" x-text="(item.qty * item.price).toLocaleString() + '원'"></td>
+                            <td class="no-print">
+                                <button class="btn btn-sm btn-outline-danger" @click="removeItem(idx)">×</button>
+                            </td>
+                        </tr>
+                    </template>
+                </tbody>
+            </table>
+
+            <div class="total-section">
+                <div class="row">
+                    <div class="col-md-6"></div>
+                    <div class="col-md-6">
+                        <div class="d-flex justify-content-between mb-2">
+                            <span>공급가액</span>
+                            <span class="fw-bold" x-text="subtotal.toLocaleString() + '원'"></span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span>부가세 (10%)</span>
+                            <span x-text="vat.toLocaleString() + '원'"></span>
+                        </div>
+                        <hr>
+                        <div class="d-flex justify-content-between fs-5">
+                            <strong>합계</strong>
+                            <strong class="text-primary" x-text="total.toLocaleString() + '원'"></strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-4">
+                <h6>비고</h6>
+                <textarea class="form-control" rows="3" x-model="notes" placeholder="특이사항 입력"></textarea>
+            </div>
+
+            <div class="mt-5 text-center">
+                <p>상기와 같이 견적합니다.</p>
+                <div class="mt-4">
+                    <p class="mb-0">주식회사 예시컴퍼니</p>
+                    <p class="text-muted">대표이사 홍길동 (인)</p>
+                </div>
+            </div>
+        </div>
+
+        <footer class="text-center text-muted mt-3 small">
+            원본: 엑셀 자동화 견적서 v1.0.xlsm
+        </footer>
+    </div>
+
+    <script>
+        function quoteForm() {
+            const today = new Date().toISOString().split('T')[0];
+            return {
+                quoteNumber: 'QT-' + today.replace(/-/g, '') + '-001',
+                quoteDate: today,
+                customer: { company: '', contact: '' },
+                items: [
+                    { name: '상품 A', qty: 1, price: 100000 },
+                    { name: '상품 B', qty: 2, price: 50000 },
+                ],
+                notes: '',
+                subtotal: 0, vat: 0, total: 0,
+
+                init() { this.calculate(); },
+
+                addItem() {
+                    this.items.push({ name: '', qty: 1, price: 0 });
+                },
+                removeItem(idx) {
+                    if (this.items.length > 1) {
+                        this.items.splice(idx, 1);
+                        this.calculate();
+                    }
+                },
+                calculate() {
+                    this.subtotal = this.items.reduce((sum, i) => sum + (i.qty * i.price), 0);
+                    this.vat = Math.round(this.subtotal * 0.1);
+                    this.total = this.subtotal + this.vat;
+                }
+            };
+        }
+    </script>
+</body>
+</html>

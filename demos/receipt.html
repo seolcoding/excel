@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>간이영수증</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <style>
+        body { font-family: 'Noto Sans KR', sans-serif; background: #eee; padding: 2rem; }
+        .receipt { background: white; max-width: 400px; margin: 0 auto; padding: 2rem; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .receipt-header { text-align: center; border-bottom: 2px dashed #333; padding-bottom: 1rem; margin-bottom: 1rem; }
+        .receipt-title { font-size: 1.5rem; font-weight: bold; letter-spacing: 0.5rem; }
+        .receipt-row { display: flex; justify-content: space-between; padding: 0.25rem 0; }
+        .receipt-total { border-top: 2px solid #333; margin-top: 1rem; padding-top: 1rem; font-size: 1.25rem; font-weight: bold; }
+        .dotted { border-bottom: 1px dotted #999; flex: 1; margin: 0 0.5rem; }
+        @media print {
+            body { background: white; padding: 0; }
+            .receipt { box-shadow: none; max-width: 100%; }
+            .no-print { display: none !important; }
+        }
+    </style>
+</head>
+<body>
+    <div x-data="receipt()">
+        <div class="text-center mb-3 no-print">
+            <button class="btn btn-primary" @click="window.print()">인쇄</button>
+            <a href="../index.html" class="btn btn-outline-secondary">목록으로</a>
+        </div>
+
+        <div class="receipt">
+            <div class="receipt-header">
+                <div class="receipt-title">영 수 증</div>
+                <small class="text-muted">RECEIPT</small>
+            </div>
+
+            <div class="mb-3">
+                <div class="receipt-row">
+                    <span>일자</span>
+                    <input type="date" x-model="date" class="border-0 text-end" style="width:150px">
+                </div>
+                <div class="receipt-row">
+                    <span>No.</span>
+                    <span x-text="receiptNo"></span>
+                </div>
+            </div>
+
+            <div class="mb-3 p-2 bg-light rounded">
+                <div class="receipt-row">
+                    <input type="text" x-model="recipient" placeholder="받는 분" class="border-0 bg-transparent fw-bold" style="width:60%">
+                    <span>귀하</span>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <div class="text-muted small mb-2">품목</div>
+                <template x-for="(item, idx) in items" :key="idx">
+                    <div class="receipt-row mb-1">
+                        <input type="text" x-model="item.name" class="border-0 border-bottom" style="width:50%" placeholder="품목명">
+                        <span class="dotted"></span>
+                        <input type="text" :value="item.amount.toLocaleString()"
+                               @input="item.amount = parseInt($event.target.value.replace(/,/g,'')) || 0; calculate()"
+                               class="border-0 text-end" style="width:80px">원
+                    </div>
+                </template>
+                <button class="btn btn-sm btn-outline-secondary w-100 mt-2 no-print" @click="addItem()">+ 항목 추가</button>
+            </div>
+
+            <div class="receipt-total">
+                <div class="receipt-row">
+                    <span>합 계</span>
+                    <span x-text="'₩ ' + total.toLocaleString()"></span>
+                </div>
+            </div>
+
+            <div class="mt-4 text-center small">
+                <p class="mb-1">위 금액을 정히 영수함</p>
+                <div class="mt-3">
+                    <input type="text" x-model="issuer" placeholder="발행인" class="border-0 border-bottom text-center">
+                    <span class="ms-2">(인)</span>
+                </div>
+            </div>
+
+            <div class="mt-4 pt-3 border-top small text-muted text-center">
+                <input type="text" x-model="businessInfo" class="border-0 text-center w-100" placeholder="사업자 정보">
+            </div>
+        </div>
+
+        <footer class="text-center text-muted mt-3 small">
+            원본: 엑셀 간이영수증 표준 양식 v2.0.xlsx
+        </footer>
+    </div>
+
+    <script>
+        function receipt() {
+            return {
+                date: new Date().toISOString().split('T')[0],
+                receiptNo: 'R-' + Date.now().toString().slice(-6),
+                recipient: '',
+                items: [{ name: '', amount: 0 }],
+                total: 0,
+                issuer: '',
+                businessInfo: '사업자등록번호: 000-00-00000',
+
+                addItem() { this.items.push({ name: '', amount: 0 }); },
+                calculate() { this.total = this.items.reduce((s, i) => s + i.amount, 0); }
+            };
+        }
+    </script>
+</body>
+</html>

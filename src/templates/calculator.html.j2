@@ -1,0 +1,128 @@
+{% extends "base.html.j2" %}
+{# Calculator template - Input fields → Calculation → Result display #}
+
+{% block input_section %}
+<div class="col-lg-6">
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">📝 입력</h5>
+        </div>
+        <div class="card-body">
+            {% for field in form_fields %}
+            <div class="mb-3">
+                <label for="{{ field.name }}" class="form-label">
+                    {{ field.label }}
+                    {% if field.required %}<span class="text-danger">*</span>{% endif %}
+                </label>
+
+                {% if field.field_type == 'select' %}
+                <select class="form-select" id="{{ field.name }}"
+                        x-model="{{ field.name }}"
+                        {% if field.required %}required{% endif %}>
+                    <option value="">선택하세요</option>
+                    {% for option in field.options %}
+                    <option value="{{ option }}">{{ option }}</option>
+                    {% endfor %}
+                </select>
+
+                {% elif field.field_type == 'checkbox' %}
+                <div class="form-check">
+                    <input type="checkbox" class="form-check-input" id="{{ field.name }}"
+                           x-model="{{ field.name }}">
+                    <label class="form-check-label" for="{{ field.name }}">{{ field.label }}</label>
+                </div>
+
+                {% elif field.field_type == 'number' %}
+                <input type="number" class="form-control" id="{{ field.name }}"
+                       x-model.number="{{ field.name }}"
+                       value="{{ field.default_value | default('') }}"
+                       {% if field.validation %}{{ field.validation }}{% endif %}
+                       {% if field.required %}required{% endif %}>
+
+                {% elif field.field_type == 'date' %}
+                <input type="date" class="form-control" id="{{ field.name }}"
+                       x-model="{{ field.name }}"
+                       {% if field.required %}required{% endif %}>
+
+                {% else %}
+                <input type="text" class="form-control" id="{{ field.name }}"
+                       x-model="{{ field.name }}"
+                       value="{{ field.default_value | default('') }}"
+                       {% if field.required %}required{% endif %}>
+                {% endif %}
+
+                {% if field.help_text %}
+                <small class="form-text text-muted">{{ field.help_text }}</small>
+                {% endif %}
+            </div>
+            {% endfor %}
+
+            <div class="d-flex gap-2 mt-4">
+                <button type="button" class="btn btn-primary btn-calculate no-print"
+                        @click="calculate()" :disabled="loading">
+                    <span x-show="loading" class="spinner-border spinner-border-sm me-1"></span>
+                    계산하기
+                </button>
+                <button type="button" class="btn btn-outline-secondary no-print"
+                        @click="reset()">
+                    초기화
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block output_section %}
+<div class="col-lg-6">
+    <div class="card result-card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">📊 계산 결과</h5>
+            <button type="button" class="btn btn-sm btn-outline-primary btn-print no-print"
+                    @click="print()">
+                🖨️ 인쇄
+            </button>
+        </div>
+        <div class="card-body">
+            {% for output in output_fields %}
+            <div class="mb-3">
+                <label class="form-label text-muted">{{ output.label }}</label>
+                <div class="result-value"
+                     x-text="{{ output.format_function | default('') }}({{ output.name }})">
+                    -
+                </div>
+            </div>
+            {% endfor %}
+
+            {% if summary_fields %}
+            <hr class="my-4">
+            <div class="summary-section">
+                {% for summary in summary_fields %}
+                <div class="d-flex justify-content-between py-2 border-bottom">
+                    <span class="text-muted">{{ summary.label }}</span>
+                    <span class="fw-bold" x-text="{{ summary.format_function | default('') }}({{ summary.name }})">-</span>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block custom_styles %}
+{{ super() }}
+
+.result-value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #0d6efd;
+    padding: 0.5rem 0;
+}
+
+.summary-section {
+    background: rgba(13, 110, 253, 0.05);
+    border-radius: 8px;
+    padding: 1rem;
+}
+{% endblock %}

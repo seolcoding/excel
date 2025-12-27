@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>4대보험 자동 계산기</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #0d6efd;
+            --secondary-color: #6c757d;
+        }
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 2rem 0;
+        }
+        .app-container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        .card {
+            border: none;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+        }
+        .card-header {
+            background: white;
+            border-bottom: 1px solid #e9ecef;
+            border-radius: 16px 16px 0 0 !important;
+            padding: 1.5rem;
+        }
+        .result-card {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-left: 4px solid var(--primary-color);
+        }
+        .result-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary-color);
+        }
+        .total-row {
+            background: var(--primary-color);
+            color: white;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-top: 1rem;
+        }
+        .form-label {
+            font-weight: 500;
+            color: #495057;
+        }
+        .input-group-text {
+            background: #f8f9fa;
+        }
+        @media print {
+            body { background: white !important; }
+            .no-print { display: none !important; }
+            .card { box-shadow: none !important; border: 1px solid #ddd !important; }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container" x-data="insuranceCalculator()">
+        <div class="text-center text-white mb-4">
+            <h1 class="fw-bold">4대보험 자동 계산기</h1>
+            <p class="opacity-75">월급여를 입력하면 4대보험료가 자동 계산됩니다</p>
+        </div>
+
+        <div class="row g-4">
+            <!-- 입력 섹션 -->
+            <div class="col-lg-5">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">급여 정보 입력</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-4">
+                            <label class="form-label">월 급여 (원)</label>
+                            <div class="input-group input-group-lg">
+                                <input type="text" class="form-control"
+                                       x-model="salaryFormatted"
+                                       @input="updateSalary($event)"
+                                       placeholder="3,000,000">
+                                <span class="input-group-text">원</span>
+                            </div>
+                            <small class="text-muted">비과세 항목 제외 금액</small>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="form-label">연령대</label>
+                            <select class="form-select" x-model="ageGroup">
+                                <option value="under60">60세 미만</option>
+                                <option value="60to65">60세 이상 65세 미만</option>
+                                <option value="over65">65세 이상</option>
+                            </select>
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button class="btn btn-primary btn-lg no-print" @click="calculate()">
+                                계산하기
+                            </button>
+                            <button class="btn btn-outline-secondary no-print" @click="reset()">
+                                초기화
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 결과 섹션 -->
+            <div class="col-lg-7">
+                <div class="card result-card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">계산 결과</h5>
+                        <button class="btn btn-sm btn-outline-primary no-print" @click="window.print()">
+                            인쇄
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <table class="table table-borderless mb-0">
+                            <thead>
+                                <tr class="text-muted">
+                                    <th>항목</th>
+                                    <th class="text-end">요율</th>
+                                    <th class="text-end">본인 부담금</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>국민연금</td>
+                                    <td class="text-end">4.5%</td>
+                                    <td class="text-end result-value" x-text="formatCurrency(nationalPension)"></td>
+                                </tr>
+                                <tr>
+                                    <td>건강보험</td>
+                                    <td class="text-end">3.545%</td>
+                                    <td class="text-end result-value" x-text="formatCurrency(healthInsurance)"></td>
+                                </tr>
+                                <tr>
+                                    <td>장기요양보험</td>
+                                    <td class="text-end">건강보험의 12.81%</td>
+                                    <td class="text-end result-value" x-text="formatCurrency(longTermCare)"></td>
+                                </tr>
+                                <tr>
+                                    <td>고용보험</td>
+                                    <td class="text-end">0.9%</td>
+                                    <td class="text-end result-value" x-text="formatCurrency(employmentInsurance)"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <div class="total-row d-flex justify-content-between align-items-center">
+                            <span class="fs-5">총 공제액</span>
+                            <span class="fs-3 fw-bold" x-text="formatCurrency(totalDeduction)"></span>
+                        </div>
+
+                        <div class="mt-3 p-3 bg-white rounded">
+                            <div class="d-flex justify-content-between">
+                                <span>실수령액 (예상)</span>
+                                <span class="fs-4 fw-bold text-success" x-text="formatCurrency(netSalary)"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 안내 -->
+                <div class="card mt-3">
+                    <div class="card-body">
+                        <h6 class="text-muted mb-2">참고사항</h6>
+                        <ul class="small text-muted mb-0">
+                            <li>2024년 기준 요율로 계산됩니다</li>
+                            <li>국민연금은 월 소득 590만원 상한 적용</li>
+                            <li>실제 공제액은 회사 정책에 따라 다를 수 있습니다</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer class="text-center text-white-50 mt-4 small">
+            원본: 4대보험_자동계산기_엑셀템플릿.xlsx |
+            <a href="../index.html" class="text-white">데모 목록으로</a>
+        </footer>
+    </div>
+
+    <script>
+        function insuranceCalculator() {
+            return {
+                salary: 3000000,
+                salaryFormatted: '3,000,000',
+                ageGroup: 'under60',
+
+                // 계산 결과
+                nationalPension: 0,
+                healthInsurance: 0,
+                longTermCare: 0,
+                employmentInsurance: 0,
+                totalDeduction: 0,
+                netSalary: 0,
+
+                // 요율 (2024년 기준)
+                rates: {
+                    nationalPension: 0.045,      // 4.5%
+                    healthInsurance: 0.03545,    // 3.545%
+                    longTermCare: 0.1281,        // 건강보험의 12.81%
+                    employmentInsurance: 0.009   // 0.9%
+                },
+
+                init() {
+                    this.calculate();
+                },
+
+                updateSalary(event) {
+                    const value = event.target.value.replace(/[^\d]/g, '');
+                    this.salary = parseInt(value) || 0;
+                    this.salaryFormatted = this.salary.toLocaleString('ko-KR');
+                    this.calculate();
+                },
+
+                calculate() {
+                    // 국민연금 (상한 590만원)
+                    const pensionBase = Math.min(this.salary, 5900000);
+                    this.nationalPension = this.ageGroup === 'over65' ? 0 :
+                        Math.round(pensionBase * this.rates.nationalPension);
+
+                    // 건강보험
+                    this.healthInsurance = Math.round(this.salary * this.rates.healthInsurance);
+
+                    // 장기요양보험
+                    this.longTermCare = Math.round(this.healthInsurance * this.rates.longTermCare);
+
+                    // 고용보험 (65세 이상 면제)
+                    this.employmentInsurance = this.ageGroup === 'over65' ? 0 :
+                        Math.round(this.salary * this.rates.employmentInsurance);
+
+                    // 총 공제액
+                    this.totalDeduction = this.nationalPension + this.healthInsurance +
+                        this.longTermCare + this.employmentInsurance;
+
+                    // 실수령액
+                    this.netSalary = this.salary - this.totalDeduction;
+                },
+
+                reset() {
+                    this.salary = 3000000;
+                    this.salaryFormatted = '3,000,000';
+                    this.ageGroup = 'under60';
+                    this.calculate();
+                },
+
+                formatCurrency(value) {
+                    return new Intl.NumberFormat('ko-KR', {
+                        style: 'currency',
+                        currency: 'KRW',
+                        maximumFractionDigits: 0
+                    }).format(value);
+                }
+            };
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>교육일지</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <style>
+        body { font-family: 'Noto Sans KR', sans-serif; background: #f0f4f8; }
+        .doc-container { max-width: 800px; margin: 2rem auto; }
+        .doc-paper { background: white; padding: 2.5rem; box-shadow: 0 2px 10px rgba(0,0,0,0.08); }
+        .doc-title { text-align: center; font-size: 1.75rem; font-weight: 700; border-bottom: 2px solid #333; padding-bottom: 0.5rem; margin-bottom: 1.5rem; }
+        .info-table td { padding: 0.5rem; border: 1px solid #ddd; }
+        .info-table td:first-child { background: #f8f9fa; width: 120px; font-weight: 500; }
+        .content-area { min-height: 200px; border: 1px solid #ddd; padding: 1rem; }
+        .signature-area { display: flex; justify-content: flex-end; gap: 2rem; margin-top: 2rem; }
+        .signature-box { text-align: center; width: 100px; }
+        .signature-line { border-bottom: 1px solid #333; height: 40px; margin-bottom: 0.25rem; }
+        @media print { body { background: white; } .doc-paper { box-shadow: none; } .no-print { display: none !important; } @page { size: A4; margin: 20mm; } }
+    </style>
+</head>
+<body>
+    <div class="doc-container" x-data="trainingLog()">
+        <div class="mb-3 no-print">
+            <button class="btn btn-success" @click="window.print()">인쇄</button>
+            <button class="btn btn-outline-secondary" @click="reset()">초기화</button>
+            <a href="../index.html" class="btn btn-outline-secondary">목록으로</a>
+        </div>
+
+        <div class="doc-paper">
+            <div class="doc-title">교 육 일 지</div>
+
+            <table class="info-table w-100 mb-4">
+                <tr>
+                    <td>교육명</td>
+                    <td colspan="3"><input type="text" class="form-control border-0" x-model="training.name" placeholder="교육 과정명"></td>
+                </tr>
+                <tr>
+                    <td>교육일시</td>
+                    <td><input type="date" class="form-control border-0" x-model="training.date"></td>
+                    <td style="width:80px">교육시간</td>
+                    <td style="width:150px">
+                        <input type="text" class="form-control border-0" x-model="training.hours" placeholder="예: 09:00~18:00">
+                    </td>
+                </tr>
+                <tr>
+                    <td>교육장소</td>
+                    <td><input type="text" class="form-control border-0" x-model="training.location" placeholder="교육 장소"></td>
+                    <td>교육인원</td>
+                    <td><input type="number" class="form-control border-0" x-model="training.attendees" placeholder="0"> 명</td>
+                </tr>
+                <tr>
+                    <td>강사</td>
+                    <td colspan="3"><input type="text" class="form-control border-0" x-model="training.instructor" placeholder="강사명"></td>
+                </tr>
+            </table>
+
+            <h6 class="fw-bold mb-2">교육 목표</h6>
+            <div class="content-area mb-4">
+                <textarea class="form-control border-0 h-100" x-model="training.objectives" rows="3" placeholder="교육 목표를 입력하세요"></textarea>
+            </div>
+
+            <h6 class="fw-bold mb-2">교육 내용</h6>
+            <div class="content-area mb-4" style="min-height:250px">
+                <textarea class="form-control border-0 h-100" x-model="training.content" rows="8" placeholder="교육 내용을 상세히 기록하세요"></textarea>
+            </div>
+
+            <h6 class="fw-bold mb-2">특이사항 / 개선점</h6>
+            <div class="content-area mb-4">
+                <textarea class="form-control border-0 h-100" x-model="training.notes" rows="3" placeholder="특이사항이나 개선점을 기록하세요"></textarea>
+            </div>
+
+            <div class="signature-area">
+                <div class="signature-box">
+                    <div class="signature-line"></div>
+                    <span>작성자</span>
+                </div>
+                <div class="signature-box">
+                    <div class="signature-line"></div>
+                    <span>팀장</span>
+                </div>
+                <div class="signature-box">
+                    <div class="signature-line"></div>
+                    <span>부서장</span>
+                </div>
+            </div>
+        </div>
+
+        <footer class="text-center text-muted mt-3 small">원본: 교육일지 양식 01.xlsx</footer>
+    </div>
+
+    <script>
+        function trainingLog() {
+            return {
+                training: {
+                    name: '',
+                    date: new Date().toISOString().split('T')[0],
+                    hours: '',
+                    location: '',
+                    attendees: '',
+                    instructor: '',
+                    objectives: '',
+                    content: '',
+                    notes: ''
+                },
+                reset() {
+                    this.training = { name: '', date: new Date().toISOString().split('T')[0], hours: '', location: '', attendees: '', instructor: '', objectives: '', content: '', notes: '' };
+                }
+            };
+        }
+    </script>
+</body>
+</html>

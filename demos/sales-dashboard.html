@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>매출분석 대시보드</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: 'Noto Sans KR', sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; }
+        .dashboard { max-width: 1400px; margin: 0 auto; padding: 2rem; }
+        .card { background: rgba(255,255,255,0.95); border: none; border-radius: 16px; box-shadow: 0 8px 32px rgba(0,0,0,0.1); }
+        .stat-card { text-align: center; padding: 1.5rem; }
+        .stat-value { font-size: 2.5rem; font-weight: bold; }
+        .stat-label { color: #666; font-size: 0.9rem; }
+        .stat-change { font-size: 0.85rem; }
+        .positive { color: #10b981; }
+        .negative { color: #ef4444; }
+        .chart-container { position: relative; height: 300px; }
+        .period-btn { border-radius: 20px; }
+        .period-btn.active { background: #667eea; color: white; }
+        @media print { body { background: white; } }
+    </style>
+</head>
+<body>
+    <div class="dashboard" x-data="dashboard()">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2 class="text-white mb-0">매출분석 대시보드</h2>
+            <div>
+                <button class="btn period-btn" :class="period === 'daily' ? 'active' : 'btn-light'" @click="setPeriod('daily')">일별</button>
+                <button class="btn period-btn" :class="period === 'weekly' ? 'active' : 'btn-light'" @click="setPeriod('weekly')">주별</button>
+                <button class="btn period-btn" :class="period === 'monthly' ? 'active' : 'btn-light'" @click="setPeriod('monthly')">월별</button>
+                <a href="../index.html" class="btn btn-outline-light ms-2">목록으로</a>
+            </div>
+        </div>
+
+        <!-- 핵심 지표 -->
+        <div class="row g-4 mb-4">
+            <div class="col-md-3">
+                <div class="card stat-card">
+                    <div class="stat-value text-primary" x-text="formatCurrency(stats.totalSales)"></div>
+                    <div class="stat-label">총 매출</div>
+                    <div class="stat-change positive">▲ 12.5% vs 전기</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card stat-card">
+                    <div class="stat-value text-success" x-text="stats.orderCount.toLocaleString()"></div>
+                    <div class="stat-label">주문 건수</div>
+                    <div class="stat-change positive">▲ 8.3% vs 전기</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card stat-card">
+                    <div class="stat-value text-info" x-text="formatCurrency(stats.avgOrderValue)"></div>
+                    <div class="stat-label">평균 주문금액</div>
+                    <div class="stat-change positive">▲ 3.8% vs 전기</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card stat-card">
+                    <div class="stat-value text-warning" x-text="stats.conversionRate + '%'"></div>
+                    <div class="stat-label">전환율</div>
+                    <div class="stat-change negative">▼ 0.5% vs 전기</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-4 mb-4">
+            <!-- 매출 추이 차트 -->
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header bg-white border-0 pt-3">
+                        <h5 class="mb-0">매출 추이</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container">
+                            <canvas id="salesChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- 카테고리별 매출 -->
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header bg-white border-0 pt-3">
+                        <h5 class="mb-0">카테고리별 매출</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container">
+                            <canvas id="categoryChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-4">
+            <!-- 상위 상품 -->
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header bg-white border-0 pt-3">
+                        <h5 class="mb-0">TOP 5 상품</h5>
+                    </div>
+                    <div class="card-body p-0">
+                        <table class="table mb-0">
+                            <thead class="table-light">
+                                <tr><th>순위</th><th>상품명</th><th class="text-end">매출</th><th class="text-end">판매량</th></tr>
+                            </thead>
+                            <tbody>
+                                <template x-for="(product, i) in topProducts" :key="i">
+                                    <tr>
+                                        <td><span class="badge" :class="i < 3 ? 'bg-primary' : 'bg-secondary'" x-text="i+1"></span></td>
+                                        <td x-text="product.name"></td>
+                                        <td class="text-end" x-text="formatCurrency(product.sales)"></td>
+                                        <td class="text-end" x-text="product.qty.toLocaleString()"></td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <!-- 지역별 매출 -->
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header bg-white border-0 pt-3">
+                        <h5 class="mb-0">지역별 매출</h5>
+                    </div>
+                    <div class="card-body p-0">
+                        <table class="table mb-0">
+                            <thead class="table-light">
+                                <tr><th>지역</th><th class="text-end">매출</th><th class="text-end">비중</th><th>추이</th></tr>
+                            </thead>
+                            <tbody>
+                                <template x-for="region in regions" :key="region.name">
+                                    <tr>
+                                        <td x-text="region.name"></td>
+                                        <td class="text-end" x-text="formatCurrency(region.sales)"></td>
+                                        <td class="text-end" x-text="region.share + '%'"></td>
+                                        <td>
+                                            <div class="progress" style="height:6px;width:80px">
+                                                <div class="progress-bar" :style="'width:' + region.share + '%'"></div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer class="text-center text-white-50 mt-4 small">원본: 엑셀 매출분석 대시보드 양식 v1.0.xlsx</footer>
+    </div>
+
+    <script>
+        function dashboard() {
+            return {
+                period: 'monthly',
+                stats: { totalSales: 158420000, orderCount: 2847, avgOrderValue: 55640, conversionRate: 3.2 },
+                topProducts: [
+                    { name: '프리미엄 노트북', sales: 45200000, qty: 124 },
+                    { name: '무선 이어폰 Pro', sales: 28500000, qty: 856 },
+                    { name: '스마트워치 S5', sales: 21300000, qty: 312 },
+                    { name: '태블릿 Air', sales: 18900000, qty: 189 },
+                    { name: '블루투스 스피커', sales: 12400000, qty: 445 }
+                ],
+                regions: [
+                    { name: '서울', sales: 63400000, share: 40 },
+                    { name: '경기', sales: 38000000, share: 24 },
+                    { name: '부산', sales: 22000000, share: 14 },
+                    { name: '대구', sales: 15800000, share: 10 },
+                    { name: '기타', sales: 19200000, share: 12 }
+                ],
+                formatCurrency(v) { return (v / 10000).toLocaleString() + '만원'; },
+                setPeriod(p) { this.period = p; },
+                init() {
+                    this.$nextTick(() => {
+                        // 매출 추이 차트
+                        new Chart(document.getElementById('salesChart'), {
+                            type: 'line',
+                            data: {
+                                labels: ['1월', '2월', '3월', '4월', '5월', '6월'],
+                                datasets: [{
+                                    label: '매출',
+                                    data: [12500, 14200, 13800, 15600, 16800, 15800],
+                                    borderColor: '#667eea',
+                                    backgroundColor: 'rgba(102,126,234,0.1)',
+                                    fill: true,
+                                    tension: 0.4
+                                }]
+                            },
+                            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+                        });
+                        // 카테고리 차트
+                        new Chart(document.getElementById('categoryChart'), {
+                            type: 'doughnut',
+                            data: {
+                                labels: ['전자기기', '패션', '식품', '생활용품', '기타'],
+                                datasets: [{ data: [35, 25, 20, 12, 8], backgroundColor: ['#667eea', '#764ba2', '#f093fb', '#f5576c', '#4facfe'] }]
+                            },
+                            options: { responsive: true, maintainAspectRatio: false }
+                        });
+                    });
+                }
+            };
+        }
+    </script>
+</body>
+</html>

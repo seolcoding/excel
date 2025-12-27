@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>표준 근로계약서</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <style>
+        body { font-family: 'Noto Sans KR', sans-serif; background: #f9f9f9; }
+        .contract-container { max-width: 800px; margin: 2rem auto; }
+        .contract-paper { background: white; padding: 3rem; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .contract-title { text-align: center; font-size: 1.75rem; font-weight: bold; margin-bottom: 2rem; letter-spacing: 0.3rem; }
+        .section-title { font-weight: bold; background: #f0f0f0; padding: 0.5rem; margin: 1.5rem 0 1rem; }
+        .form-row { display: flex; align-items: center; margin-bottom: 0.75rem; }
+        .form-row label { min-width: 120px; font-weight: 500; }
+        .form-row input, .form-row select { flex: 1; }
+        .signature-section { margin-top: 3rem; }
+        .signature-box { border: 1px solid #ddd; padding: 1rem; margin-bottom: 1rem; }
+        @media print { body { background: white; } .contract-paper { box-shadow: none; padding: 0; } .no-print { display: none !important; } @page { size: A4; margin: 20mm; } }
+    </style>
+</head>
+<body>
+    <div class="contract-container" x-data="contract()">
+        <div class="mb-3 no-print">
+            <button class="btn btn-success" @click="window.print()">인쇄 / PDF</button>
+            <button class="btn btn-outline-secondary" @click="reset()">초기화</button>
+            <a href="../index.html" class="btn btn-outline-secondary">목록으로</a>
+        </div>
+
+        <div class="contract-paper">
+            <div class="contract-title">표 준 근 로 계 약 서</div>
+
+            <p class="text-center mb-4">
+                <input type="text" x-model="employer.name" class="border-0 border-bottom fw-bold" placeholder="사업주명" style="width:150px">
+                (이하 "사업주"라 함)과
+                <input type="text" x-model="employee.name" class="border-0 border-bottom fw-bold" placeholder="근로자명" style="width:150px">
+                (이하 "근로자"라 함)은 다음과 같이 근로계약을 체결한다.
+            </p>
+
+            <div class="section-title">1. 근로계약기간</div>
+            <div class="form-row">
+                <label>계약기간</label>
+                <input type="date" class="form-control" x-model="contract.startDate" style="width:150px"> ~
+                <input type="date" class="form-control ms-2" x-model="contract.endDate" style="width:150px">
+                <span class="ms-2 text-muted">(기간의 정함이 없는 경우 공란)</span>
+            </div>
+
+            <div class="section-title">2. 근무장소</div>
+            <div class="form-row">
+                <label>근무장소</label>
+                <input type="text" class="form-control" x-model="contract.workplace" placeholder="근무지 주소">
+            </div>
+
+            <div class="section-title">3. 업무내용</div>
+            <div class="form-row">
+                <label>담당업무</label>
+                <input type="text" class="form-control" x-model="contract.duties" placeholder="담당 업무 내용">
+            </div>
+
+            <div class="section-title">4. 근로시간</div>
+            <div class="form-row">
+                <label>근무시간</label>
+                <input type="time" class="form-control" x-model="contract.workStart" style="width:120px"> ~
+                <input type="time" class="form-control ms-2" x-model="contract.workEnd" style="width:120px">
+            </div>
+            <div class="form-row">
+                <label>휴게시간</label>
+                <input type="text" class="form-control" x-model="contract.breakTime" placeholder="예: 12:00~13:00 (60분)">
+            </div>
+
+            <div class="section-title">5. 근무일 및 휴일</div>
+            <div class="form-row">
+                <label>근무일</label>
+                <input type="text" class="form-control" x-model="contract.workDays" placeholder="예: 월~금 (주 5일)">
+            </div>
+            <div class="form-row">
+                <label>주휴일</label>
+                <input type="text" class="form-control" x-model="contract.weeklyHoliday" placeholder="예: 매주 일요일">
+            </div>
+
+            <div class="section-title">6. 임금</div>
+            <div class="form-row">
+                <label>월급여</label>
+                <input type="text" class="form-control" x-model="contract.salaryFormatted"
+                       @input="contract.salary = parseInt($event.target.value.replace(/,/g,'')) || 0; contract.salaryFormatted = contract.salary.toLocaleString()"
+                       placeholder="0" style="width:180px"> 원
+            </div>
+            <div class="form-row">
+                <label>급여일</label>
+                매월 <input type="number" class="form-control" x-model="contract.payDay" min="1" max="31" style="width:80px"> 일
+            </div>
+            <div class="form-row">
+                <label>지급방법</label>
+                <select class="form-select" x-model="contract.payMethod" style="width:200px">
+                    <option value="계좌이체">근로자 명의 계좌로 이체</option>
+                    <option value="현금">현금 지급</option>
+                </select>
+            </div>
+
+            <div class="section-title">7. 연차유급휴가</div>
+            <p class="small text-muted">연차유급휴가는 근로기준법에서 정하는 바에 따라 부여함</p>
+
+            <div class="section-title">8. 기타</div>
+            <p class="small">이 계약에 정함이 없는 사항은 근로기준법령에 정하는 바에 따른다.</p>
+
+            <div class="signature-section">
+                <p class="text-center mb-4" x-text="new Date().toLocaleDateString('ko-KR', {year:'numeric',month:'long',day:'numeric'})"></p>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="signature-box">
+                            <h6>사업주</h6>
+                            <div class="form-row"><label>사업체명</label><input type="text" class="form-control" x-model="employer.company"></div>
+                            <div class="form-row"><label>주소</label><input type="text" class="form-control" x-model="employer.address"></div>
+                            <div class="form-row"><label>대표자</label><input type="text" class="form-control" x-model="employer.name"> (서명)</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="signature-box">
+                            <h6>근로자</h6>
+                            <div class="form-row"><label>주소</label><input type="text" class="form-control" x-model="employee.address"></div>
+                            <div class="form-row"><label>연락처</label><input type="tel" class="form-control" x-model="employee.phone"></div>
+                            <div class="form-row"><label>성명</label><input type="text" class="form-control" x-model="employee.name"> (서명)</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer class="text-center text-muted mt-3 small">원본: 엑셀 표준 근로계약서 양식 v2.0.xlsx</footer>
+    </div>
+
+    <script>
+        function contract() {
+            return {
+                employer: { company: '', name: '', address: '' },
+                employee: { name: '', address: '', phone: '' },
+                contract: {
+                    startDate: '', endDate: '',
+                    workplace: '', duties: '',
+                    workStart: '09:00', workEnd: '18:00', breakTime: '12:00~13:00 (60분)',
+                    workDays: '월~금 (주 5일)', weeklyHoliday: '매주 일요일',
+                    salary: 0, salaryFormatted: '', payDay: 25, payMethod: '계좌이체'
+                },
+                reset() {
+                    this.employer = { company: '', name: '', address: '' };
+                    this.employee = { name: '', address: '', phone: '' };
+                    this.contract = { startDate: '', endDate: '', workplace: '', duties: '', workStart: '09:00', workEnd: '18:00', breakTime: '12:00~13:00 (60분)', workDays: '월~금 (주 5일)', weeklyHoliday: '매주 일요일', salary: 0, salaryFormatted: '', payDay: 25, payMethod: '계좌이체' };
+                }
+            };
+        }
+    </script>
+</body>
+</html>

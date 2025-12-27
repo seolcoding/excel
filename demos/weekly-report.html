@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>주간업무보고</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <style>
+        body { font-family: 'Noto Sans KR', sans-serif; background: #f5f7fa; }
+        .report-container { max-width: 900px; margin: 2rem auto; }
+        .report-paper { background: white; padding: 2rem; box-shadow: 0 2px 15px rgba(0,0,0,0.08); border-radius: 8px; }
+        .section-title { background: #4a90d9; color: white; padding: 0.5rem 1rem; border-radius: 4px; margin-bottom: 1rem; }
+        .task-table th { background: #f8f9fa; font-weight: 500; }
+        .status-done { color: #28a745; }
+        .status-progress { color: #ffc107; }
+        .status-pending { color: #dc3545; }
+        @media print { body { background: white; } .report-paper { box-shadow: none; } .no-print { display: none !important; } }
+    </style>
+</head>
+<body>
+    <div class="report-container" x-data="weeklyReport()">
+        <div class="mb-3 no-print">
+            <button class="btn btn-primary" @click="addThisWeek()">이번주 항목 추가</button>
+            <button class="btn btn-outline-primary" @click="addNextWeek()">다음주 항목 추가</button>
+            <button class="btn btn-success" @click="window.print()">인쇄</button>
+            <a href="../index.html" class="btn btn-outline-secondary">목록으로</a>
+        </div>
+
+        <div class="report-paper">
+            <div class="text-center mb-4">
+                <h2 class="fw-bold">주간업무보고</h2>
+                <p class="text-muted mb-0">
+                    <input type="date" x-model="weekStart" class="border-0 text-center"> ~
+                    <input type="date" x-model="weekEnd" class="border-0 text-center">
+                </p>
+            </div>
+
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label class="form-label">부서</label>
+                    <input type="text" class="form-control" x-model="dept" placeholder="부서명">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">작성자</label>
+                    <input type="text" class="form-control" x-model="author" placeholder="이름">
+                </div>
+            </div>
+
+            <div class="mb-4">
+                <div class="section-title">금주 업무 실적</div>
+                <table class="table task-table">
+                    <thead>
+                        <tr>
+                            <th style="width:40px">No</th>
+                            <th>업무내용</th>
+                            <th style="width:100px">진행률</th>
+                            <th style="width:100px">상태</th>
+                            <th style="width:50px" class="no-print"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="(task, idx) in thisWeek" :key="'tw'+idx">
+                            <tr>
+                                <td x-text="idx+1"></td>
+                                <td><input type="text" class="form-control form-control-sm" x-model="task.content"></td>
+                                <td>
+                                    <select class="form-select form-select-sm" x-model="task.progress">
+                                        <option value="100">100%</option>
+                                        <option value="80">80%</option>
+                                        <option value="60">60%</option>
+                                        <option value="40">40%</option>
+                                        <option value="20">20%</option>
+                                        <option value="0">0%</option>
+                                    </select>
+                                </td>
+                                <td>
+                                    <span :class="task.progress == 100 ? 'status-done' : (task.progress > 0 ? 'status-progress' : 'status-pending')"
+                                          x-text="task.progress == 100 ? '완료' : (task.progress > 0 ? '진행중' : '예정')"></span>
+                                </td>
+                                <td class="no-print"><button class="btn btn-sm btn-outline-danger" @click="thisWeek.splice(idx,1)">×</button></td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="mb-4">
+                <div class="section-title">차주 업무 계획</div>
+                <table class="table task-table">
+                    <thead>
+                        <tr>
+                            <th style="width:40px">No</th>
+                            <th>업무내용</th>
+                            <th style="width:120px">예상 완료일</th>
+                            <th style="width:50px" class="no-print"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="(task, idx) in nextWeek" :key="'nw'+idx">
+                            <tr>
+                                <td x-text="idx+1"></td>
+                                <td><input type="text" class="form-control form-control-sm" x-model="task.content"></td>
+                                <td><input type="date" class="form-control form-control-sm" x-model="task.dueDate"></td>
+                                <td class="no-print"><button class="btn btn-sm btn-outline-danger" @click="nextWeek.splice(idx,1)">×</button></td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+
+            <div>
+                <div class="section-title">특이사항 / 건의사항</div>
+                <textarea class="form-control" rows="4" x-model="notes" placeholder="특이사항이나 건의사항을 입력하세요"></textarea>
+            </div>
+        </div>
+
+        <footer class="text-center text-muted mt-3 small">원본: 주간업무보고 표준양식.xlsx</footer>
+    </div>
+
+    <script>
+        function weeklyReport() {
+            const today = new Date();
+            const monday = new Date(today); monday.setDate(today.getDate() - today.getDay() + 1);
+            const friday = new Date(monday); friday.setDate(monday.getDate() + 4);
+            return {
+                weekStart: monday.toISOString().split('T')[0],
+                weekEnd: friday.toISOString().split('T')[0],
+                dept: '', author: '',
+                thisWeek: [{ content: '', progress: '100' }],
+                nextWeek: [{ content: '', dueDate: '' }],
+                notes: '',
+                addThisWeek() { this.thisWeek.push({ content: '', progress: '0' }); },
+                addNextWeek() { this.nextWeek.push({ content: '', dueDate: '' }); }
+            };
+        }
+    </script>
+</body>
+</html>

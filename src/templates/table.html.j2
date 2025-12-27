@@ -1,0 +1,227 @@
+{% extends "base.html.j2" %}
+{# Table template - Display/edit tabular data #}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">{{ table_title | default('데이터 테이블') }}</h5>
+                <div class="d-flex gap-2 no-print">
+                    {% if allow_add_row %}
+                    <button type="button" class="btn btn-sm btn-success"
+                            @click="addRow()">
+                        ➕ 행 추가
+                    </button>
+                    {% endif %}
+                    <button type="button" class="btn btn-sm btn-outline-primary"
+                            @click="print()">
+                        🖨️ 인쇄
+                    </button>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-bordered table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                {% if show_row_numbers %}
+                                <th class="row-number">#</th>
+                                {% endif %}
+                                {% for column in columns %}
+                                <th class="{{ 'text-end' if column.align == 'right' else ('text-center' if column.align == 'center' else '') }}"
+                                    style="{% if column.width %}width: {{ column.width }};{% endif %}">
+                                    {{ column.label }}
+                                </th>
+                                {% endfor %}
+                                {% if allow_delete_row %}
+                                <th class="action-column no-print">작업</th>
+                                {% endif %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <template x-for="(row, index) in rows" :key="index">
+                                <tr>
+                                    {% if show_row_numbers %}
+                                    <td class="row-number" x-text="index + 1"></td>
+                                    {% endif %}
+                                    {% for column in columns %}
+                                    <td class="{{ 'text-end' if column.align == 'right' else ('text-center' if column.align == 'center' else '') }}">
+                                        {% if column.readonly %}
+                                        <span x-text="{{ column.format_function | default('') }}(row.{{ column.name }})"></span>
+                                        {% elif column.type == 'select' %}
+                                        <select class="form-select form-select-sm"
+                                                x-model="row.{{ column.name }}"
+                                                @change="calculateRow(index)">
+                                            {% for option in column.options %}
+                                            <option value="{{ option.value }}">{{ option.label }}</option>
+                                            {% endfor %}
+                                        </select>
+                                        {% elif column.type == 'number' %}
+                                        <input type="number" class="form-control form-control-sm text-end"
+                                               x-model.number="row.{{ column.name }}"
+                                               @input="calculateRow(index)">
+                                        {% elif column.type == 'checkbox' %}
+                                        <input type="checkbox" class="form-check-input"
+                                               x-model="row.{{ column.name }}"
+                                               @change="calculateRow(index)">
+                                        {% else %}
+                                        <input type="text" class="form-control form-control-sm"
+                                               x-model="row.{{ column.name }}"
+                                               @input="calculateRow(index)">
+                                        {% endif %}
+                                    </td>
+                                    {% endfor %}
+                                    {% if allow_delete_row %}
+                                    <td class="action-column no-print">
+                                        <button type="button" class="btn btn-sm btn-outline-danger"
+                                                @click="deleteRow(index)">
+                                            🗑️
+                                        </button>
+                                    </td>
+                                    {% endif %}
+                                </tr>
+                            </template>
+                        </tbody>
+                        {% if show_totals %}
+                        <tfoot class="table-light">
+                            <tr class="fw-bold">
+                                {% if show_row_numbers %}
+                                <td></td>
+                                {% endif %}
+                                {% for column in columns %}
+                                <td class="{{ 'text-end' if column.align == 'right' else ('text-center' if column.align == 'center' else '') }}">
+                                    {% if column.show_total %}
+                                    <span x-text="{{ column.format_function | default('') }}(totals.{{ column.name }})"></span>
+                                    {% elif loop.first %}
+                                    합계
+                                    {% endif %}
+                                </td>
+                                {% endfor %}
+                                {% if allow_delete_row %}
+                                <td class="no-print"></td>
+                                {% endif %}
+                            </tr>
+                        </tfoot>
+                        {% endif %}
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block custom_styles %}
+{{ super() }}
+
+.row-number {
+    width: 50px;
+    text-align: center;
+    color: #6c757d;
+    font-size: 0.875rem;
+}
+
+.action-column {
+    width: 80px;
+    text-align: center;
+}
+
+.table td {
+    vertical-align: middle;
+}
+
+.table .form-control,
+.table .form-select {
+    border: 1px solid transparent;
+    background: transparent;
+}
+
+.table .form-control:focus,
+.table .form-select:focus {
+    border-color: #0d6efd;
+    background: white;
+}
+
+.table .form-control:hover,
+.table .form-select:hover {
+    border-color: #ced4da;
+}
+
+@media print {
+    .table .form-control,
+    .table .form-select {
+        border: none !important;
+        padding: 0 !important;
+        background: transparent !important;
+    }
+
+    .table thead {
+        background: #f8f9fa !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    .table tfoot {
+        background: #f8f9fa !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+}
+{% endblock %}
+
+{% block data_properties %}
+rows: {{ initial_rows | default('[]') }},
+{% if show_totals %}
+totals: {{ initial_totals | default('{}') }},
+{% endif %}
+{% endblock %}
+
+{% block methods %}
+calculate() {
+    this.rows.forEach((row, index) => this.calculateRow(index));
+    {% if show_totals %}
+    this.calculateTotals();
+    {% endif %}
+},
+
+calculateRow(index) {
+    const row = this.rows[index];
+    {{ row_calculation_logic | default('') }}
+    {% if show_totals %}
+    this.calculateTotals();
+    {% endif %}
+},
+
+{% if show_totals %}
+calculateTotals() {
+    {{ totals_calculation_logic | default('') }}
+},
+{% endif %}
+
+{% if allow_add_row %}
+addRow() {
+    this.rows.push({{ new_row_template | default('{}') }});
+},
+{% endif %}
+
+{% if allow_delete_row %}
+deleteRow(index) {
+    if (this.rows.length > 1) {
+        this.rows.splice(index, 1);
+        this.calculate();
+    }
+},
+{% endif %}
+
+print() {
+    window.print();
+},
+
+reset() {
+    this.rows = {{ initial_rows | default('[]') }};
+    {% if show_totals %}
+    this.calculateTotals();
+    {% endif %}
+},
+{% endblock %}
