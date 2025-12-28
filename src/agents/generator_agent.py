@@ -209,7 +209,7 @@ def create_generator_agent() -> Agent:
         name="WebApp Generator",
         instructions=GENERATOR_INSTRUCTIONS,
         tools=[convert_formula, check_formula_complexity, get_js_helpers],
-        model="gpt-5.2",  # SOTA model - excels at frontend UI & code generation
+        model="gpt-4o",  # SOTA model - excels at frontend UI & code generation
         output_type=AgentOutputSchema(GeneratedWebApp, strict_json_schema=False),  # Structured output
     )
 

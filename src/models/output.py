@@ -1,7 +1,7 @@
 """Generated web app output models."""
 
-from pydantic import BaseModel
-from typing import Optional
+from pydantic import BaseModel, Field
+from typing import Optional, Literal
 from enum import Enum
 
 
@@ -9,6 +9,36 @@ class TestStatus(str, Enum):
     PASSED = "passed"
     FAILED = "failed"
     SKIPPED = "skipped"
+
+
+class TestEvaluation(BaseModel):
+    """Structured evaluation result from the Tester Agent (LLM-as-a-Judge)."""
+    score: Literal["pass", "needs_improvement", "fail"] = Field(
+        description="Overall evaluation score"
+    )
+    pass_rate: float = Field(
+        description="Percentage of tests passed (0.0 to 1.0)"
+    )
+    passed_tests: list[str] = Field(
+        default_factory=list,
+        description="Names of passed tests"
+    )
+    failed_tests: list[str] = Field(
+        default_factory=list,
+        description="Names of failed tests"
+    )
+    issues: list[str] = Field(
+        default_factory=list,
+        description="Detailed description of each issue found"
+    )
+    feedback: str = Field(
+        default="",
+        description="Specific, actionable feedback for improvement"
+    )
+    suggested_fixes: list[str] = Field(
+        default_factory=list,
+        description="Concrete code fixes or changes to make"
+    )
 
 
 class TestResult(BaseModel):

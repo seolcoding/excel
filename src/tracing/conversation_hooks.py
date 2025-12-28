@@ -141,16 +141,20 @@ class ConversationCaptureHooks(RunHooks):
 
         if hasattr(response, 'output'):
             for item in response.output:
-                if hasattr(item, 'content') and item.content:
-                    # Text content
+                item_type = getattr(item, 'type', None)
+
+                # Handle message output (ResponseOutputMessage)
+                if item_type == 'message' and hasattr(item, 'content') and item.content:
                     for content_part in item.content:
                         if hasattr(content_part, 'text'):
                             output_content += content_part.text
-                if hasattr(item, 'type') and item.type == 'function_call':
-                    # Tool call
+
+                # Handle function/tool call (ResponseFunctionToolCall)
+                elif item_type == 'function_call':
                     output_tool_calls.append({
                         "name": getattr(item, 'name', 'unknown'),
                         "arguments": getattr(item, 'arguments', '{}'),
+                        "call_id": getattr(item, 'call_id', None),
                     })
 
         # Extract usage
@@ -206,7 +210,7 @@ class ConversationCaptureHooks(RunHooks):
         tool_call = ToolCall(
             name=tool_name,
             input=tool_input,
-            output=result[:5000] if result else "",  # Limit output size
+            output=str(result)[:5000] if result else "",  # Limit output size
             started_at=started_at,
             ended_at=ended_at,
             duration_ms=duration_ms,
