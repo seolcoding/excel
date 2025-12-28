@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>빌드 과정 보기 - Excel to WebApp</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #6366f1;
+            --secondary: #8b5cf6;
+            --bg-dark: #0f172a;
+            --bg-card: #1e293b;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --border: #334155;
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --error: #ef4444;
+            --agent: #3b82f6;
+            --response: #a855f7;
+            --tool: #14b8a6;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            min-height: 100vh;
+            margin: 0;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
+            padding: 1.5rem 2rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .header h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin: 0;
+            background: linear-gradient(90deg, #60a5fa, #a78bfa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .header .back-link {
+            color: var(--text-secondary);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: color 0.2s;
+        }
+
+        .header .back-link:hover {
+            color: var(--text-primary);
+        }
+
+        .main-container {
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            height: calc(100vh - 73px);
+        }
+
+        .sidebar {
+            background: var(--bg-card);
+            border-right: 1px solid var(--border);
+            overflow-y: auto;
+            padding: 1rem;
+        }
+
+        .sidebar h3 {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 1rem;
+        }
+
+        .workflow-info {
+            background: rgba(99, 102, 241, 0.1);
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .workflow-info .name {
+            font-weight: 600;
+            font-size: 0.95rem;
+            margin-bottom: 0.5rem;
+            word-break: break-all;
+        }
+
+        .workflow-info .meta {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        .span-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .span-item {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.75rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .span-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: var(--primary);
+        }
+
+        .span-item.active {
+            background: rgba(99, 102, 241, 0.2);
+            border-color: var(--primary);
+        }
+
+        .span-item .type-badge {
+            display: inline-block;
+            padding: 0.125rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            margin-bottom: 0.5rem;
+        }
+
+        .span-item .type-badge.agent {
+            background: rgba(59, 130, 246, 0.2);
+            color: var(--agent);
+        }
+
+        .span-item .type-badge.response {
+            background: rgba(168, 85, 247, 0.2);
+            color: var(--response);
+        }
+
+        .span-item .type-badge.tool {
+            background: rgba(20, 184, 166, 0.2);
+            color: var(--tool);
+        }
+
+        .span-item .name {
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        .span-item .duration {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-top: 0.25rem;
+        }
+
+        .detail-panel {
+            padding: 2rem;
+            overflow-y: auto;
+        }
+
+        .detail-panel h2 {
+            font-size: 1.25rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .detail-section {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .detail-section h4 {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 1rem;
+        }
+
+        .code-block {
+            background: #0d1117;
+            border-radius: 8px;
+            padding: 1rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .timeline {
+            position: relative;
+            padding-left: 2rem;
+        }
+
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 0.5rem;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: var(--border);
+        }
+
+        .timeline-item {
+            position: relative;
+            padding-bottom: 1.5rem;
+        }
+
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -1.5rem;
+            top: 0.5rem;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--primary);
+        }
+
+        .timeline-item.agent::before { background: var(--agent); }
+        .timeline-item.response::before { background: var(--response); }
+        .timeline-item.tool::before { background: var(--tool); }
+
+        .no-trace {
+            text-align: center;
+            padding: 4rem 2rem;
+        }
+
+        .no-trace svg {
+            width: 80px;
+            height: 80px;
+            color: var(--text-secondary);
+            margin-bottom: 1.5rem;
+        }
+
+        .no-trace h2 {
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .no-trace p {
+            color: var(--text-secondary);
+        }
+
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--border);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            padding: 1rem;
+            text-align: center;
+        }
+
+        .stat-card .value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .stat-card .label {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-top: 0.25rem;
+        }
+
+        @media (max-width: 768px) {
+            .main-container {
+                grid-template-columns: 1fr;
+            }
+
+            .sidebar {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <a href="index.html" class="back-link">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M19 12H5M12 19l-7-7 7-7"/>
+            </svg>
+            돌아가기
+        </a>
+        <h1>빌드 과정 모니터링</h1>
+    </div>
+
+    <div class="main-container" id="app">
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+        </div>
+    </div>
+
+    <script>
+        const traceFiles = {
+            'insurance-calculator': 'traces/trace_20251228_095309_trace_04.json',
+            // 다른 데모별 trace 파일 매핑 추가
+        };
+
+        function getQueryParam(param) {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get(param);
+        }
+
+        function formatDuration(start, end) {
+            const startDate = new Date(start);
+            const endDate = new Date(end);
+            const duration = (endDate - startDate) / 1000;
+            if (duration < 1) return `${Math.round(duration * 1000)}ms`;
+            if (duration < 60) return `${duration.toFixed(1)}s`;
+            return `${Math.floor(duration / 60)}m ${Math.round(duration % 60)}s`;
+        }
+
+        function formatTime(dateStr) {
+            const date = new Date(dateStr);
+            return date.toLocaleTimeString('ko-KR');
+        }
+
+        async function loadTrace(demoId) {
+            const traceFile = traceFiles[demoId];
+
+            if (!traceFile) {
+                // 특정 파일이 없으면 traces 폴더의 첫 번째 파일 로드 시도
+                try {
+                    const response = await fetch('traces/');
+                    if (!response.ok) throw new Error('No traces');
+                } catch {
+                    return null;
+                }
+            }
+
+            try {
+                const response = await fetch(traceFile || 'traces/trace_20251228_095309_trace_04.json');
+                if (!response.ok) throw new Error('Failed to load trace');
+                return await response.json();
+            } catch (error) {
+                console.error('Error loading trace:', error);
+                return null;
+            }
+        }
+
+        function renderNoTrace() {
+            return `
+                <div class="no-trace" style="grid-column: 1 / -1;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M9 12h6m-3-3v6m-7 4h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                    </svg>
+                    <h2>빌드 과정 없음</h2>
+                    <p>이 데모의 빌드 과정 기록이 아직 없습니다.<br>에이전트 실행 시 자동으로 기록됩니다.</p>
+                    <a href="index.html" class="btn btn-primary mt-3">메인으로 돌아가기</a>
+                </div>
+            `;
+        }
+
+        function renderTrace(trace) {
+            const spans = trace.spans || [];
+            const agentSpans = spans.filter(s => s.type === 'agent');
+            const responseSpans = spans.filter(s => s.type === 'response');
+            const duration = formatDuration(trace.started_at, trace.ended_at);
+
+            return `
+                <div class="sidebar">
+                    <h3>워크플로우 정보</h3>
+                    <div class="workflow-info">
+                        <div class="name">${trace.workflow_name}</div>
+                        <div class="meta">
+                            시작: ${formatTime(trace.started_at)}<br>
+                            종료: ${formatTime(trace.ended_at)}<br>
+                            소요시간: ${duration}
+                        </div>
+                    </div>
+
+                    <h3>스팬 목록 (${spans.length}개)</h3>
+                    <div class="span-list">
+                        ${spans.map((span, idx) => `
+                            <div class="span-item ${idx === 0 ? 'active' : ''}" data-idx="${idx}">
+                                <span class="type-badge ${span.type}">${span.type}</span>
+                                <div class="name">${span.data?.name || span.data?.type || span.type}</div>
+                                <div class="duration">${formatDuration(span.started_at, span.ended_at)}</div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+
+                <div class="detail-panel">
+                    <h2>빌드 과정 요약</h2>
+
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="value">${agentSpans.length}</div>
+                            <div class="label">에이전트 호출</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="value">${responseSpans.length}</div>
+                            <div class="label">AI 응답</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="value">${duration}</div>
+                            <div class="label">총 소요시간</div>
+                        </div>
+                    </div>
+
+                    <div class="detail-section">
+                        <h4>실행 타임라인</h4>
+                        <div class="timeline">
+                            ${spans.map(span => `
+                                <div class="timeline-item ${span.type}">
+                                    <strong>${span.data?.name || span.type}</strong>
+                                    <div style="color: var(--text-secondary); font-size: 0.8rem;">
+                                        ${formatTime(span.started_at)} - ${formatDuration(span.started_at, span.ended_at)}
+                                    </div>
+                                    ${span.data?.output_type ? `<div style="font-size: 0.75rem; color: var(--tool);">Output: ${span.data.output_type}</div>` : ''}
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+
+                    <div class="detail-section">
+                        <h4>원본 Trace 데이터</h4>
+                        <div class="code-block">${JSON.stringify(trace, null, 2)}</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function init() {
+            const app = document.getElementById('app');
+            const demoId = getQueryParam('demo') || 'insurance-calculator';
+
+            const trace = await loadTrace(demoId);
+
+            if (!trace) {
+                app.innerHTML = renderNoTrace();
+            } else {
+                app.innerHTML = renderTrace(trace);
+
+                // 스팬 클릭 이벤트
+                document.querySelectorAll('.span-item').forEach(item => {
+                    item.addEventListener('click', () => {
+                        document.querySelectorAll('.span-item').forEach(i => i.classList.remove('active'));
+                        item.classList.add('active');
+                    });
+                });
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>

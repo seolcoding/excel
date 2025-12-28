@@ -101,13 +101,16 @@
         }
         .demo-actions {
             display: flex;
-            gap: 0.75rem;
+            flex-wrap: wrap;
+            gap: 0.5rem;
         }
         .btn-demo {
-            flex: 1;
-            padding: 0.625rem 1rem;
+            flex: 1 1 calc(33% - 0.5rem);
+            min-width: 90px;
+            padding: 0.5rem 0.5rem;
             border-radius: 8px;
             font-weight: 500;
+            font-size: 0.8rem;
             text-align: center;
             text-decoration: none;
             transition: all 0.2s;
@@ -118,6 +121,15 @@
         }
         .btn-primary-demo:hover {
             background: var(--secondary);
+            color: white;
+        }
+        .btn-secondary-demo {
+            background: rgba(139, 92, 246, 0.3);
+            border: 1px solid rgba(139, 92, 246, 0.5);
+            color: white;
+        }
+        .btn-secondary-demo:hover {
+            background: rgba(139, 92, 246, 0.5);
             color: white;
         }
         .btn-outline-demo {
@@ -217,7 +229,8 @@
                 </div>
                 <div class="demo-actions">
                     <a href="demos/insurance-calculator.html" class="btn-demo btn-primary-demo">웹앱 보기</a>
-                    <a href="excel_files/4대보험_자동계산기_엑셀템플릿.xlsx" class="btn-demo btn-outline-demo">Excel 다운로드</a>
+                    <a href="trace-viewer.html?demo=insurance-calculator" class="btn-demo btn-secondary-demo">빌드과정</a>
+                    <a href="excel_files/4대보험_자동계산기_엑셀템플릿.xlsx" class="btn-demo btn-outline-demo">다운로드</a>
                 </div>
             </div>
         </div>
@@ -237,7 +250,8 @@
                 </div>
                 <div class="demo-actions">
                     <a href="demos/tax-calculator.html" class="btn-demo btn-primary-demo">웹앱 보기</a>
-                    <a href="excel_files/종합소득세 엑셀 간이 계산기 v2.1.xlsx" class="btn-demo btn-outline-demo">Excel 다운로드</a>
+                    <a href="trace-viewer.html?demo=tax-calculator" class="btn-demo btn-secondary-demo">빌드과정</a>
+                    <a href="excel_files/종합소득세 엑셀 간이 계산기 v2.1.xlsx" class="btn-demo btn-outline-demo">다운로드</a>
                 </div>
             </div>
         </div>
@@ -257,7 +271,8 @@
                 </div>
                 <div class="demo-actions">
                     <a href="demos/quote-form.html" class="btn-demo btn-primary-demo">웹앱 보기</a>
-                    <a href="excel_files/엑셀 자동화 견적서 v1.0.xlsm" class="btn-demo btn-outline-demo">Excel 다운로드</a>
+                    <a href="trace-viewer.html?demo=quote-form" class="btn-demo btn-secondary-demo">빌드과정</a>
+                    <a href="excel_files/엑셀 자동화 견적서 v1.0.xlsm" class="btn-demo btn-outline-demo">다운로드</a>
                 </div>
             </div>
         </div>
@@ -277,7 +292,8 @@
                 </div>
                 <div class="demo-actions">
                     <a href="demos/receipt.html" class="btn-demo btn-primary-demo">웹앱 보기</a>
-                    <a href="excel_files/엑셀 간이영수증 표준 양식 v2.0.xlsx" class="btn-demo btn-outline-demo">Excel 다운로드</a>
+                    <a href="trace-viewer.html?demo=receipt" class="btn-demo btn-secondary-demo">빌드과정</a>
+                    <a href="excel_files/엑셀 간이영수증 표준 양식 v2.0.xlsx" class="btn-demo btn-outline-demo">다운로드</a>
                 </div>
             </div>
         </div>
@@ -297,7 +313,8 @@
                 </div>
                 <div class="demo-actions">
                     <a href="demos/training-log.html" class="btn-demo btn-primary-demo">웹앱 보기</a>
-                    <a href="excel_files/교육일지 양식 01.xlsx" class="btn-demo btn-outline-demo">Excel 다운로드</a>
+                    <a href="trace-viewer.html?demo=training-log" class="btn-demo btn-secondary-demo">빌드과정</a>
+                    <a href="excel_files/교육일지 양식 01.xlsx" class="btn-demo btn-outline-demo">다운로드</a>
                 </div>
             </div>
         </div>
@@ -317,7 +334,8 @@
                 </div>
                 <div class="demo-actions">
                     <a href="demos/weekly-report.html" class="btn-demo btn-primary-demo">웹앱 보기</a>
-                    <a href="excel_files/주간업무보고 표준양식.xlsx" class="btn-demo btn-outline-demo">Excel 다운로드</a>
+                    <a href="trace-viewer.html?demo=weekly-report" class="btn-demo btn-secondary-demo">빌드과정</a>
+                    <a href="excel_files/주간업무보고 표준양식.xlsx" class="btn-demo btn-outline-demo">다운로드</a>
                 </div>
             </div>
         </div>
@@ -337,7 +355,8 @@
                 </div>
                 <div class="demo-actions">
                     <a href="demos/employment-contract.html" class="btn-demo btn-primary-demo">웹앱 보기</a>
-                    <a href="excel_files/엑셀 표준 근로계약서 양식 v2.0.xlsx" class="btn-demo btn-outline-demo">Excel 다운로드</a>
+                    <a href="trace-viewer.html?demo=employment-contract" class="btn-demo btn-secondary-demo">빌드과정</a>
+                    <a href="excel_files/엑셀 표준 근로계약서 양식 v2.0.xlsx" class="btn-demo btn-outline-demo">다운로드</a>
                 </div>
             </div>
         </div>
@@ -357,7 +376,8 @@
                 </div>
                 <div class="demo-actions">
                     <a href="demos/inventory-manager.html" class="btn-demo btn-primary-demo">웹앱 보기</a>
-                    <a href="#" class="btn-demo btn-outline-demo" onclick="alert('폴더 형태의 VBA 프로젝트입니다')">VBA 프로젝트</a>
+                    <a href="trace-viewer.html?demo=inventory-manager" class="btn-demo btn-secondary-demo">빌드과정</a>
+                    <a href="#" class="btn-demo btn-outline-demo" onclick="alert('폴더 형태의 VBA 프로젝트입니다')">VBA</a>
                 </div>
             </div>
         </div>
@@ -377,7 +397,8 @@
                 </div>
                 <div class="demo-actions">
                     <a href="demos/sales-dashboard.html" class="btn-demo btn-primary-demo">웹앱 보기</a>
-                    <a href="excel_files/엑셀 매출분석 대시보드 양식 v1.0.xlsx" class="btn-demo btn-outline-demo">Excel 다운로드</a>
+                    <a href="trace-viewer.html?demo=sales-dashboard" class="btn-demo btn-secondary-demo">빌드과정</a>
+                    <a href="excel_files/엑셀 매출분석 대시보드 양식 v1.0.xlsx" class="btn-demo btn-outline-demo">다운로드</a>
                 </div>
             </div>
         </div>
@@ -397,6 +418,7 @@
                 </div>
                 <div class="demo-actions">
                     <a href="demos/coupon.html" class="btn-demo btn-primary-demo">웹앱 보기</a>
+                    <a href="trace-viewer.html?demo=coupon" class="btn-demo btn-secondary-demo">빌드과정</a>
                     <a href="excel_files/워드VIP 쿠폰 양식 v1.0.zip" class="btn-demo btn-outline-demo">다운로드</a>
                 </div>
             </div>
