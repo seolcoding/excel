@@ -94,3 +94,29 @@ def create_analyzer_agent() -> Agent:
         tools=[analyze_excel, get_sheet_cells],
         model="gpt-5-mini",  # SOTA cost-optimized model
     )
+
+
+def create_analyze_prompt(file_path: str) -> str:
+    """
+    Create a prompt for the Analyzer agent.
+
+    Args:
+        file_path: Path to the Excel file
+
+    Returns:
+        Prompt string for the analyzer
+    """
+    return f"""Please analyze the Excel file at the following path:
+
+File: {file_path}
+
+Use the analyze_excel tool to extract complete structural information from this file.
+After analysis, provide a comprehensive summary of:
+1. File structure (sheets, dimensions)
+2. Input cells and output cells
+3. Formula complexity
+4. VBA presence (if any)
+5. Print layout settings
+6. Recommended conversion approach
+
+Return the complete analysis data."""

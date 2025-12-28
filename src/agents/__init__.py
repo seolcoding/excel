@@ -1,6 +1,6 @@
 """Agents for Excel to Web App conversion."""
 
-from .analyzer_agent import create_analyzer_agent
+from .analyzer_agent import create_analyzer_agent, create_analyze_prompt
 from .planner_agent import create_planner_agent, create_plan_prompt
 from .generator_agent import (
     create_generator_agent,
@@ -11,6 +11,7 @@ from .generator_agent import (
 __all__ = [
     # Analyzer
     "create_analyzer_agent",
+    "create_analyze_prompt",
     # Planner
     "create_planner_agent",
     "create_plan_prompt",

@@ -18,12 +18,13 @@ from src.models import (
     TestStatus,
 )
 from src.agents import (
+    create_analyzer_agent,
+    create_analyze_prompt,
     create_planner_agent,
     create_plan_prompt,
     create_generator_agent,
     create_generation_prompt,
 )
-from src.tools import analyze_excel_file
 
 
 @dataclass
@@ -67,7 +68,8 @@ class ExcelToWebAppOrchestrator:
         self.min_pass_rate = min_pass_rate
         self.progress_callback = progress_callback
 
-        # Create agents (Analyzer uses direct tool call, no agent needed)
+        # Create all agents (all use OpenAI Agents SDK)
+        self.analyzer = create_analyzer_agent()
         self.planner = create_planner_agent()
         self.generator = create_generator_agent()
 
@@ -170,11 +172,30 @@ class ExcelToWebAppOrchestrator:
                 )
 
     async def _analyze(self, excel_path: str) -> Optional[ExcelAnalysis]:
-        """Analyze Excel file using direct tool call (no agent needed)."""
+        """Run the Analyzer agent to extract Excel structure."""
         try:
-            # Direct tool call - more efficient than agent for pure parsing
-            analysis = analyze_excel_file(excel_path)
-            return analysis
+            prompt = create_analyze_prompt(excel_path)
+
+            result = await Runner.run(
+                self.analyzer,
+                prompt,
+            )
+
+            # The agent returns the analysis via tool call result
+            if result.final_output:
+                if isinstance(result.final_output, dict):
+                    return ExcelAnalysis(**result.final_output)
+                elif isinstance(result.final_output, ExcelAnalysis):
+                    return result.final_output
+
+            # Fallback: check tool call results for analysis data
+            for item in result.new_items:
+                if hasattr(item, 'output') and isinstance(item.output, dict):
+                    if 'filename' in item.output and 'sheets' in item.output:
+                        return ExcelAnalysis(**item.output)
+
+            return None
+
         except Exception as e:
             print(f"Analysis error: {e}")
             return None
