@@ -12,6 +12,7 @@
             --secondary: #8b5cf6;
             --bg-dark: #0f172a;
             --bg-card: #1e293b;
+            --bg-code: #0d1117;
             --text-primary: #f8fafc;
             --text-secondary: #94a3b8;
             --border: #334155;
@@ -21,11 +22,12 @@
             --agent: #3b82f6;
             --response: #a855f7;
             --tool: #14b8a6;
+            --analyze: #f97316;
+            --plan: #06b6d4;
+            --generate: #22c55e;
         }
 
-        * {
-            box-sizing: border-box;
-        }
+        * { box-sizing: border-box; }
 
         body {
             font-family: 'Noto Sans KR', sans-serif;
@@ -62,153 +64,315 @@
             transition: color 0.2s;
         }
 
-        .header .back-link:hover {
-            color: var(--text-primary);
-        }
+        .header .back-link:hover { color: var(--text-primary); }
 
         .main-container {
-            display: grid;
-            grid-template-columns: 320px 1fr;
-            height: calc(100vh - 73px);
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
         }
 
-        .sidebar {
-            background: var(--bg-card);
-            border-right: 1px solid var(--border);
-            overflow-y: auto;
-            padding: 1rem;
-        }
-
-        .sidebar h3 {
-            font-size: 0.875rem;
-            font-weight: 600;
-            color: var(--text-secondary);
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            margin-bottom: 1rem;
-        }
-
-        .workflow-info {
-            background: rgba(99, 102, 241, 0.1);
-            border: 1px solid rgba(99, 102, 241, 0.3);
-            border-radius: 8px;
-            padding: 1rem;
-            margin-bottom: 1.5rem;
-        }
-
-        .workflow-info .name {
-            font-weight: 600;
-            font-size: 0.95rem;
-            margin-bottom: 0.5rem;
-            word-break: break-all;
-        }
-
-        .workflow-info .meta {
-            font-size: 0.8rem;
-            color: var(--text-secondary);
-        }
-
-        .span-list {
+        /* Pipeline Steps */
+        .pipeline-steps {
             display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
+            justify-content: center;
+            gap: 1rem;
+            margin-bottom: 2rem;
         }
 
-        .span-item {
-            background: rgba(255, 255, 255, 0.05);
+        .pipeline-step {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1rem 1.5rem;
+            background: var(--bg-card);
             border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 0.75rem;
+            border-radius: 12px;
             cursor: pointer;
             transition: all 0.2s;
         }
 
-        .span-item:hover {
-            background: rgba(255, 255, 255, 0.1);
+        .pipeline-step:hover {
             border-color: var(--primary);
+            transform: translateY(-2px);
         }
 
-        .span-item.active {
+        .pipeline-step.active {
             background: rgba(99, 102, 241, 0.2);
             border-color: var(--primary);
         }
 
-        .span-item .type-badge {
-            display: inline-block;
-            padding: 0.125rem 0.5rem;
-            border-radius: 4px;
-            font-size: 0.7rem;
+        .pipeline-step.completed {
+            border-color: var(--success);
+        }
+
+        .pipeline-step.completed .step-icon {
+            background: var(--success);
+        }
+
+        .step-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+        }
+
+        .step-icon.analyze { background: rgba(249, 115, 22, 0.2); color: var(--analyze); }
+        .step-icon.plan { background: rgba(6, 182, 212, 0.2); color: var(--plan); }
+        .step-icon.generate { background: rgba(34, 197, 94, 0.2); color: var(--generate); }
+
+        .step-info h3 {
+            font-size: 0.95rem;
             font-weight: 600;
-            text-transform: uppercase;
-            margin-bottom: 0.5rem;
+            margin: 0;
         }
 
-        .span-item .type-badge.agent {
-            background: rgba(59, 130, 246, 0.2);
-            color: var(--agent);
-        }
-
-        .span-item .type-badge.response {
-            background: rgba(168, 85, 247, 0.2);
-            color: var(--response);
-        }
-
-        .span-item .type-badge.tool {
-            background: rgba(20, 184, 166, 0.2);
-            color: var(--tool);
-        }
-
-        .span-item .name {
-            font-size: 0.85rem;
-            font-weight: 500;
-        }
-
-        .span-item .duration {
+        .step-info .duration {
             font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        .arrow {
+            color: var(--text-secondary);
+            font-size: 1.5rem;
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.25rem;
+            text-align: center;
+        }
+
+        .stat-card .value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .stat-card .label {
+            font-size: 0.8rem;
             color: var(--text-secondary);
             margin-top: 0.25rem;
         }
 
-        .detail-panel {
-            padding: 2rem;
-            overflow-y: auto;
-        }
-
-        .detail-panel h2 {
-            font-size: 1.25rem;
-            margin-bottom: 1.5rem;
-        }
-
+        /* Detail Section */
         .detail-section {
             background: var(--bg-card);
             border: 1px solid var(--border);
             border-radius: 12px;
-            padding: 1.5rem;
             margin-bottom: 1.5rem;
+            overflow: hidden;
         }
 
-        .detail-section h4 {
-            font-size: 0.85rem;
+        .section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1rem 1.5rem;
+            background: rgba(255, 255, 255, 0.02);
+            border-bottom: 1px solid var(--border);
+            cursor: pointer;
+        }
+
+        .section-header h4 {
+            font-size: 1rem;
             font-weight: 600;
-            color: var(--text-secondary);
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .section-header .badge {
+            font-size: 0.7rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            background: rgba(99, 102, 241, 0.2);
+            color: var(--primary);
+        }
+
+        .section-content {
+            padding: 1.5rem;
+        }
+
+        .section-content.collapsed {
+            display: none;
+        }
+
+        /* Agent Card */
+        .agent-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem;
             margin-bottom: 1rem;
         }
 
-        .code-block {
-            background: #0d1117;
+        .agent-card:last-child {
+            margin-bottom: 0;
+        }
+
+        .agent-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .agent-icon {
+            width: 32px;
+            height: 32px;
             border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+        }
+
+        .agent-icon.planner { background: rgba(6, 182, 212, 0.2); color: var(--plan); }
+        .agent-icon.generator { background: rgba(34, 197, 94, 0.2); color: var(--generate); }
+
+        .agent-name {
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        .agent-tools {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+
+        .tool-badge {
+            font-size: 0.7rem;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            background: rgba(20, 184, 166, 0.2);
+            color: var(--tool);
+        }
+
+        /* Function Calls */
+        .function-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .function-item {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .function-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.75rem 1rem;
+            background: rgba(20, 184, 166, 0.1);
+            border-bottom: 1px solid var(--border);
+            cursor: pointer;
+        }
+
+        .function-name {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: var(--tool);
+        }
+
+        .function-duration {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        .function-body {
             padding: 1rem;
+        }
+
+        .function-body.collapsed {
+            display: none;
+        }
+
+        .io-block {
+            margin-bottom: 0.75rem;
+        }
+
+        .io-block:last-child {
+            margin-bottom: 0;
+        }
+
+        .io-label {
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            margin-bottom: 0.25rem;
+        }
+
+        .io-label.input { color: var(--warning); }
+        .io-label.output { color: var(--success); }
+
+        .code-block {
+            background: var(--bg-code);
+            border-radius: 6px;
+            padding: 0.75rem;
             font-family: 'JetBrains Mono', monospace;
             font-size: 0.8rem;
             overflow-x: auto;
             white-space: pre-wrap;
             word-break: break-all;
-            max-height: 400px;
-            overflow-y: auto;
         }
 
+        /* Formula Conversion */
+        .formula-conversion {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            gap: 1rem;
+            align-items: center;
+            padding: 0.75rem;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 8px;
+            margin-bottom: 0.5rem;
+        }
+
+        .formula-box {
+            background: var(--bg-code);
+            border-radius: 6px;
+            padding: 0.75rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+        }
+
+        .formula-box.excel {
+            border-left: 3px solid var(--warning);
+        }
+
+        .formula-box.js {
+            border-left: 3px solid var(--success);
+        }
+
+        .formula-arrow {
+            color: var(--primary);
+            font-size: 1.5rem;
+        }
+
+        /* Timeline */
         .timeline {
             position: relative;
             padding-left: 2rem;
@@ -226,7 +390,7 @@
 
         .timeline-item {
             position: relative;
-            padding-bottom: 1.5rem;
+            padding-bottom: 1.25rem;
         }
 
         .timeline-item::before {
@@ -242,8 +406,39 @@
 
         .timeline-item.agent::before { background: var(--agent); }
         .timeline-item.response::before { background: var(--response); }
-        .timeline-item.tool::before { background: var(--tool); }
+        .timeline-item.function::before { background: var(--tool); }
 
+        .timeline-content {
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+        }
+
+        .timeline-title {
+            font-weight: 500;
+            font-size: 0.9rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .timeline-meta {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        /* Raw JSON */
+        .raw-json {
+            background: var(--bg-code);
+            border-radius: 8px;
+            padding: 1rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            max-height: 400px;
+            overflow: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        /* No Trace */
         .no-trace {
             text-align: center;
             padding: 4rem 2rem;
@@ -256,20 +451,11 @@
             margin-bottom: 1.5rem;
         }
 
-        .no-trace h2 {
-            font-size: 1.5rem;
-            margin-bottom: 0.5rem;
-        }
-
-        .no-trace p {
-            color: var(--text-secondary);
-        }
-
         .loading {
             display: flex;
             align-items: center;
             justify-content: center;
-            height: 100%;
+            height: 60vh;
         }
 
         .spinner {
@@ -281,44 +467,21 @@
             animation: spin 1s linear infinite;
         }
 
-        @keyframes spin {
-            to { transform: rotate(360deg); }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .expand-icon {
+            transition: transform 0.2s;
         }
 
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 1rem;
-            margin-bottom: 1.5rem;
-        }
-
-        .stat-card {
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 8px;
-            padding: 1rem;
-            text-align: center;
-        }
-
-        .stat-card .value {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: var(--primary);
-        }
-
-        .stat-card .label {
-            font-size: 0.75rem;
-            color: var(--text-secondary);
-            margin-top: 0.25rem;
+        .expand-icon.expanded {
+            transform: rotate(180deg);
         }
 
         @media (max-width: 768px) {
-            .main-container {
-                grid-template-columns: 1fr;
-            }
-
-            .sidebar {
-                display: none;
-            }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            .pipeline-steps { flex-direction: column; }
+            .formula-conversion { grid-template-columns: 1fr; }
+            .formula-arrow { transform: rotate(90deg); }
         }
     </style>
 </head>
@@ -342,153 +505,315 @@
     <script>
         const traceFiles = {
             'insurance-calculator': 'traces/trace_20251228_095309_trace_04.json',
-            // 다른 데모별 trace 파일 매핑 추가
         };
 
         function getQueryParam(param) {
-            const urlParams = new URLSearchParams(window.location.search);
-            return urlParams.get(param);
+            return new URLSearchParams(window.location.search).get(param);
         }
 
         function formatDuration(start, end) {
-            const startDate = new Date(start);
-            const endDate = new Date(end);
-            const duration = (endDate - startDate) / 1000;
+            const duration = (new Date(end) - new Date(start)) / 1000;
             if (duration < 1) return `${Math.round(duration * 1000)}ms`;
             if (duration < 60) return `${duration.toFixed(1)}s`;
             return `${Math.floor(duration / 60)}m ${Math.round(duration % 60)}s`;
         }
 
         function formatTime(dateStr) {
-            const date = new Date(dateStr);
-            return date.toLocaleTimeString('ko-KR');
+            return new Date(dateStr).toLocaleTimeString('ko-KR');
         }
 
         async function loadTrace(demoId) {
             const traceFile = traceFiles[demoId];
-
-            if (!traceFile) {
-                // 특정 파일이 없으면 traces 폴더의 첫 번째 파일 로드 시도
-                try {
-                    const response = await fetch('traces/');
-                    if (!response.ok) throw new Error('No traces');
-                } catch {
-                    return null;
-                }
-            }
-
             try {
                 const response = await fetch(traceFile || 'traces/trace_20251228_095309_trace_04.json');
-                if (!response.ok) throw new Error('Failed to load trace');
+                if (!response.ok) throw new Error('Failed');
                 return await response.json();
             } catch (error) {
-                console.error('Error loading trace:', error);
+                console.error('Error:', error);
                 return null;
             }
         }
 
+        function analyzeTrace(trace) {
+            const spans = trace.spans || [];
+            const agents = spans.filter(s => s.type === 'agent');
+            const responses = spans.filter(s => s.type === 'response');
+            const functions = spans.filter(s => s.type === 'function');
+
+            // Group functions by name
+            const functionGroups = {};
+            functions.forEach(f => {
+                const name = f.data?.name || 'unknown';
+                if (!functionGroups[name]) functionGroups[name] = [];
+                functionGroups[name].push(f);
+            });
+
+            // Extract formula conversions
+            const formulaConversions = functions
+                .filter(f => f.data?.name === 'convert_formula')
+                .map(f => ({
+                    excel: JSON.parse(f.data.input || '{}').formula,
+                    js: f.data.output?.match(/js_code="([^"]+)"/)?.[1] || f.data.output,
+                    success: f.data.output?.includes('success=True')
+                }));
+
+            // Identify pipeline stages
+            const stages = {
+                planner: agents.find(a => a.data?.name?.includes('Planner')),
+                generator: agents.find(a => a.data?.name?.includes('Generator'))
+            };
+
+            return { agents, responses, functions, functionGroups, formulaConversions, stages };
+        }
+
         function renderNoTrace() {
             return `
-                <div class="no-trace" style="grid-column: 1 / -1;">
+                <div class="no-trace">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                         <path d="M9 12h6m-3-3v6m-7 4h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
                     </svg>
                     <h2>빌드 과정 없음</h2>
-                    <p>이 데모의 빌드 과정 기록이 아직 없습니다.<br>에이전트 실행 시 자동으로 기록됩니다.</p>
+                    <p>이 데모의 빌드 과정 기록이 아직 없습니다.</p>
                     <a href="index.html" class="btn btn-primary mt-3">메인으로 돌아가기</a>
                 </div>
             `;
         }
 
         function renderTrace(trace) {
-            const spans = trace.spans || [];
-            const agentSpans = spans.filter(s => s.type === 'agent');
-            const responseSpans = spans.filter(s => s.type === 'response');
-            const duration = formatDuration(trace.started_at, trace.ended_at);
+            const analysis = analyzeTrace(trace);
+            const totalDuration = formatDuration(trace.started_at, trace.ended_at);
+
+            const plannerDuration = analysis.stages.planner
+                ? formatDuration(analysis.stages.planner.started_at, analysis.stages.planner.ended_at)
+                : '-';
+            const generatorDuration = analysis.stages.generator
+                ? formatDuration(analysis.stages.generator.started_at, analysis.stages.generator.ended_at)
+                : '-';
 
             return `
-                <div class="sidebar">
-                    <h3>워크플로우 정보</h3>
-                    <div class="workflow-info">
-                        <div class="name">${trace.workflow_name}</div>
-                        <div class="meta">
-                            시작: ${formatTime(trace.started_at)}<br>
-                            종료: ${formatTime(trace.ended_at)}<br>
-                            소요시간: ${duration}
+                <!-- Pipeline Steps -->
+                <div class="pipeline-steps">
+                    <div class="pipeline-step completed">
+                        <div class="step-icon plan">📋</div>
+                        <div class="step-info">
+                            <h3>🎯 Plan</h3>
+                            <div class="duration">${plannerDuration}</div>
                         </div>
                     </div>
+                    <div class="arrow">→</div>
+                    <div class="pipeline-step completed">
+                        <div class="step-icon generate">⚡</div>
+                        <div class="step-info">
+                            <h3>🔧 Generate</h3>
+                            <div class="duration">${generatorDuration}</div>
+                        </div>
+                    </div>
+                </div>
 
-                    <h3>스팬 목록 (${spans.length}개)</h3>
-                    <div class="span-list">
-                        ${spans.map((span, idx) => `
-                            <div class="span-item ${idx === 0 ? 'active' : ''}" data-idx="${idx}">
-                                <span class="type-badge ${span.type}">${span.type}</span>
-                                <div class="name">${span.data?.name || span.data?.type || span.type}</div>
-                                <div class="duration">${formatDuration(span.started_at, span.ended_at)}</div>
+                <!-- Stats -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="value">${analysis.agents.length}</div>
+                        <div class="label">🤖 에이전트 호출</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="value">${analysis.responses.length}</div>
+                        <div class="label">💬 LLM 응답</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="value">${analysis.functions.length}</div>
+                        <div class="label">🔧 함수 호출</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="value">${totalDuration}</div>
+                        <div class="label">⏱️ 총 소요시간</div>
+                    </div>
+                </div>
+
+                <!-- Agent Details -->
+                <div class="detail-section">
+                    <div class="section-header" onclick="toggleSection(this)">
+                        <h4>
+                            🤖 에이전트 실행 정보
+                            <span class="badge">${analysis.agents.length}개</span>
+                        </h4>
+                        <svg class="expand-icon expanded" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M6 9l6 6 6-6"/>
+                        </svg>
+                    </div>
+                    <div class="section-content">
+                        ${analysis.agents.map(agent => `
+                            <div class="agent-card">
+                                <div class="agent-header">
+                                    <div class="agent-icon ${agent.data?.name?.includes('Planner') ? 'planner' : 'generator'}">
+                                        ${agent.data?.name?.includes('Planner') ? '📋' : '⚡'}
+                                    </div>
+                                    <div>
+                                        <div class="agent-name">${agent.data?.name || 'Agent'}</div>
+                                        <div class="timeline-meta">
+                                            ${formatTime(agent.started_at)} ~ ${formatTime(agent.ended_at)}
+                                            (${formatDuration(agent.started_at, agent.ended_at)})
+                                        </div>
+                                    </div>
+                                </div>
+                                ${agent.data?.output_type ? `
+                                    <div style="margin-top: 0.5rem; font-size: 0.85rem;">
+                                        <strong>Output Type:</strong>
+                                        <code style="background: var(--bg-code); padding: 0.2rem 0.5rem; border-radius: 4px;">${agent.data.output_type}</code>
+                                    </div>
+                                ` : ''}
+                                ${agent.data?.tools?.length ? `
+                                    <div class="agent-tools">
+                                        ${agent.data.tools.map(t => `<span class="tool-badge">${t}</span>`).join('')}
+                                    </div>
+                                ` : ''}
                             </div>
                         `).join('')}
                     </div>
                 </div>
 
-                <div class="detail-panel">
-                    <h2>빌드 과정 요약</h2>
-
-                    <div class="stats-grid">
-                        <div class="stat-card">
-                            <div class="value">${agentSpans.length}</div>
-                            <div class="label">에이전트 호출</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="value">${responseSpans.length}</div>
-                            <div class="label">AI 응답</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="value">${duration}</div>
-                            <div class="label">총 소요시간</div>
-                        </div>
+                <!-- Formula Conversions -->
+                ${analysis.formulaConversions.length > 0 ? `
+                <div class="detail-section">
+                    <div class="section-header" onclick="toggleSection(this)">
+                        <h4>
+                            📊 수식 변환 결과
+                            <span class="badge">${analysis.formulaConversions.length}개</span>
+                        </h4>
+                        <svg class="expand-icon expanded" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M6 9l6 6 6-6"/>
+                        </svg>
                     </div>
+                    <div class="section-content">
+                        ${analysis.formulaConversions.map(conv => `
+                            <div class="formula-conversion">
+                                <div class="formula-box excel">
+                                    <div style="font-size: 0.7rem; color: var(--warning); margin-bottom: 0.25rem;">EXCEL</div>
+                                    ${conv.excel || '-'}
+                                </div>
+                                <div class="formula-arrow">→</div>
+                                <div class="formula-box js">
+                                    <div style="font-size: 0.7rem; color: var(--success); margin-bottom: 0.25rem;">JAVASCRIPT</div>
+                                    ${conv.js || '-'}
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+                ` : ''}
 
-                    <div class="detail-section">
-                        <h4>실행 타임라인</h4>
-                        <div class="timeline">
-                            ${spans.map(span => `
-                                <div class="timeline-item ${span.type}">
-                                    <strong>${span.data?.name || span.type}</strong>
-                                    <div style="color: var(--text-secondary); font-size: 0.8rem;">
-                                        ${formatTime(span.started_at)} - ${formatDuration(span.started_at, span.ended_at)}
+                <!-- Function Calls -->
+                <div class="detail-section">
+                    <div class="section-header" onclick="toggleSection(this)">
+                        <h4>
+                            ⚙️ 함수 호출 상세
+                            <span class="badge">${analysis.functions.length}개</span>
+                        </h4>
+                        <svg class="expand-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M6 9l6 6 6-6"/>
+                        </svg>
+                    </div>
+                    <div class="section-content collapsed">
+                        <div class="function-list">
+                            ${Object.entries(analysis.functionGroups).map(([name, calls]) => `
+                                <div class="function-item">
+                                    <div class="function-header" onclick="toggleFunction(this)">
+                                        <span class="function-name">${name}()</span>
+                                        <span class="function-duration">${calls.length}회 호출</span>
                                     </div>
-                                    ${span.data?.output_type ? `<div style="font-size: 0.75rem; color: var(--tool);">Output: ${span.data.output_type}</div>` : ''}
+                                    <div class="function-body collapsed">
+                                        ${calls.map((call, idx) => `
+                                            <div style="margin-bottom: 1rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border);">
+                                                <div style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 0.5rem;">
+                                                    호출 #${idx + 1} - ${formatDuration(call.started_at, call.ended_at)}
+                                                </div>
+                                                <div class="io-block">
+                                                    <div class="io-label input">INPUT</div>
+                                                    <div class="code-block">${call.data?.input || '-'}</div>
+                                                </div>
+                                                <div class="io-block">
+                                                    <div class="io-label output">OUTPUT</div>
+                                                    <div class="code-block">${call.data?.output || '-'}</div>
+                                                </div>
+                                            </div>
+                                        `).join('')}
+                                    </div>
                                 </div>
                             `).join('')}
                         </div>
                     </div>
+                </div>
 
-                    <div class="detail-section">
-                        <h4>원본 Trace 데이터</h4>
-                        <div class="code-block">${JSON.stringify(trace, null, 2)}</div>
+                <!-- Timeline -->
+                <div class="detail-section">
+                    <div class="section-header" onclick="toggleSection(this)">
+                        <h4>
+                            📅 실행 타임라인
+                        </h4>
+                        <svg class="expand-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M6 9l6 6 6-6"/>
+                        </svg>
+                    </div>
+                    <div class="section-content collapsed">
+                        <div class="timeline">
+                            ${trace.spans.slice(0, 20).map(span => `
+                                <div class="timeline-item ${span.type}">
+                                    <div class="timeline-content">
+                                        <div class="timeline-title">
+                                            <span style="color: ${span.type === 'agent' ? 'var(--agent)' : span.type === 'response' ? 'var(--response)' : 'var(--tool)'}">
+                                                [${span.type.toUpperCase()}]
+                                            </span>
+                                            ${span.data?.name || span.data?.type || span.type}
+                                        </div>
+                                        <div class="timeline-meta">
+                                            ${formatTime(span.started_at)} - ${formatDuration(span.started_at, span.ended_at)}
+                                        </div>
+                                    </div>
+                                </div>
+                            `).join('')}
+                            ${trace.spans.length > 20 ? `<div style="text-align: center; color: var(--text-secondary); padding: 1rem;">... 외 ${trace.spans.length - 20}개 항목</div>` : ''}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Raw JSON -->
+                <div class="detail-section">
+                    <div class="section-header" onclick="toggleSection(this)">
+                        <h4>
+                            📄 원본 Trace JSON
+                        </h4>
+                        <svg class="expand-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M6 9l6 6 6-6"/>
+                        </svg>
+                    </div>
+                    <div class="section-content collapsed">
+                        <div class="raw-json">${JSON.stringify(trace, null, 2)}</div>
                     </div>
                 </div>
             `;
         }
 
+        function toggleSection(header) {
+            const content = header.nextElementSibling;
+            const icon = header.querySelector('.expand-icon');
+            content.classList.toggle('collapsed');
+            icon.classList.toggle('expanded');
+        }
+
+        function toggleFunction(header) {
+            const body = header.nextElementSibling;
+            body.classList.toggle('collapsed');
+        }
+
         async function init() {
             const app = document.getElementById('app');
             const demoId = getQueryParam('demo') || 'insurance-calculator';
-
             const trace = await loadTrace(demoId);
 
             if (!trace) {
                 app.innerHTML = renderNoTrace();
             } else {
                 app.innerHTML = renderTrace(trace);
-
-                // 스팬 클릭 이벤트
-                document.querySelectorAll('.span-item').forEach(item => {
-                    item.addEventListener('click', () => {
-                        document.querySelectorAll('.span-item').forEach(i => i.classList.remove('active'));
-                        item.classList.add('active');
-                    });
-                });
             }
         }
 
