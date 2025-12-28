@@ -60,9 +60,79 @@
 
     /* Small helper */
     .help{ color:var(--muted); font-size:.9rem; }
+  
+    /* Navigation Header */
+    .demo-nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      padding: 10px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 9999;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    }
+    .demo-nav a {
+      color: white;
+      text-decoration: none;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      transition: background 0.2s;
+    }
+    .demo-nav a:hover {
+      background: rgba(255,255,255,0.2);
+    }
+    .demo-nav .nav-title {
+      font-weight: 600;
+      font-size: 1rem;
+    }
+    .demo-nav .nav-links {
+      display: flex;
+      gap: 8px;
+    }
+    .demo-nav .btn-trace {
+      background: rgba(100, 255, 218, 0.2);
+      border: 1px solid #64ffda;
+    }
+    .demo-nav .btn-excel {
+      background: rgba(33, 115, 70, 0.8);
+    }
+    body {
+      padding-top: 50px !important;
+    }
+    @media print {
+      .demo-nav { display: none !important; }
+      body { padding-top: 0 !important; }
+    }
+
   </style>
 </head>
 <body>
+<!-- Navigation Header -->
+<nav class="demo-nav">
+  <div>
+    <a href="../index.html">← 목록</a>
+    <span class="nav-title" style="margin-left: 15px;">거래명세표 (자동계산)</span>
+  </div>
+  <div class="nav-links">
+    <a href="../traces/trace-viewer.html?demo=04" class="btn-trace">
+      <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M6 3.5A1.5 1.5 0 0 1 7.5 2h1A1.5 1.5 0 0 1 10 3.5v1A1.5 1.5 0 0 1 8.5 6v1H14a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-1 0V8h-5v.5a.5.5 0 0 1-1 0V8h-5v.5a.5.5 0 0 1-1 0v-1A.5.5 0 0 1 2 7h5.5V6A1.5 1.5 0 0 1 6 4.5v-1z"/></svg>
+      Agent Trace
+    </a>
+    <a href="../excel_files/엑셀서식(20160517)/거래명세표(자동계산)/3.xlsx" class="btn-excel" download>
+      <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M5.884 6.68a.5.5 0 1 0-.768.64L7.349 10l-2.233 2.68a.5.5 0 0 0 .768.64L8 10.781l2.116 2.54a.5.5 0 0 0 .768-.641L8.651 10l2.233-2.68a.5.5 0 0 0-.768-.64L8 9.219l-2.116-2.54z"/><path d="M14 14V4.5L9.5 0H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2zM9.5 3A1.5 1.5 0 0 0 11 4.5h2V14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h5.5v2z"/></svg>
+      Excel
+    </a>
+  </div>
+</nav>
+
   <div class="sticky-actions no-print">
     <div class="container py-3" x-data="appData()" x-init="init()">
       <div class="d-flex flex-column flex-md-row gap-2 align-items-md-center justify-content-between">
@@ -642,7 +712,59 @@
     border-radius: 8px;
 }
 .trace-summary-item { display: flex; justify-content: space-between; margin: 4px 0; }
-</style>
+
+    /* Navigation Header */
+    .demo-nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      padding: 10px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 9999;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    }
+    .demo-nav a {
+      color: white;
+      text-decoration: none;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      transition: background 0.2s;
+    }
+    .demo-nav a:hover {
+      background: rgba(255,255,255,0.2);
+    }
+    .demo-nav .nav-title {
+      font-weight: 600;
+      font-size: 1rem;
+    }
+    .demo-nav .nav-links {
+      display: flex;
+      gap: 8px;
+    }
+    .demo-nav .btn-trace {
+      background: rgba(100, 255, 218, 0.2);
+      border: 1px solid #64ffda;
+    }
+    .demo-nav .btn-excel {
+      background: rgba(33, 115, 70, 0.8);
+    }
+    body {
+      padding-top: 50px !important;
+    }
+    @media print {
+      .demo-nav { display: none !important; }
+      body { padding-top: 0 !important; }
+    }
+
+  </style>
 
 <button class="trace-toggle" onclick="toggleTracePanel()">
     <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
