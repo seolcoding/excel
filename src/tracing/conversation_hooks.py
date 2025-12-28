@@ -220,7 +220,33 @@ class ConversationCaptureHooks(RunHooks):
 
     def _parse_input_item(self, item) -> Optional[dict]:
         """Parse an input item into a readable dict."""
-        if hasattr(item, 'role') and hasattr(item, 'content'):
+        # Handle dict items (new SDK format)
+        if isinstance(item, dict):
+            role = item.get('role')
+            content = item.get('content')
+            if role and content:
+                if isinstance(content, list):
+                    # Multiple content parts
+                    text_parts = []
+                    for part in content:
+                        if isinstance(part, dict) and 'text' in part:
+                            text_parts.append(part['text'])
+                        elif hasattr(part, 'text'):
+                            text_parts.append(part.text)
+                        else:
+                            text_parts.append(str(part))
+                    content = "\n".join(text_parts)
+                return {
+                    "role": role,
+                    "content": str(content)[:10000],  # Limit size
+                }
+            elif 'type' in item:
+                return {
+                    "type": item['type'],
+                    "content": str(item)[:10000],
+                }
+        # Handle object items (legacy format)
+        elif hasattr(item, 'role') and hasattr(item, 'content'):
             content = item.content
             if isinstance(content, list):
                 # Multiple content parts

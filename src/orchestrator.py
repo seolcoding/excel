@@ -195,6 +195,7 @@ class ExcelToWebAppOrchestrator:
             result = await Runner.run(
                 self.analyzer,
                 prompt,
+                hooks=hooks,
             )
 
             # The agent returns the analysis via tool call result
@@ -228,6 +229,7 @@ class ExcelToWebAppOrchestrator:
             result = await Runner.run(
                 self.planner,
                 prompt,
+                hooks=hooks,
             )
 
             if result.final_output:
@@ -312,6 +314,7 @@ class ExcelToWebAppOrchestrator:
             result = await Runner.run(
                 self.generator,
                 prompt,
+                hooks=hooks,
             )
 
             if result.final_output:
