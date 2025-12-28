@@ -3,1153 +3,790 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>다중 시트 인쇄 템플릿 뷰어</title>
+  <title>엑셀 다중시트 문서 뷰어·인쇄 앱</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
   <style>
-    :root {
-      --app-bg: #f6f7fb;
-      --panel-bg: #ffffff;
-      --ink: #111827;
-      --muted: #6b7280;
-      --border: #e5e7eb;
-      --focus: #2563eb;
-      --sheet-bg: #ffffff;
-      --gridline: #111827;
-      --zoom: 1;
-      --cell-padding-y: 2px;
-      --cell-padding-x: 4px;
-      --font-ui: "Noto Sans KR", system-ui, -apple-system, "Segoe UI", Roboto, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
-      --font-sheet: "Noto Sans KR", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
-    }
+:root{
+  --excel-grid:#d0d0d0;
+  --excel-header:#f3f5f7;
+  --excel-text:#111;
+  --excel-muted:#666;
+  --excel-focus:#0d6efd;
+  --cell-pad-y:4px;
+  --cell-pad-x:6px;
+  --cell-font: 12px;
+}
 
-    html, body { height: 100%; }
-    body {
-      font-family: var(--font-ui);
-      color: var(--ink);
-      background: var(--app-bg);
-    }
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap');
 
-    .skip-link {
-      position: absolute;
-      left: -9999px;
-      top: 0;
-      z-index: 9999;
-      padding: 8px 12px;
-      background: #fff;
-      border: 2px solid var(--focus);
-      border-radius: 6px;
-    }
-    .skip-link:focus { left: 12px; top: 12px; }
+html, body{ height:100%; }
+body{
+  font-family:"Noto Sans KR", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  color:var(--excel-text);
+  background:#fff;
+}
 
-    .app-toolbar {
-      position: sticky;
-      top: 0;
-      z-index: 100;
-      background: rgba(246,247,251,0.92);
-      backdrop-filter: blur(6px);
-      border-bottom: 1px solid var(--border);
-    }
+.app-title{ font-weight:700; letter-spacing:-0.2px; }
 
-    .panel {
-      background: var(--panel-bg);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-    }
+.sheet-tabs{ gap:.25rem; flex-wrap:wrap; }
+.sheet-tab-btn{
+  border:1px solid #dee2e6;
+  background:#fff;
+  border-radius:.5rem;
+  padding:.35rem .6rem;
+  font-size:.95rem;
+}
+.sheet-tab-btn[aria-selected="true"]{
+  border-color:rgba(13,110,253,.35);
+  box-shadow:0 0 0 .2rem rgba(13,110,253,.15);
+}
 
-    .tabs-wrap {
-      overflow-x: auto;
-      -webkit-overflow-scrolling: touch;
-      border-bottom: 1px solid var(--border);
-    }
+.viewer-shell{
+  border:1px solid #e5e7eb;
+  border-radius:12px;
+  overflow:hidden;
+}
 
-    .sheet-tab {
-      white-space: nowrap;
-    }
+.viewer-toolbar{
+  background:#fff;
+  border-bottom:1px solid #e9ecef;
+}
 
-    .sheet-frame {
-      background: var(--sheet-bg);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      overflow: auto;
-      max-height: calc(100vh - 220px);
-    }
+.sheet-meta{
+  color:var(--excel-muted);
+  font-size:.9rem;
+}
 
-    /* Zoom: apply to a wrapper for better print stability */
-    .sheet-zoom {
-      transform: scale(var(--zoom));
-      transform-origin: top left;
-      width: calc(100% / var(--zoom));
-    }
+/* Excel-like table */
+.excel-wrap{ overflow:auto; max-height: calc(100vh - 230px); background:#fff; }
+.excel-table{
+  border-collapse:collapse;
+  table-layout:fixed;
+  width:max-content;
+  min-width:100%;
+  font-size:var(--cell-font);
+}
+.excel-table caption{ caption-side:top; text-align:left; padding:.5rem .75rem; font-weight:600; }
+.excel-table th,
+.excel-table td{
+  border:1px solid var(--excel-grid);
+  padding:var(--cell-pad-y) var(--cell-pad-x);
+  vertical-align:middle;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  background:#fff;
+}
+.excel-table th{
+  background:var(--excel-header);
+  font-weight:600;
+}
 
-    table.sheet-table {
-      border-collapse: collapse;
-      table-layout: fixed;
-      width: max-content;
-      min-width: 100%;
-      font-family: var(--font-sheet);
-      font-size: 12px;
-      color: #111;
-    }
+/* Sticky headers (optional) */
+.excel-table thead th{ position:sticky; top:0; z-index:3; }
+.excel-table .row-header{ position:sticky; left:0; z-index:2; background:var(--excel-header); }
+.excel-table thead .corner{ left:0; z-index:4; }
 
-    table.sheet-table caption {
-      caption-side: top;
-      text-align: left;
-      padding: 10px 8px;
-      font-weight: 700;
-      color: var(--ink);
-    }
+.cell-wrap{ white-space:normal; }
+.cell-right{ text-align:right; }
+.cell-center{ text-align:center; }
+.cell-left{ text-align:left; }
 
-    table.sheet-table td {
-      border: 1px solid #111; /* Excel-like dark borders; can be overridden by per-cell styles */
-      padding: var(--cell-padding-y) var(--cell-padding-x);
-      vertical-align: middle;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      background: #fff;
-    }
+/* Print */
+@page{ size: A4 landscape; margin: 25mm 10mm; }
 
-    table.sheet-table td[contenteditable="true"] {
-      outline: 2px solid transparent;
-    }
+@media print{
+  .no-print{ display:none !important; }
+  body{ background:#fff !important; }
+  .container{ max-width:none !important; }
+  .viewer-shell{ border:none !important; border-radius:0 !important; }
+  .excel-wrap{ overflow:visible !important; max-height:none !important; }
+  .excel-table{ width:100% !important; min-width:0 !important; }
+  .excel-table thead th{ position:static !important; }
+  .excel-table .row-header{ position:static !important; }
+  tr{ page-break-inside:avoid; break-inside:avoid; }
+}
 
-    table.sheet-table td[contenteditable="true"]:focus {
-      outline: 2px solid var(--focus);
-      outline-offset: -2px;
-      background: #eff6ff;
-    }
+/* A11y focus */
+button:focus-visible, .sheet-tab-btn:focus-visible{
+  outline:3px solid rgba(13,110,253,.35);
+  outline-offset:2px;
+}
 
-    .muted { color: var(--muted); }
-
-    .focus-ring:focus {
-      outline: 3px solid var(--focus);
-      outline-offset: 2px;
-    }
-
-    .badge-soft {
-      background: #eef2ff;
-      color: #3730a3;
-      border: 1px solid #c7d2fe;
-    }
-
-    /* Print */
-    @page {
-      size: A4 landscape;
-      margin: 25mm 10mm;
-    }
-
-    @media print {
-      body { background: #fff; }
-      .no-print { display: none !important; }
-      .sheet-frame { border: none !important; max-height: none !important; overflow: visible !important; }
-      .panel { border: none !important; }
-
-      /* Print only the print area */
-      .print-area { display: block !important; }
-
-      /* Keep colors */
-      * {
-        -webkit-print-color-adjust: exact;
-        print-color-adjust: exact;
-      }
-
-      /* Avoid breaking inside rows/cells if possible */
-      table.sheet-table tr { break-inside: avoid; page-break-inside: avoid; }
-      table.sheet-table td { break-inside: avoid; page-break-inside: avoid; }
-
-      /* Fit-to-page behavior handled by JS/CSS variable */
-    }
-
-    /* Screen-only helpers */
-    @media screen {
-      .print-area { display: block; }
-    }
-  
-    /* Navigation Header */
-    .demo-nav {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      padding: 10px 20px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      z-index: 9999;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-    }
-    .demo-nav a {
-      color: white;
-      text-decoration: none;
-      padding: 6px 12px;
-      border-radius: 6px;
-      font-size: 0.9rem;
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      transition: background 0.2s;
-    }
-    .demo-nav a:hover {
-      background: rgba(255,255,255,0.2);
-    }
-    .demo-nav .nav-title {
-      font-weight: 600;
-      font-size: 1rem;
-    }
-    .demo-nav .nav-links {
-      display: flex;
-      gap: 8px;
-    }
-    .demo-nav .btn-trace {
-      background: rgba(100, 255, 218, 0.2);
-      border: 1px solid #64ffda;
-    }
-    .demo-nav .btn-excel {
-      background: rgba(33, 115, 70, 0.8);
-    }
-    body {
-      padding-top: 50px !important;
-    }
-    @media print {
-      .demo-nav { display: none !important; }
-      body { padding-top: 0 !important; }
-    }
-
+.mono{
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
   </style>
 </head>
 <body>
-<!-- Navigation Header -->
-<nav class="demo-nav">
-  <div>
-    <a href="../index.html">← 목록</a>
-    <span class="nav-title" style="margin-left: 15px;">자금집행품의서</span>
-  </div>
-  <div class="nav-links">
-    <a href="../traces/trace-viewer.html?demo=08" class="btn-trace">
-      <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M6 3.5A1.5 1.5 0 0 1 7.5 2h1A1.5 1.5 0 0 1 10 3.5v1A1.5 1.5 0 0 1 8.5 6v1H14a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-1 0V8h-5v.5a.5.5 0 0 1-1 0V8h-5v.5a.5.5 0 0 1-1 0v-1A.5.5 0 0 1 2 7h5.5V6A1.5 1.5 0 0 1 6 4.5v-1z"/></svg>
-      Agent Trace
-    </a>
-    <a href="../excel_files/엑셀서식(20160517)/자금집행품의서외/3.xlsx" class="btn-excel" download>
-      <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M5.884 6.68a.5.5 0 1 0-.768.64L7.349 10l-2.233 2.68a.5.5 0 0 0 .768.64L8 10.781l2.116 2.54a.5.5 0 0 0 .768-.641L8.651 10l2.233-2.68a.5.5 0 0 0-.768-.64L8 9.219l-2.116-2.54z"/><path d="M14 14V4.5L9.5 0H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2zM9.5 3A1.5 1.5 0 0 0 11 4.5h2V14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h5.5v2z"/></svg>
-      Excel
-    </a>
-  </div>
-</nav>
+  <div class="container py-4" x-data="appData()" x-init="init()">
 
-  <a class="skip-link" href="#content">본문으로</a>
-
-  <div class="app-toolbar no-print">
-    <div class="container-fluid py-3" x-data="appData()" x-init="init()">
-      <div class="d-flex align-items-start justify-content-between flex-wrap gap-3">
+    <header class="d-flex flex-column gap-3 mb-3 no-print">
+      <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
         <div>
-          <h1 class="h4 mb-1">다중 시트 인쇄 템플릿 뷰어</h1>
-          <div class="small muted">여러 시트를 탭으로 조회하고 A4 가로 인쇄 설정으로 미리보기/인쇄합니다.</div>
+          <h1 class="h4 mb-1 app-title">엑셀 다중시트 문서 뷰어·인쇄 앱</h1>
+          <div class="text-secondary small">수식/입력 셀 미확정 상태의 문서를 시트별로 표시하고 인쇄(A4 가로)를 지원합니다.</div>
         </div>
-        <div class="d-flex align-items-center gap-2">
-          <button type="button" class="btn btn-primary focus-ring" @click="printActiveSheet()" :disabled="!workbookLoaded">
+        <div class="d-flex gap-2">
+          <button type="button" class="btn btn-outline-primary" @click="printActiveSheet()" :disabled="!activeSheetName">
             인쇄
+          </button>
+          <button type="button" class="btn btn-primary" @click="exportActiveSheetToPdf()" :disabled="!activeSheetName">
+            PDF 저장
           </button>
         </div>
       </div>
 
-      <div class="row g-3 mt-2">
-        <div class="col-12">
-          <div class="panel">
-            <div class="tabs-wrap px-2 py-2" role="tablist" aria-label="시트 탭">
-              <template x-for="name in sheetNames" :key="name">
-                <button
-                  type="button"
-                  class="btn btn-sm me-1 sheet-tab"
-                  :class="activeSheet === name ? 'btn-dark' : 'btn-outline-secondary'"
-                  role="tab"
-                  :id="'tab-' + safeId(name)"
-                  :aria-selected="activeSheet === name"
-                  :aria-controls="'panel-' + safeId(name)"
-                  @click="setActiveSheet(name)"
-                >
-                  <span x-text="name"></span>
-                </button>
-              </template>
-              <span class="ms-2 badge badge-soft align-self-center" x-show="workbookLoaded" x-text="'총 ' + sheetNames.length + '개 시트'"></span>
-            </div>
+      <nav aria-label="시트 선택" class="viewer-toolbar p-2 rounded-3 border">
+        <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap">
+          <div role="tablist" aria-label="시트 탭" class="d-flex sheet-tabs">
+            <template x-for="name in sheetNames" :key="name">
+              <button
+                type="button"
+                class="sheet-tab-btn"
+                role="tab"
+                :id="'tab-' + name"
+                :aria-selected="String(activeSheetName === name)"
+                :aria-controls="'panel-' + name"
+                @click="setActiveSheet(name)"
+                @keydown.enter.prevent="setActiveSheet(name)"
+                @keydown.space.prevent="setActiveSheet(name)"
+              >
+                <span x-text="name"></span>
+              </button>
+            </template>
+          </div>
 
-            <div class="p-3">
-              <h2 class="h6 mb-3">인쇄/보기 설정</h2>
-              <div class="row g-3 align-items-end">
-                <div class="col-12 col-md-4">
-                  <label class="form-label" for="activeSheetSelect">표시할 시트</label>
-                  <select id="activeSheetSelect" class="form-select focus-ring" x-model="activeSheet" @change="setActiveSheet(activeSheet)" :disabled="!workbookLoaded">
-                    <template x-for="name in sheetNames" :key="name">
-                      <option :value="name" x-text="name"></option>
-                    </template>
-                  </select>
-                </div>
+          <div class="sheet-meta" x-show="activeSheetName" x-transition>
+            <span class="me-2">활성 시트:</span>
+            <strong x-text="activeSheetName"></strong>
+            <span class="mx-2">|</span>
+            <span x-text="activeSheetInfo"></span>
+          </div>
+        </div>
+      </nav>
+    </header>
 
-                <div class="col-12 col-md-3">
-                  <label class="form-label" for="zoomInput">확대/축소(%)</label>
-                  <input
-                    id="zoomInput"
-                    class="form-control focus-ring"
-                    type="number"
-                    inputmode="numeric"
-                    min="25"
-                    max="200"
-                    step="5"
-                    x-model.number="zoom"
-                    @input.debounce.150ms="applyZoom(zoom)"
-                    :disabled="!workbookLoaded"
-                    aria-describedby="zoomHelp"
-                  />
-                  <div id="zoomHelp" class="form-text">25~200% 범위에서 조정합니다.</div>
-                </div>
-
-                <div class="col-12 col-md-2">
-                  <div class="form-check">
-                    <input id="fitToPage" class="form-check-input focus-ring" type="checkbox" x-model="fitToPage" :disabled="!workbookLoaded">
-                    <label class="form-check-label" for="fitToPage">페이지에 맞추기</label>
-                  </div>
-                </div>
-
-                <div class="col-12 col-md-2">
-                  <div class="form-check">
-                    <input id="readOnly" class="form-check-input focus-ring" type="checkbox" x-model="readOnly" @change="rerender()" :disabled="!workbookLoaded">
-                    <label class="form-check-label" for="readOnly">읽기 전용 보기</label>
-                  </div>
-                </div>
-
-                <div class="col-12 col-md-1">
-                  <button type="button" class="btn btn-outline-secondary w-100 focus-ring" @click="rerender()" :disabled="!workbookLoaded">갱신</button>
-                </div>
-              </div>
-
-              <div class="small muted mt-3" x-show="!workbookLoaded">
-                워크북 JSON이 로드되지 않았습니다. <code>window.WORKBOOK_JSON</code>을 주입하거나 <code>./workbook.json</code>을 배치하세요.
+    <div class="viewer-shell">
+      <main class="p-0" :aria-busy="loading ? 'true' : 'false'">
+        <section
+          class="excel-wrap"
+          :id="activeSheetName ? ('panel-' + activeSheetName) : 'panel-none'"
+          role="tabpanel"
+          :aria-labelledby="activeSheetName ? ('tab-' + activeSheetName) : null"
+          tabindex="0"
+        >
+          <div class="p-3" x-show="loading" x-transition>
+            <div class="d-flex align-items-center gap-2">
+              <div class="spinner-border" role="status" aria-label="로딩 중"></div>
+              <div>
+                <div class="fw-semibold">문서 로딩 중…</div>
+                <div class="text-secondary small">(현재는 샘플 JSON 모델을 사용합니다. 실제 엑셀 파싱 결과 JSON으로 교체하세요.)</div>
               </div>
             </div>
           </div>
-        </div>
-      </div>
 
-      <!-- Keep Alpine scope alive for content as well -->
-      <main id="content" class="mt-3" aria-label="시트 내용">
-        <div class="row g-3">
-          <div class="col-12">
-            <div class="sheet-frame panel print-area" :aria-busy="isRendering ? 'true' : 'false'">
-              <div class="p-2" x-show="renderError" role="alert" aria-live="polite">
-                <div class="alert alert-danger mb-0">
-                  <div class="fw-bold">렌더링 오류</div>
-                  <div class="small" x-text="renderError"></div>
-                </div>
-              </div>
-
-              <div class="sheet-zoom" :style="'--zoom:' + effectiveZoom">
-                <div
-                  class="p-0"
-                  :id="'panel-' + safeId(activeSheet)"
-                  role="tabpanel"
-                  :aria-labelledby="'tab-' + safeId(activeSheet)"
-                >
-                  <!-- Rendered table goes here -->
-                  <div x-html="renderedHtml"></div>
-                </div>
-              </div>
-            </div>
-
-            <div class="small muted mt-2">
-              인쇄 시에는 현재 활성 시트만 출력되며, 여백은 상/하 25mm, 좌/우 10mm, 용지는 A4 가로로 설정됩니다.
+          <div class="p-3" x-show="!loading && !activeSheetName" x-transition>
+            <div class="alert alert-warning mb-0" role="alert">
+              표시할 시트가 없습니다. 상단 탭이 보이지 않으면 JSON 모델에 sheets가 포함되어 있는지 확인하세요.
             </div>
           </div>
-        </div>
+
+          <div id="sheetContainer" x-show="!loading && activeSheetName" x-transition class="p-0"></div>
+        </section>
       </main>
-
     </div>
+
+    <footer class="mt-3 text-secondary small no-print">
+      <div>팁: 실제 운영에서는 서버(권장: Node + exceljs/xlsx)에서 시트 usedRange(A1:AM 등) 셀 값/서식/병합을 JSON으로 추출하여 <span class="mono">loadWorkbookModel()</span>에 전달하세요.</div>
+    </footer>
+
   </div>
 
-  <!-- Print-only: reuse same content (toolbar hidden by .no-print) -->
   <script>
-    // Excel formula helper functions (included as requested)
-    function _sum(...args) {
-      return args.flat().reduce((a, b) => (parseFloat(a) || 0) + (parseFloat(b) || 0), 0);
-    }
-    function _sumRange(rangeData) {
-      if (Array.isArray(rangeData)) {
+/* =========================
+   Excel formula helper functions (included for future expansion)
+   ========================= */
+function _sum(...args) {
+    return args.flat().reduce((a, b) => (parseFloat(a) || 0) + (parseFloat(b) || 0), 0);
+}
+
+function _sumRange(rangeData) {
+    if (Array.isArray(rangeData)) {
         return rangeData.flat().reduce((a, b) => (parseFloat(a) || 0) + (parseFloat(b) || 0), 0);
-      }
-      return parseFloat(rangeData) || 0;
     }
-    function _average(...args) {
-      const flat = args.flat().filter(x => x !== null && x !== '' && !isNaN(x));
-      return flat.length ? _sum(...flat) / flat.length : 0;
-    }
-    function _averageRange(rangeData) {
-      if (Array.isArray(rangeData)) {
+    return parseFloat(rangeData) || 0;
+}
+
+function _average(...args) {
+    const flat = args.flat().filter(x => x !== null && x !== '' && !isNaN(x));
+    return flat.length ? _sum(...flat) / flat.length : 0;
+}
+
+function _averageRange(rangeData) {
+    if (Array.isArray(rangeData)) {
         const flat = rangeData.flat().filter(x => x !== null && x !== '' && !isNaN(x));
         return flat.length ? _sumRange(flat) / flat.length : 0;
-      }
-      return parseFloat(rangeData) || 0;
     }
-    function _count(...args) {
-      return args.flat().filter(x => typeof x === 'number' && !isNaN(x)).length;
-    }
-    function _counta(...args) {
-      return args.flat().filter(x => x !== null && x !== '' && x !== undefined).length;
-    }
-    function _and(...args) {
-      return args.every(x => Boolean(x));
-    }
-    function _or(...args) {
-      return args.some(x => Boolean(x));
-    }
-    function _round(num, digits = 0) {
-      const factor = Math.pow(10, digits);
-      return Math.round(num * factor) / factor;
-    }
-    function _roundUp(num, digits = 0) {
-      const factor = Math.pow(10, digits);
-      return Math.ceil(num * factor) / factor;
-    }
-    function _roundDown(num, digits = 0) {
-      const factor = Math.pow(10, digits);
-      return Math.floor(num * factor) / factor;
-    }
-    function _len(text) {
-      return String(text).length;
-    }
-    function _left(text, numChars = 1) {
-      return String(text).substring(0, numChars);
-    }
-    function _right(text, numChars = 1) {
-      const str = String(text);
-      return str.substring(str.length - numChars);
-    }
-    function _mid(text, startNum, numChars) {
-      return String(text).substring(startNum - 1, startNum - 1 + numChars);
-    }
-    function _trim(text) {
-      return String(text).trim();
-    }
-    function _upper(text) {
-      return String(text).toUpperCase();
-    }
-    function _lower(text) {
-      return String(text).toLowerCase();
-    }
-    function _concat(...args) {
-      return args.join('');
-    }
-    function formatNumber(num, decimals = 0) {
-      return new Intl.NumberFormat('ko-KR', {
+    return parseFloat(rangeData) || 0;
+}
+
+function _count(...args) {
+    return args.flat().filter(x => typeof x === 'number' && !isNaN(x)).length;
+}
+
+function _counta(...args) {
+    return args.flat().filter(x => x !== null && x !== '' && x !== undefined).length;
+}
+
+function _and(...args) {
+    return args.every(x => Boolean(x));
+}
+
+function _or(...args) {
+    return args.some(x => Boolean(x));
+}
+
+function _round(num, digits = 0) {
+    const factor = Math.pow(10, digits);
+    return Math.round(num * factor) / factor;
+}
+
+function _roundUp(num, digits = 0) {
+    const factor = Math.pow(10, digits);
+    return Math.ceil(num * factor) / factor;
+}
+
+function _roundDown(num, digits = 0) {
+    const factor = Math.pow(10, digits);
+    return Math.floor(num * factor) / factor;
+}
+
+function _len(text) {
+    return String(text).length;
+}
+
+function _left(text, numChars = 1) {
+    return String(text).substring(0, numChars);
+}
+
+function _right(text, numChars = 1) {
+    const str = String(text);
+    return str.substring(str.length - numChars);
+}
+
+function _mid(text, startNum, numChars) {
+    return String(text).substring(startNum - 1, startNum - 1 + numChars);
+}
+
+function _trim(text) {
+    return String(text).trim();
+}
+
+function _upper(text) {
+    return String(text).toUpperCase();
+}
+
+function _lower(text) {
+    return String(text).toLowerCase();
+}
+
+function _concat(...args) {
+    return args.join('');
+}
+
+// Number formatting
+function formatNumber(num, decimals = 0) {
+    return new Intl.NumberFormat('ko-KR', {
         minimumFractionDigits: decimals,
         maximumFractionDigits: decimals
-      }).format(num);
-    }
-    function formatCurrency(num) {
-      return new Intl.NumberFormat('ko-KR', {
+    }).format(num);
+}
+
+function formatCurrency(num) {
+    return new Intl.NumberFormat('ko-KR', {
         style: 'currency',
         currency: 'KRW',
         maximumFractionDigits: 0
-      }).format(num);
-    }
-    function formatPercent(num, decimals = 1) {
-      return new Intl.NumberFormat('ko-KR', {
+    }).format(num);
+}
+
+function formatPercent(num, decimals = 1) {
+    return new Intl.NumberFormat('ko-KR', {
         style: 'percent',
         minimumFractionDigits: decimals,
         maximumFractionDigits: decimals
-      }).format(num / 100);
+    }).format(num / 100);
+}
+
+/* =========================
+   Utilities
+   ========================= */
+const COLS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+function colToName(n){
+  // 1-based
+  let name='';
+  while(n>0){
+    const r=(n-1)%26;
+    name=String.fromCharCode(65+r)+name;
+    n=Math.floor((n-1)/26);
+  }
+  return name;
+}
+
+function safeText(v){
+  if (v === null || v === undefined) return '';
+  return String(v);
+}
+
+function parseA1(a1){
+  const m = /^([A-Z]+)(\d+)$/.exec(a1.toUpperCase());
+  if(!m) return null;
+  const colStr=m[1];
+  const row=parseInt(m[2],10);
+  let col=0;
+  for(const ch of colStr){ col = col*26 + (ch.charCodeAt(0)-64); }
+  return {row, col};
+}
+
+function rangeToBounds(range){
+  // "A1:AM58"
+  const parts = range.split(':');
+  const a = parseA1(parts[0]);
+  const b = parseA1(parts[1] || parts[0]);
+  if(!a||!b) return null;
+  return {
+    r1: Math.min(a.row,b.row),
+    c1: Math.min(a.col,b.col),
+    r2: Math.max(a.row,b.row),
+    c2: Math.max(a.col,b.col)
+  };
+}
+
+function mergeKey(r,c){ return r+','+c; }
+
+/* =========================
+   Core functions per plan
+   ========================= */
+function loadWorkbookModel(workbookJson){
+  // Normalize model:
+  // workbookModel = { sheets: { [name]: { name, usedRange, rows, cols, cells, merges, colWidths } } }
+  const wb = { sheets: {} };
+  if(!workbookJson || !workbookJson.sheets){
+    return wb;
+  }
+
+  for(const sh of workbookJson.sheets){
+    const usedRange = sh.usedRange || 'A1:A1';
+    const b = rangeToBounds(usedRange) || {r1:1,c1:1,r2:1,c2:1};
+    const rows = sh.rows || (b.r2 - b.r1 + 1);
+    const cols = sh.cols || (b.c2 - b.c1 + 1);
+
+    // cells: object keyed by A1 => { v, t, s }
+    const cells = sh.cells || {};
+
+    // merges: [{ s:'A1', e:'B2' }] or [{start:'A1', end:'B2'}]
+    const mergesRaw = sh.merges || [];
+    const merges = mergesRaw.map(m => ({
+      s: (m.s || m.start || '').toUpperCase(),
+      e: (m.e || m.end || '').toUpperCase()
+    })).filter(m => m.s && m.e);
+
+    wb.sheets[sh.name] = {
+      name: sh.name,
+      usedRange,
+      bounds: b,
+      rows,
+      cols,
+      cells,
+      merges,
+      colWidths: sh.colWidths || null,
+      rowHeights: sh.rowHeights || null
+    };
+  }
+  return wb;
+}
+
+function renderSheetTable(sheetModel, containerEl){
+  if(!sheetModel || !containerEl) return;
+  containerEl.innerHTML = '';
+
+  const { bounds, rows, cols, cells, merges, colWidths, rowHeights } = sheetModel;
+
+  // Build merge maps
+  const mergeStartMap = new Map(); // key "r,c" -> {rowspan,colspan}
+  const covered = new Set();
+
+  for(const m of merges){
+    const s = parseA1(m.s);
+    const e = parseA1(m.e);
+    if(!s || !e) continue;
+    const r1 = Math.min(s.row, e.row);
+    const r2 = Math.max(s.row, e.row);
+    const c1 = Math.min(s.col, e.col);
+    const c2 = Math.max(s.col, e.col);
+    mergeStartMap.set(mergeKey(r1,c1), { rowspan:(r2-r1+1), colspan:(c2-c1+1) });
+    for(let r=r1;r<=r2;r++){
+      for(let c=c1;c<=c2;c++){
+        if(r===r1 && c===c1) continue;
+        covered.add(mergeKey(r,c));
+      }
+    }
+  }
+
+  const table = document.createElement('table');
+  table.className = 'excel-table';
+  table.setAttribute('role','table');
+
+  const caption = document.createElement('caption');
+  caption.textContent = sheetModel.name;
+  table.appendChild(caption);
+
+  // Colgroup for widths
+  if(colWidths && Array.isArray(colWidths)){
+    const colgroup = document.createElement('colgroup');
+    // add row header col
+    const colRh = document.createElement('col');
+    colRh.style.width = '52px';
+    colgroup.appendChild(colRh);
+    for(let c=1;c<=cols;c++){
+      const col = document.createElement('col');
+      const w = colWidths[c-1];
+      if(w) col.style.width = (typeof w === 'number' ? (w+'px') : String(w));
+      colgroup.appendChild(col);
+    }
+    table.appendChild(colgroup);
+  }
+
+  const thead = document.createElement('thead');
+  const trh = document.createElement('tr');
+  const corner = document.createElement('th');
+  corner.className = 'corner';
+  corner.textContent = '';
+  corner.setAttribute('scope','col');
+  corner.style.minWidth = '52px';
+  trh.appendChild(corner);
+
+  for(let c=0;c<cols;c++){
+    const th = document.createElement('th');
+    th.setAttribute('scope','col');
+    th.textContent = colToName(bounds.c1 + c);
+    trh.appendChild(th);
+  }
+  thead.appendChild(trh);
+  table.appendChild(thead);
+
+  const tbody = document.createElement('tbody');
+
+  for(let r=0;r<rows;r++){
+    const tr = document.createElement('tr');
+    if(rowHeights && rowHeights[r]) tr.style.height = (typeof rowHeights[r] === 'number' ? (rowHeights[r]+'px') : String(rowHeights[r]));
+
+    const thRow = document.createElement('th');
+    thRow.className = 'row-header';
+    thRow.setAttribute('scope','row');
+    thRow.textContent = String(bounds.r1 + r);
+    tr.appendChild(thRow);
+
+    for(let c=0;c<cols;c++){
+      const rr = bounds.r1 + r;
+      const cc = bounds.c1 + c;
+      const k = mergeKey(rr,cc);
+      if(covered.has(k)) continue;
+
+      const td = document.createElement('td');
+      const a1 = colToName(cc) + String(rr);
+      td.dataset.a1 = a1;
+
+      // Merge spans
+      const ms = mergeStartMap.get(k);
+      if(ms){
+        td.rowSpan = ms.rowspan;
+        td.colSpan = ms.colspan;
+      }
+
+      const cell = cells[a1] || null;
+      const v = cell ? cell.v : '';
+      td.textContent = safeText(v);
+
+      // Apply minimal style mapping
+      if(cell && cell.s){
+        applyCellStyle(td, cell.s);
+      }
+
+      tr.appendChild(td);
     }
 
-    // App logic
-    function appData() {
-      return {
-        // UI state
-        sheetNames: [
-          '20070327104129', 'Sheet1', 'Sheet2', 'Sheet3', 'Sheet4', 'Sheet5', 'Sheet6', 'Sheet7'
-        ],
-        activeSheet: '20070327104129',
-        zoom: 100,
-        fitToPage: true,
-        readOnly: true,
-
-        // data
-        workbook: null,
-        workbookLoaded: false,
-        isRendering: false,
-        renderError: '',
-        renderedHtml: '',
-
-        // derived zoom to apply (fit-to-page can override)
-        effectiveZoom: 1,
-
-        safeId(name) {
-          return String(name).replace(/[^a-zA-Z0-9_-]/g, '_');
-        },
-
-        async init() {
-          // Iteration-2 robustness fixes:
-          // - Alpine scope includes content and toolbar (single x-data root)
-          // - Try multiple sources for workbook JSON
-          // - Don’t crash if workbook is missing; show friendly message
-          // - Avoid using CSS 'zoom' (use transform scale)
-          // - Fit-to-page recalculated on resize
-
-          await this.tryLoadWorkbook();
-          this.applyZoom(this.zoom);
-          if (this.workbookLoaded) this.rerender();
-
-          window.addEventListener('resize', () => {
-            if (this.fitToPage) this.applyZoom(this.zoom);
-          }, { passive: true });
-        },
-
-        async tryLoadWorkbook() {
-          // Preferred injection: window.WORKBOOK_JSON
-          if (window.WORKBOOK_JSON && typeof window.WORKBOOK_JSON === 'object') {
-            this.loadWorkbookData(window.WORKBOOK_JSON);
-            return;
-          }
-          // Fallback: fetch ./workbook.json (same origin)
-          try {
-            const res = await fetch('./workbook.json', { cache: 'no-store' });
-            if (res.ok) {
-              const json = await res.json();
-              this.loadWorkbookData(json);
-              return;
-            }
-          } catch (e) {
-            // ignore
-          }
-
-          // No data
-          this.workbookLoaded = false;
-          this.workbook = null;
-          this.renderedHtml = this.emptyStateHtml('워크북 JSON을 찾을 수 없습니다.');
-        },
-
-        loadWorkbookData(workbookJson) {
-          // Expected structure (recommended):
-          // {
-          //   sheets: {
-          //     SheetName: {
-          //       usedRange: { s:{r:0,c:0}, e:{r:33,c:38} },
-          //       cells: { "A1": { v:"텍스트", t:"s", s:{...style...} }, ... },
-          //       merges: [ { s:{r:0,c:0}, e:{r:0,c:3} }, ...],
-          //       colWidths: { "0": 80, "1": 120, ... } (px),
-          //       rowHeights: { "0": 18, "1": 24, ... } (px)
-          //     }
-          //   }
-          // }
-          this.workbook = workbookJson;
-          const names = this.extractSheetNames(workbookJson);
-          if (names.length) {
-            this.sheetNames = names;
-            if (!names.includes(this.activeSheet)) this.activeSheet = names[0];
-            this.workbookLoaded = true;
-            this.renderError = '';
-          } else {
-            this.workbookLoaded = false;
-            this.renderedHtml = this.emptyStateHtml('시트 목록을 찾을 수 없습니다. JSON 구조를 확인하세요.');
-          }
-        },
-
-        extractSheetNames(workbookJson) {
-          if (!workbookJson) return [];
-          if (Array.isArray(workbookJson.sheetNames)) return workbookJson.sheetNames;
-          if (workbookJson.sheets && typeof workbookJson.sheets === 'object') return Object.keys(workbookJson.sheets);
-          if (workbookJson.Sheets && typeof workbookJson.Sheets === 'object') return Object.keys(workbookJson.Sheets);
-          return [];
-        },
-
-        getSheetObject(sheetName) {
-          if (!this.workbook) return null;
-          if (this.workbook.sheets && this.workbook.sheets[sheetName]) return this.workbook.sheets[sheetName];
-          if (this.workbook.Sheets && this.workbook.Sheets[sheetName]) return this.workbook.Sheets[sheetName];
-          return null;
-        },
-
-        setActiveSheet(sheetName) {
-          this.activeSheet = sheetName;
-          this.rerender();
-        },
-
-        applyZoom(zoom) {
-          // clamp
-          const z = Math.max(25, Math.min(200, Number(zoom) || 100));
-          this.zoom = z;
-
-          // base zoom
-          let scale = z / 100;
-
-          if (this.fitToPage) {
-            // Estimate fit-to-page based on container width vs table width if available
-            // We compute after render; here set provisional. rerender() will refine.
-            this.effectiveZoom = scale;
-          } else {
-            this.effectiveZoom = scale;
-          }
-        },
-
-        rerender() {
-          if (!this.workbookLoaded) return;
-          this.renderSheet(this.activeSheet, this.zoom, this.readOnly);
-        },
-
-        emptyStateHtml(message) {
-          const msg = message || '표시할 데이터가 없습니다.';
-          return `
-            <div class="p-4">
-              <div class="alert alert-warning mb-0" role="status" aria-live="polite">
-                <div class="fw-bold">미리보기 준비 필요</div>
-                <div class="small">${this.escapeHtml(msg)}</div>
-                <hr />
-                <div class="small">
-                  권장 JSON 구조: <code>{ sheets: { Sheet1: { usedRange, cells, merges, colWidths, rowHeights } } }</code>
-                </div>
-              </div>
-            </div>
-          `;
-        },
-
-        renderSheet(sheetName, zoom, readOnly) {
-          this.isRendering = true;
-          this.renderError = '';
-
-          try {
-            const sheet = this.getSheetObject(sheetName);
-            if (!sheet) {
-              this.renderedHtml = this.emptyStateHtml('선택한 시트 데이터를 찾을 수 없습니다: ' + sheetName);
-              this.isRendering = false;
-              return;
-            }
-
-            const normalized = this.normalizeSheet(sheet);
-            const html = this.buildTableHtml(sheetName, normalized, !readOnly);
-            this.renderedHtml = html;
-
-            this.$nextTick(() => {
-              this.applyZoom(this.zoom);
-              if (this.fitToPage) this.refineFitToPageScale();
-            });
-          } catch (e) {
-            this.renderError = (e && e.message) ? e.message : String(e);
-            this.renderedHtml = '';
-          } finally {
-            this.isRendering = false;
-          }
-        },
-
-        refineFitToPageScale() {
-          // Calculate scale so that table fits in visible frame width.
-          const frame = document.querySelector('.sheet-frame');
-          const table = frame ? frame.querySelector('table.sheet-table') : null;
-          if (!frame || !table) return;
-
-          // Measure natural table width (before scaling):
-          // Because we scale wrapper, we can use scrollWidth of table container.
-          const frameInnerWidth = frame.clientWidth - 16; // padding tolerance
-          const tableWidth = table.scrollWidth || table.offsetWidth;
-          if (!tableWidth || !frameInnerWidth) return;
-
-          const base = (Math.max(25, Math.min(200, Number(this.zoom) || 100)) / 100);
-          const fitScale = Math.min(1, frameInnerWidth / tableWidth);
-
-          // Combine base zoom with fitScale (cap to avoid huge shrink)
-          const finalScale = Math.max(0.2, Math.min(2.0, base * fitScale));
-          this.effectiveZoom = finalScale;
-        },
-
-        normalizeSheet(sheet) {
-          // Normalize usedRange
-          const used = sheet.usedRange || sheet['!ref'] || sheet.ref;
-          let s = { r: 0, c: 0 }, e = { r: 20, c: 10 };
-
-          if (used && typeof used === 'object' && used.s && used.e) {
-            s = used.s; e = used.e;
-          } else if (typeof used === 'string') {
-            // A1:AM34 style
-            const parsed = this.parseA1Range(used);
-            if (parsed) { s = parsed.s; e = parsed.e; }
-          }
-
-          const merges = sheet.merges || sheet['!merges'] || [];
-          const cells = sheet.cells || sheet.data || sheet;
-
-          const colWidths = sheet.colWidths || sheet['!cols'] || {};
-          const rowHeights = sheet.rowHeights || sheet['!rows'] || {};
-
-          return { s, e, merges, cells, colWidths, rowHeights };
-        },
-
-        parseA1Range(a1) {
-          // ex) A1:AM34
-          const parts = String(a1).split(':');
-          if (parts.length !== 2) return null;
-          const a = this.a1ToRC(parts[0]);
-          const b = this.a1ToRC(parts[1]);
-          if (!a || !b) return null;
-          return { s: { r: a.r, c: a.c }, e: { r: b.r, c: b.c } };
-        },
-
-        a1ToRC(addr) {
-          const m = String(addr).toUpperCase().match(/^([A-Z]+)(\d+)$/);
-          if (!m) return null;
-          const col = m[1];
-          const row = parseInt(m[2], 10);
-          let c = 0;
-          for (let i = 0; i < col.length; i++) {
-            c = c * 26 + (col.charCodeAt(i) - 64);
-          }
-          return { r: row - 1, c: c - 1 };
-        },
-
-        rcToA1(r, c) {
-          let n = c + 1;
-          let col = '';
-          while (n > 0) {
-            const rem = (n - 1) % 26;
-            col = String.fromCharCode(65 + rem) + col;
-            n = Math.floor((n - 1) / 26);
-          }
-          return col + String(r + 1);
-        },
-
-        buildTableHtml(sheetName, normalized, editable) {
-          const { s, e, merges, cells, colWidths, rowHeights } = normalized;
-          const rows = e.r - s.r + 1;
-          const cols = e.c - s.c + 1;
-
-          const mergeMap = this.buildMergeMaps(merges);
-
-          // colgroup widths
-          let colgroup = '<colgroup>';
-          for (let c = 0; c < cols; c++) {
-            const absC = s.c + c;
-            const w = this.getColWidthPx(colWidths, absC);
-            colgroup += `<col style="width:${w}px" />`;
-          }
-          colgroup += '</colgroup>';
-
-          let html = `<table class="sheet-table" aria-label="${this.escapeHtml(sheetName)} 시트" role="table">`;
-          html += `<caption>${this.escapeHtml(sheetName)}</caption>`;
-          html += colgroup;
-          html += '<tbody>';
-
-          for (let r = 0; r < rows; r++) {
-            const absR = s.r + r;
-            const h = this.getRowHeightPx(rowHeights, absR);
-            html += `<tr style="height:${h}px">`;
-
-            for (let c = 0; c < cols; c++) {
-              const absC = s.c + c;
-              const key = absR + ',' + absC;
-
-              // skip cells covered by merge
-              if (mergeMap.skip.has(key)) continue;
-
-              const span = mergeMap.span.get(key);
-              const rowspan = span ? span.rs : 1;
-              const colspan = span ? span.cs : 1;
-
-              const a1 = this.rcToA1(absR, absC);
-              const cell = this.getCellObject(cells, a1, absR, absC);
-              const value = this.getCellValue(cell);
-              const style = this.cellStyleToCss(cell && (cell.s || cell.style));
-
-              const content = this.escapeHtml(value);
-
-              const attrs = [];
-              attrs.push(`data-a1="${a1}"`);
-              if (rowspan > 1) attrs.push(`rowspan="${rowspan}"`);
-              if (colspan > 1) attrs.push(`colspan="${colspan}"`);
-              if (style) attrs.push(`style="${style}"`);
-
-              if (editable) {
-                attrs.push('contenteditable="true"');
-                attrs.push('spellcheck="false"');
-                attrs.push('role="cell"');
-                attrs.push(`aria-label="${this.escapeHtml(sheetName)} ${a1} 편집"`);
-              } else {
-                attrs.push('role="cell"');
-                attrs.push(`aria-label="${this.escapeHtml(sheetName)} ${a1}"`);
-              }
-
-              html += `<td ${attrs.join(' ')}>${content}</td>`;
-            }
-
-            html += '</tr>';
-          }
-
-          html += '</tbody></table>';
-          return html;
-        },
-
-        buildMergeMaps(merges) {
-          // merges: [{s:{r,c}, e:{r,c}}]
-          const span = new Map();
-          const skip = new Set();
-
-          (merges || []).forEach(m => {
-            const s = m.s || m.S || m.start;
-            const e = m.e || m.E || m.end;
-            if (!s || !e) return;
-
-            const key = s.r + ',' + s.c;
-            span.set(key, { rs: (e.r - s.r + 1), cs: (e.c - s.c + 1) });
-
-            for (let r = s.r; r <= e.r; r++) {
-              for (let c = s.c; c <= e.c; c++) {
-                if (r === s.r && c === s.c) continue;
-                skip.add(r + ',' + c);
-              }
-            }
-          });
-
-          return { span, skip };
-        },
-
-        getCellObject(cells, a1, r, c) {
-          if (!cells) return null;
-          // Try A1 map
-          if (cells[a1]) return cells[a1];
-          // Try row/col map
-          if (cells[r] && cells[r][c]) return cells[r][c];
-          // SheetJS-like: cells[a1] exists, with v/w
-          return null;
-        },
-
-        getCellValue(cell) {
-          if (cell == null) return '';
-          if (typeof cell === 'string' || typeof cell === 'number') return String(cell);
-          if (cell.w != null) return String(cell.w);
-          if (cell.v != null) return String(cell.v);
-          return '';
-        },
-
-        getColWidthPx(colWidths, absC) {
-          // Accept formats:
-          // - { "0": 80 }
-          // - array of { wpx: 80 } (SheetJS)
-          if (Array.isArray(colWidths)) {
-            const c = colWidths[absC];
-            if (!c) return 80;
-            if (typeof c === 'number') return c;
-            if (c.wpx) return c.wpx;
-            if (c.width) return Math.round(c.width * 7); // rough
-            return 80;
-          }
-          const v = colWidths[String(absC)];
-          if (typeof v === 'number') return v;
-          if (v && typeof v === 'object') {
-            if (v.wpx) return v.wpx;
-            if (v.width) return Math.round(v.width * 7);
-          }
-          return 80;
-        },
-
-        getRowHeightPx(rowHeights, absR) {
-          if (Array.isArray(rowHeights)) {
-            const r = rowHeights[absR];
-            if (!r) return 20;
-            if (typeof r === 'number') return r;
-            if (r.hpx) return r.hpx;
-            if (r.hpt) return Math.round(r.hpt * 96 / 72);
-            return 20;
-          }
-          const v = rowHeights[String(absR)];
-          if (typeof v === 'number') return v;
-          if (v && typeof v === 'object') {
-            if (v.hpx) return v.hpx;
-            if (v.hpt) return Math.round(v.hpt * 96 / 72);
-          }
-          return 20;
-        },
-
-        cellStyleToCss(style) {
-          if (!style || typeof style !== 'object') return '';
-
-          const css = [];
-
-          // Alignment
-          const align = style.align || style.alignment;
-          if (align) {
-            if (align.horizontal) css.push(`text-align:${align.horizontal}`);
-            if (align.vertical) css.push(`vertical-align:${align.vertical}`);
-            if (align.wrapText) css.push('white-space:normal');
-          }
-
-          // Font
-          const font = style.font;
-          if (font) {
-            if (font.bold) css.push('font-weight:700');
-            if (font.italic) css.push('font-style:italic');
-            if (font.sz) css.push(`font-size:${font.sz}px`);
-            if (font.name) css.push(`font-family:${this.escapeCssFont(font.name)}`);
-            if (font.color && font.color.rgb) css.push(`color:#${String(font.color.rgb).slice(-6)}`);
-          }
-
-          // Fill
-          const fill = style.fill;
-          if (fill && fill.fgColor && fill.fgColor.rgb) {
-            css.push(`background-color:#${String(fill.fgColor.rgb).slice(-6)}`);
-          } else if (style.backgroundColor) {
-            css.push(`background-color:${style.backgroundColor}`);
-          }
-
-          // Borders
-          const border = style.border;
-          if (border) {
-            const mapSide = (side, cssProp) => {
-              const b = border[side];
-              if (!b) return;
-              // default Excel border style -> 1px solid
-              let color = '#111';
-              if (b.color && b.color.rgb) color = '#' + String(b.color.rgb).slice(-6);
-              css.push(`${cssProp}:1px solid ${color}`);
-            };
-            mapSide('top', 'border-top');
-            mapSide('bottom', 'border-bottom');
-            mapSide('left', 'border-left');
-            mapSide('right', 'border-right');
-          }
-
-          return css.join(';');
-        },
-
-        escapeCssFont(name) {
-          // minimal quoting
-          const safe = String(name).replace(/"/g, '\\"');
-          return `"${safe}", var(--font-sheet)`;
-        },
-
-        escapeHtml(s) {
-          return String(s ?? '')
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#039;');
-        },
-
-        printActiveSheet() {
-          if (!this.workbookLoaded) return;
-
-          // Ensure zoom applied before print; fit-to-page recalculated.
-          this.$nextTick(() => {
-            if (this.fitToPage) this.refineFitToPageScale();
-
-            // Print: toolbar is hidden by CSS (.no-print), so just call print.
-            window.print();
-          });
-        }
-      };
+    tbody.appendChild(tr);
+  }
+
+  table.appendChild(tbody);
+  containerEl.appendChild(table);
+}
+
+function applyCellStyle(td, s){
+  // s can be: { font:{name,size,bold,italic,color}, fill:{fgColor}, alignment:{horizontal,vertical,wrapText}, border:{...}, numFmt }
+  try{
+    if(s.font){
+      if(s.font.bold) td.style.fontWeight = '700';
+      if(s.font.italic) td.style.fontStyle = 'italic';
+      if(s.font.size) td.style.fontSize = s.font.size + 'px';
+      if(s.font.name) td.style.fontFamily = s.font.name + ', "Noto Sans KR", sans-serif';
+      if(s.font.color) td.style.color = normalizeColor(s.font.color);
     }
+    if(s.fill && (s.fill.fgColor || s.fill.bgColor)){
+      td.style.background = normalizeColor(s.fill.fgColor || s.fill.bgColor);
+    }
+    if(s.alignment){
+      if(s.alignment.horizontal){
+        const h = s.alignment.horizontal;
+        if(h === 'right') td.classList.add('cell-right');
+        else if(h === 'center') td.classList.add('cell-center');
+        else td.classList.add('cell-left');
+      }
+      if(s.alignment.wrapText){
+        td.style.whiteSpace = 'normal';
+        td.style.wordBreak = 'break-word';
+      }
+      if(s.alignment.vertical){
+        td.style.verticalAlign = s.alignment.vertical;
+      }
+    }
+    if(s.border){
+      // Basic: if any border present -> darker grid
+      td.style.borderColor = '#b8b8b8';
+    }
+  } catch(e){
+    // ignore style errors
+  }
+}
+
+function normalizeColor(c){
+  // Accept: "#RRGGBB", "RRGGBB", {argb:"FF112233"}
+  if(!c) return '';
+  if(typeof c === 'string'){
+    const s=c.trim();
+    if(s.startsWith('#')) return s;
+    if(/^[0-9a-fA-F]{6}$/.test(s)) return '#'+s;
+    if(/^[0-9a-fA-F]{8}$/.test(s)) return '#'+s.slice(2);
+    return s;
+  }
+  if(typeof c === 'object' && c.argb){
+    const a = String(c.argb);
+    if(a.length === 8) return '#'+a.slice(2);
+    if(a.length === 6) return '#'+a;
+  }
+  return '';
+}
+
+/* =========================
+   App state (Alpine)
+   ========================= */
+function appData(){
+  return {
+    loading: true,
+    workbookModel: { sheets: {} },
+    activeSheetName: '',
+
+    get sheetNames(){
+      return Object.keys(this.workbookModel.sheets || {});
+    },
+
+    get activeSheet(){
+      return this.activeSheetName ? this.workbookModel.sheets[this.activeSheetName] : null;
+    },
+
+    get activeSheetInfo(){
+      const sh = this.activeSheet;
+      if(!sh) return '';
+      return `사용범위 ${sh.usedRange} · ${sh.rows}행 × ${sh.cols}열`;
+    },
+
+    init(){
+      // Demo workbook JSON (replace with real parsed JSON)
+      const demo = buildDemoWorkbookJson();
+      this.workbookModel = loadWorkbookModel(demo);
+
+      const first = this.sheetNames[0] || '';
+      if(first) this.activeSheetName = first;
+
+      this.$nextTick(() => {
+        this.refreshRender();
+        this.loading = false;
+      });
+    },
+
+    refreshRender(){
+      const container = document.getElementById('sheetContainer');
+      if(!container) return;
+      if(!this.activeSheet){
+        container.innerHTML = '';
+        return;
+      }
+      renderSheetTable(this.activeSheet, container);
+    },
+
+    setActiveSheet(sheetName){
+      if(!sheetName || !this.workbookModel.sheets[sheetName]) return;
+      this.activeSheetName = sheetName;
+      this.$nextTick(() => this.refreshRender());
+    },
+
+    printActiveSheet(){
+      // Print the current view; CSS @media print hides controls.
+      // Ensure sheet is rendered before printing.
+      this.$nextTick(() => {
+        window.print();
+      });
+    },
+
+    exportActiveSheetToPdf(){
+      // No external deps allowed. Use browser "Save as PDF" via print.
+      // Provide guidance and still trigger print dialog.
+      alert('PDF 저장은 브라우저 인쇄 기능(대상: "PDF로 저장")을 사용합니다. 인쇄 대화상자에서 프린터를 PDF로 선택하세요.');
+      this.printActiveSheet();
+    },
+
+    calculate(inputs){
+      // No-op for now (no formulas/inputs detected)
+      return inputs;
+    }
+  };
+}
+
+/* =========================
+   Demo data (to make the app work out-of-the-box)
+   Replace this with real workbook JSON from server.
+   ========================= */
+function buildDemoWorkbookJson(){
+  const sheetNames = [
+    '20070327104129','Sheet1','Sheet2','Sheet3','Sheet4','Sheet5','Sheet6','Sheet7'
+  ];
+
+  // A1:AM is 39 cols (A=1 .. AM=39). Provide small row counts as placeholders.
+  const cols = 39;
+
+  function makeSheet(name, rows){
+    const usedRange = `A1:${colToName(cols)}${rows}`;
+    const cells = {};
+
+    // Simple header-like rows
+    cells['A1'] = { v: name + ' (샘플 렌더링)', s:{ font:{ bold:true, size:14 }, alignment:{ horizontal:'left', wrapText:true } } };
+    cells['A2'] = { v: '※ 실제 엑셀 내용/서식/병합은 JSON으로 주입해야 동일하게 표시됩니다.', s:{ font:{ size:12, color:'#555555' }, alignment:{ wrapText:true } } };
+    cells['A4'] = { v: 'usedRange', s:{ font:{ bold:true }, fill:{ fgColor:'#F3F5F7' } } };
+    cells['B4'] = { v: usedRange };
+    cells['A5'] = { v: '인쇄', s:{ font:{ bold:true }, fill:{ fgColor:'#F3F5F7' } } };
+    cells['B5'] = { v: 'A4 가로 · 여백 상/하 25mm, 좌/우 10mm' };
+
+    // Add a light grid of sample values
+    for(let r=8;r<=Math.min(rows,18);r++){
+      for(let c=1;c<=Math.min(cols,10);c++){
+        const a1 = colToName(c)+r;
+        cells[a1] = { v: `${colToName(c)}${r}` };
+      }
+    }
+
+    // Demo merge
+    const merges = [{ s:'A1', e:'D1' }, { s:'A2', e:'H3' }];
+
+    return {
+      name,
+      usedRange,
+      rows,
+      cols,
+      merges,
+      // optional widths (approx excel feel)
+      colWidths: [120,120,120,120,120,120,120,120,120,120, ...Array(cols-10).fill(90)],
+      cells
+    };
+  }
+
+  return {
+    sheets: [
+      makeSheet(sheetNames[0], 34),
+      makeSheet(sheetNames[1], 58),
+      makeSheet(sheetNames[2], 58),
+      makeSheet(sheetNames[3], 58),
+      makeSheet(sheetNames[4], 58),
+      makeSheet(sheetNames[5], 58),
+      makeSheet(sheetNames[6], 58),
+      makeSheet(sheetNames[7], 58)
+    ]
+  };
+}
   </script>
 
-<!-- Agent Trace Viewer -->
-<style>
-.trace-toggle {
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    z-index: 9999;
-    background: #6366f1;
-    color: white;
-    border: none;
-    padding: 12px 20px;
-    border-radius: 25px;
-    cursor: pointer;
-    font-size: 14px;
-    box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-.trace-toggle:hover { background: #4f46e5; }
-.trace-panel {
+<!-- 해커톤 선정 정보 -->
+<div id="selection-banner" style="
     position: fixed;
     top: 0;
-    right: -450px;
-    width: 450px;
-    height: 100vh;
-    background: #1e1e2e;
-    color: #cdd6f4;
-    z-index: 9998;
-    transition: right 0.3s ease;
-    overflow-y: auto;
-    font-family: 'Monaco', 'Menlo', monospace;
-    font-size: 12px;
-}
-.trace-panel.open { right: 0; }
-.trace-header {
-    padding: 16px;
-    background: #313244;
-    border-bottom: 1px solid #45475a;
+    left: 0;
+    right: 0;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 12px 20px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 14px;
+    z-index: 10000;
     display: flex;
     justify-content: space-between;
     align-items: center;
-}
-.trace-header h3 { margin: 0; font-size: 14px; }
-.trace-close {
-    background: none;
-    border: none;
-    color: #cdd6f4;
-    cursor: pointer;
-    font-size: 18px;
-}
-.trace-content { padding: 16px; }
-.span-item {
-    margin-bottom: 12px;
-    padding: 12px;
-    background: #313244;
-    border-radius: 8px;
-    border-left: 3px solid #89b4fa;
-}
-.span-item.agent { border-left-color: #a6e3a1; }
-.span-item.generation { border-left-color: #f9e2af; }
-.span-item.function { border-left-color: #cba6f7; }
-.span-type {
-    font-size: 10px;
-    text-transform: uppercase;
-    color: #6c7086;
-    margin-bottom: 4px;
-}
-.span-name { font-weight: bold; color: #89dceb; }
-.span-data {
-    margin-top: 8px;
-    padding: 8px;
-    background: #1e1e2e;
-    border-radius: 4px;
-    overflow-x: auto;
-    white-space: pre-wrap;
-    word-break: break-all;
-}
-.span-time { color: #6c7086; font-size: 11px; }
-.trace-summary {
-    padding: 12px 16px;
-    background: #45475a;
-    margin: 0 16px 16px;
-    border-radius: 8px;
-}
-.trace-summary-item { display: flex; justify-content: space-between; margin: 4px 0; }
-
-    /* Navigation Header */
-    .demo-nav {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      padding: 10px 20px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      z-index: 9999;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-    }
-    .demo-nav a {
-      color: white;
-      text-decoration: none;
-      padding: 6px 12px;
-      border-radius: 6px;
-      font-size: 0.9rem;
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      transition: background 0.2s;
-    }
-    .demo-nav a:hover {
-      background: rgba(255,255,255,0.2);
-    }
-    .demo-nav .nav-title {
-      font-weight: 600;
-      font-size: 1rem;
-    }
-    .demo-nav .nav-links {
-      display: flex;
-      gap: 8px;
-    }
-    .demo-nav .btn-trace {
-      background: rgba(100, 255, 218, 0.2);
-      border: 1px solid #64ffda;
-    }
-    .demo-nav .btn-excel {
-      background: rgba(33, 115, 70, 0.8);
-    }
-    body {
-      padding-top: 50px !important;
-    }
-    @media print {
-      .demo-nav { display: none !important; }
-      body { padding-top: 0 !important; }
-    }
-
-  </style>
-
-<button class="trace-toggle" onclick="toggleTracePanel()">
-    <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-        <path d="M9.5 13a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm0-5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm0-5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/>
-    </svg>
-    Agent Trace
-</button>
-
-<div class="trace-panel" id="tracePanel">
-    <div class="trace-header">
-        <h3>Agent Trace Viewer</h3>
-        <button class="trace-close" onclick="toggleTracePanel()">&times;</button>
+    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+">
+    <div>
+        <strong>📊 자금집행품의서</strong>
+        <span style="margin-left: 10px; opacity: 0.9;">| 재무/자금</span>
     </div>
-    <div class="trace-summary" id="traceSummary"></div>
-    <div class="trace-content" id="traceContent"></div>
+    <div style="display: flex; align-items: center; gap: 15px;">
+        <span style="background: rgba(255,255,255,0.2); padding: 4px 10px; border-radius: 12px; font-size: 12px;">
+            0개 수식
+        </span>
+        <button onclick="document.getElementById('selection-info').style.display='block'"
+                style="background: white; color: #667eea; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: 500;">
+            선정 이유 보기
+        </button>
+    </div>
 </div>
 
-<script>
-const TRACE_DATA = {"trace_id": "trace_8466b47b7cc94cdfbb62076032265208", "workflow_name": "Excel-to-WebApp: 3.xlsx", "group_id": null, "metadata": null, "started_at": "2025-12-28T11:55:45.288603", "ended_at": "2025-12-28T11:59:51.719758", "spans": [{"span_id": "span_1d9111f511724b5dbb331eb9", "parent_id": "span_7b45c3c6a3474adbb86ec76f", "started_at": "2025-12-28T02:55:45.299106+00:00", "ended_at": "2025-12-28T02:55:47.480313+00:00", "error": null, "type": "response", "data": {"type": "response", "response_id": "resp_0dc544f06e8b993c0069509c319d8481908f30d6edde2f81bf"}}, {"span_id": "span_3ca9ed8c737e4af5ad1712ad", "parent_id": "span_7b45c3c6a3474adbb86ec76f", "started_at": "2025-12-28T02:55:47.480748+00:00", "ended_at": "2025-12-28T02:55:47.636153+00:00", "error": null, "type": "function", "data": {"type": "function", "name": "analyze_excel", "input": "{\"file_path\":\"excel_files/엑셀서식(20160517)/자금집행품의서외/3.xlsx\"}", "output": "{'filename': '3.xlsx', 'file_type': 'xlsx', 'sheets': [{'name': '20070327104129', 'row_count': 23, 'col_count': 39, 'used_range': 'A1:AM23', 'input_cells': [], 'output_cells': [], 'formulas': [], 'has_print_area': False, 'print_area': None}, {'name': 'Sheet1', 'row_count': 24, 'col_count': 39, 'used_range': 'A1:AM24', 'input_cells': [], 'output_cells': [], 'formulas': [], 'has_print_area': False, 'print_area': None}, {'name': 'Sheet2', 'row_count': 53, 'col_count': 39, 'used_range': 'A1:AM53', 'input_cells': [], 'output_cells': [], 'formulas': [], 'has_print_area': False, 'print_area': None}, {'name': 'Sheet3', 'row_count': 58, 'col_count': 39, 'used_range': 'A1:AM58', 'input_cells': [], 'output_cells': [], 'formulas': [], 'has_print_area': False, 'print_area': None}, {'name': 'Sheet4', 'row_count': 29, 'col_count': 39, 'used_range': 'A1:AM29', 'input_cells': [], 'output_cells': [], 'formulas': [], 'has_print_area': False, 'print_area': None}, {'name': 'Sheet5', 'row_count': 27, 'col_count': 39, 'used_range': 'A1:AM27', 'input_cells': [], 'output_cells': [], 'formulas': [], 'has_print_area': False, 'print_area': None}, {'name': 'Sheet6', 'row_count': 34, 'col_count': 37, 'used_range': 'A1:AK34', 'input_cells': [], 'output_cells': [], 'formulas': [], 'has_print_area': False, 'print_area': None}, {'name': 'Sheet7', 'row_count': 39, 'col_count': 39, 'used_range': 'A1:AM39', 'input_cells': [], 'output_cells': [], 'formulas': [], 'has_print_area': False, 'print_area': None}], 'vba_modules': [], 'has_vba': False, 'print_settings': {'orientation': 'landscape', 'paper_size': 'A4', 'margins': {'top': 0.984027777777778, 'bottom': 0.984027777777778, 'left': 0.39375, 'right': 0.39375}, 'header': None, 'footer': None, 'fit_to_page': False, 'scale': 100}, 'total_formulas': 0, 'total_input_cells': 0, 'total_output_cells': 0, 'complexity_score': 'medium'}", "mcp_data": null}}, {"span_id": "span_46a2c1c36775400aa3588ea5", "parent_id": "span_7b45c3c6a3474adbb86ec76f", "started_at": "2025-12-28T02:55:47.637195+00:00", "ended_at": "2025-12-28T02:56:24.931900+00:00", "error": null, "type": "response", "data": {"type": "response", "response_id": "resp_0dc544f06e8b993c0069509c33d53c8190966de59ba7b37fbe"}}, {"span_id": "span_7b45c3c6a3474adbb86ec76f", "parent_id": null, "started_at": "2025-12-28T02:55:45.288957+00:00", "ended_at": "2025-12-28T02:56:24.932427+00:00", "error": null, "type": "agent", "data": {"type": "agent", "name": "Excel Analyzer", "handoffs": [], "tools": ["analyze_excel", "get_sheet_cells"], "output_type": "str"}}, {"span_id": "span_6b00b231e47e4b4c8e4aa7f7", "parent_id": "span_3fe7b5b7ce6a4c47aa4867e4", "started_at": "2025-12-28T02:56:24.933136+00:00", "ended_at": "2025-12-28T02:56:48.658250+00:00", "error": null, "type": "response", "data": {"type": "response", "response_id": "resp_034bbe270dad20850069509c5927c88195bd6bc06476d15502"}}, {"span_id": "span_3fe7b5b7ce6a4c47aa4867e4", "parent_id": null, "started_at": "2025-12-28T02:56:24.932749+00:00", "ended_at": "2025-12-28T02:56:48.658695+00:00", "error": null, "type": "agent", "data": {"type": "agent", "name": "WebApp Planner", "handoffs": [], "tools": [], "output_type": "WebAppPlan"}}, {"span_id": "span_d880b618c42a42e3b7d4df2d", "parent_id": "span_6d6813cad0f744d49dc242b5", "started_at": "2025-12-28T02:56:48.659189+00:00", "ended_at": "2025-12-28T02:56:49.625174+00:00", "error": null, "type": "response", "data": {"type": "response", "response_id": "resp_0118252c948f71a10069509c70e1088193aa020deddad7c234"}}, {"span_id": "span_32b57ba81a814418bdd3f2fe", "parent_id": "span_6d6813cad0f744d49dc242b5", "started_at": "2025-12-28T02:56:49.625357+00:00", "ended_at": "2025-12-28T02:56:49.625493+00:00", "error": null, "type": "function", "data": {"type": "function", "name": "get_js_helpers", "input": "{}", "output": "\n// Excel formula helper functions\nfunction _sum(...args) {\n    return args.flat().reduce((a, b) => (parseFloat(a) || 0) + (parseFloat(b) || 0), 0);\n}\n\nfunction _sumRange(rangeData) {\n    if (Array.isArray(rangeData)) {\n        return rangeData.flat().reduce((a, b) => (parseFloat(a) || 0) + (parseFloat(b) || 0), 0);\n    }\n    return parseFloat(rangeData) || 0;\n}\n\nfunction _average(...args) {\n    const flat = args.flat().filter(x => x !== null && x !== '' && !isNaN(x));\n    return flat.length ? _sum(...flat) / flat.length : 0;\n}\n\nfunction _averageRange(rangeData) {\n    if (Array.isArray(rangeData)) {\n        const flat = rangeData.flat().filter(x => x !== null && x !== '' && !isNaN(x));\n        return flat.length ? _sumRange(flat) / flat.length : 0;\n    }\n    return parseFloat(rangeData) || 0;\n}\n\nfunction _count(...args) {\n    return args.flat().filter(x => typeof x === 'number' && !isNaN(x)).length;\n}\n\nfunction _counta(...args) {\n    return args.flat().filter(x => x !== null && x !== '' && x !== undefined).length;\n}\n\nfunction _and(...args) {\n    return args.every(x => Boolean(x));\n}\n\nfunction _or(...args) {\n    return args.some(x => Boolean(x));\n}\n\nfunction _round(num, digits = 0) {\n    const factor = Math.pow(10, digits);\n    return Math.round(num * factor) / factor;\n}\n\nfunction _roundUp(num, digits = 0) {\n    const factor = Math.pow(10, digits);\n    return Math.ceil(num * factor) / factor;\n}\n\nfunction _roundDown(num, digits = 0) {\n    const factor = Math.pow(10, digits);\n    return Math.floor(num * factor) / factor;\n}\n\nfunction _len(text) {\n    return String(text).length;\n}\n\nfunction _left(text, numChars = 1) {\n    return String(text).substring(0, numChars);\n}\n\nfunction _right(text, numChars = 1) {\n    const str = String(text);\n    return str.substring(str.length - numChars);\n}\n\nfunction _mid(text, startNum, numChars) {\n    return String(text).substring(startNum - 1, startNum - 1 + numChars);\n}\n\nfunction _trim(text) {\n    return String(text).trim();\n}\n\nfunction _upper(text) {\n    return String(text).toUpperCase();\n}\n\nfunction _lower(text) {\n    return String(text).toLowerCase();\n}\n\nfunction _concat(...args) {\n    return args.join('');\n}\n\n// Number formatting\nfunction formatNumber(num, decimals = 0) {\n    return new Intl.NumberFormat('ko-KR', {\n        minimumFractionDigits: decimals,\n        maximumFractionDigits: decimals\n    }).format(num);\n}\n\nfunction formatCurrency(num) {\n    return new Intl.NumberFormat('ko-KR', {\n        style: 'currency',\n        currency: 'KRW',\n        maximumFractionDigits: 0\n    }).format(num);\n}\n\nfunction formatPercent(num, decimals = 1) {\n    return new Intl.NumberFormat('ko-KR', {\n        style: 'percent',\n        minimumFractionDigits: decimals,\n        maximumFractionDigits: decimals\n    }).format(num / 100);\n}\n", "mcp_data": null}}, {"span_id": "span_fbb5f65ab5bb4c39bf4654f3", "parent_id": "span_6d6813cad0f744d49dc242b5", "started_at": "2025-12-28T02:56:49.625797+00:00", "ended_at": "2025-12-28T02:58:24.239417+00:00", "error": null, "type": "response", "data": {"type": "response", "response_id": "resp_0118252c948f71a10069509c71d6548193af4108438951527c"}}, {"span_id": "span_6d6813cad0f744d49dc242b5", "parent_id": null, "started_at": "2025-12-28T02:56:48.658898+00:00", "ended_at": "2025-12-28T02:58:24.239817+00:00", "error": null, "type": "agent", "data": {"type": "agent", "name": "WebApp Generator", "handoffs": [], "tools": ["convert_formula", "check_formula_complexity", "get_js_helpers"], "output_type": "GeneratedWebApp"}}, {"span_id": "span_a8873ca4548f42ca8f8c6e68", "parent_id": "span_02902564a48b4b6989f7ad00", "started_at": "2025-12-28T02:58:24.240568+00:00", "ended_at": "2025-12-28T02:58:25.211910+00:00", "error": null, "type": "response", "data": {"type": "response", "response_id": "resp_0e55330bc21cba3d0069509cd0725081909076a48004424931"}}, {"span_id": "span_67c9839648804ff98e157ca7", "parent_id": "span_02902564a48b4b6989f7ad00", "started_at": "2025-12-28T02:58:25.212096+00:00", "ended_at": "2025-12-28T02:58:25.212218+00:00", "error": null, "type": "function", "data": {"type": "function", "name": "get_js_helpers", "input": "{}", "output": "\n// Excel formula helper functions\nfunction _sum(...args) {\n    return args.flat().reduce((a, b) => (parseFloat(a) || 0) + (parseFloat(b) || 0), 0);\n}\n\nfunction _sumRange(rangeData) {\n    if (Array.isArray(rangeData)) {\n        return rangeData.flat().reduce((a, b) => (parseFloat(a) || 0) + (parseFloat(b) || 0), 0);\n    }\n    return parseFloat(rangeData) || 0;\n}\n\nfunction _average(...args) {\n    const flat = args.flat().filter(x => x !== null && x !== '' && !isNaN(x));\n    return flat.length ? _sum(...flat) / flat.length : 0;\n}\n\nfunction _averageRange(rangeData) {\n    if (Array.isArray(rangeData)) {\n        const flat = rangeData.flat().filter(x => x !== null && x !== '' && !isNaN(x));\n        return flat.length ? _sumRange(flat) / flat.length : 0;\n    }\n    return parseFloat(rangeData) || 0;\n}\n\nfunction _count(...args) {\n    return args.flat().filter(x => typeof x === 'number' && !isNaN(x)).length;\n}\n\nfunction _counta(...args) {\n    return args.flat().filter(x => x !== null && x !== '' && x !== undefined).length;\n}\n\nfunction _and(...args) {\n    return args.every(x => Boolean(x));\n}\n\nfunction _or(...args) {\n    return args.some(x => Boolean(x));\n}\n\nfunction _round(num, digits = 0) {\n    const factor = Math.pow(10, digits);\n    return Math.round(num * factor) / factor;\n}\n\nfunction _roundUp(num, digits = 0) {\n    const factor = Math.pow(10, digits);\n    return Math.ceil(num * factor) / factor;\n}\n\nfunction _roundDown(num, digits = 0) {\n    const factor = Math.pow(10, digits);\n    return Math.floor(num * factor) / factor;\n}\n\nfunction _len(text) {\n    return String(text).length;\n}\n\nfunction _left(text, numChars = 1) {\n    return String(text).substring(0, numChars);\n}\n\nfunction _right(text, numChars = 1) {\n    const str = String(text);\n    return str.substring(str.length - numChars);\n}\n\nfunction _mid(text, startNum, numChars) {\n    return String(text).substring(startNum - 1, startNum - 1 + numChars);\n}\n\nfunction _trim(text) {\n    return String(text).trim();\n}\n\nfunction _upper(text) {\n    return String(text).toUpperCase();\n}\n\nfunction _lower(text) {\n    return String(text).toLowerCase();\n}\n\nfunction _concat(...args) {\n    return args.join('');\n}\n\n// Number formatting\nfunction formatNumber(num, decimals = 0) {\n    return new Intl.NumberFormat('ko-KR', {\n        minimumFractionDigits: decimals,\n        maximumFractionDigits: decimals\n    }).format(num);\n}\n\nfunction formatCurrency(num) {\n    return new Intl.NumberFormat('ko-KR', {\n        style: 'currency',\n        currency: 'KRW',\n        maximumFractionDigits: 0\n    }).format(num);\n}\n\nfunction formatPercent(num, decimals = 1) {\n    return new Intl.NumberFormat('ko-KR', {\n        style: 'percent',\n        minimumFractionDigits: decimals,\n        maximumFractionDigits: decimals\n    }).format(num / 100);\n}\n", "mcp_data": null}}, {"span_id": "span_0ef5b56642d44a398fd9104d", "parent_id": "span_02902564a48b4b6989f7ad00", "started_at": "2025-12-28T02:58:25.212526+00:00", "ended_at": "2025-12-28T02:59:51.718998+00:00", "error": null, "type": "response", "data": {"type": "response", "response_id": "resp_0e55330bc21cba3d0069509cd16b5c81909f53524dcd3d56a6"}}, {"span_id": "span_02902564a48b4b6989f7ad00", "parent_id": null, "started_at": "2025-12-28T02:58:24.240340+00:00", "ended_at": "2025-12-28T02:59:51.719413+00:00", "error": null, "type": "agent", "data": {"type": "agent", "name": "WebApp Generator", "handoffs": [], "tools": ["convert_formula", "check_formula_complexity", "get_js_helpers"], "output_type": "GeneratedWebApp"}}]};
+<div id="selection-info" style="
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 10001;
+    display: none;
+    justify-content: center;
+    align-items: center;
+" onclick="this.style.display='none'">
+    <div style="
+        background: white;
+        padding: 30px;
+        border-radius: 16px;
+        max-width: 500px;
+        margin: 20px;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    " onclick="event.stopPropagation()">
+        <h2 style="margin: 0 0 15px; color: #333;">🏆 해커톤 선정 이유</h2>
+        <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+            <strong style="color: #667eea;">재무/자금</strong>
+            <p style="margin: 10px 0 0; color: #555; line-height: 1.6;">자금 관리 양식 - 재무 도메인</p>
+        </div>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            
+        </div>
+        <button onclick="document.getElementById('selection-info').style.display='none'"
+                style="margin-top: 20px; width: 100%; padding: 12px; background: #667eea; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px;">
+            닫기
+        </button>
+    </div>
+</div>
 
-function toggleTracePanel() {
-    document.getElementById('tracePanel').classList.toggle('open');
-}
-
-function renderTrace() {
-    const summary = document.getElementById('traceSummary');
-    const content = document.getElementById('traceContent');
-
-    if (!TRACE_DATA) {
-        content.innerHTML = '<p>No trace data available</p>';
-        return;
-    }
-
-    // Summary
-    const spans = TRACE_DATA.spans || [];
-    const agentSpans = spans.filter(s => s.type === 'agent').length;
-    const genSpans = spans.filter(s => s.type === 'generation').length;
-    const funcSpans = spans.filter(s => s.type === 'function').length;
-
-    summary.innerHTML = `
-        <div class="trace-summary-item"><span>Workflow</span><span>${TRACE_DATA.workflow_name || '-'}</span></div>
-        <div class="trace-summary-item"><span>Agent Spans</span><span>${agentSpans}</span></div>
-        <div class="trace-summary-item"><span>LLM Generations</span><span>${genSpans}</span></div>
-        <div class="trace-summary-item"><span>Function Calls</span><span>${funcSpans}</span></div>
-    `;
-
-    // Spans
-    let html = '';
-    spans.forEach(span => {
-        const typeClass = span.type || 'custom';
-        const data = span.data || {};
-        html += `
-            <div class="span-item ${typeClass}">
-                <div class="span-type">${span.type || 'span'}</div>
-                <div class="span-name">${data.name || data.model || span.span_id?.slice(0, 8) || '-'}</div>
-                ${data.input ? `<div class="span-data">${typeof data.input === 'string' ? data.input.slice(0, 200) : JSON.stringify(data.input).slice(0, 200)}...</div>` : ''}
-                ${data.output ? `<div class="span-data">${typeof data.output === 'string' ? data.output.slice(0, 200) : JSON.stringify(data.output).slice(0, 200)}...</div>` : ''}
-                ${data.usage ? `<div class="span-time">Tokens: ${data.usage.total_tokens || '-'}</div>` : ''}
-            </div>
-        `;
-    });
-    content.innerHTML = html || '<p>No spans recorded</p>';
-}
-
-document.addEventListener('DOMContentLoaded', renderTrace);
-</script>
+<style>
+body { padding-top: 56px !important; }
+</style>
 </body>
 </html>

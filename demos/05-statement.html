@@ -3,1139 +3,1110 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>계산서 작성/출력 앱</title>
+  <title>계산서 작성·출력 웹앱</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
   <style>
-    :root{
-      --ink:#000;
-      --muted:#6c757d;
-      --paper:#fff;
-      --ui-bg:#f8f9fa;
-      --line:1px solid var(--ink);
-      --line-strong:2px solid var(--ink);
-      --a4w: 794px; /* 210mm @ 96dpi 근사 */
-      --a4h: 1123px; /* 297mm @ 96dpi 근사 */
-      --font: "Noto Sans KR", system-ui, -apple-system, Segoe UI, Roboto, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
-    }
+  :root{
+    --font-sans: "Noto Sans KR", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    --paper-w: 210mm;
+    --paper-h: 297mm;
+    --paper-mt: 10mm;
+    --paper-mb: 10mm;
+    --paper-ml: 19mm;
+    --paper-mr: 4mm;
 
-    body{ font-family: var(--font); background: var(--ui-bg); color:#111; }
+    --line: #1f2937;
+    --muted: #6b7280;
+    --bg: #ffffff;
+    --card: #ffffff;
+    --soft: #f8fafc;
+  }
 
-    .app-title{ font-weight: 800; letter-spacing: -0.02em; }
+  html, body { height: 100%; }
+  body{
+    font-family: var(--font-sans);
+    background: #f3f4f6;
+    color: #111827;
+  }
 
-    .panel{ background:#fff; border:1px solid rgba(0,0,0,.08); border-radius: 12px; }
+  .app-title{ letter-spacing: -0.2px; }
 
-    .help-text{ color: var(--muted); font-size:.875rem; }
+  .card{ border: 1px solid rgba(17,24,39,0.08); box-shadow: 0 1px 2px rgba(0,0,0,0.03); }
+  .card-header{ background: var(--soft); font-weight: 700; }
 
-    .a4-stage{ display:flex; justify-content:center; }
+  .form-label{ font-weight: 600; }
 
-    /* 화면 미리보기(종이 느낌) */
+  .num{ font-variant-numeric: tabular-nums; text-align: right; }
+  input.num{ text-align: right; }
+
+  .help-text{ color: var(--muted); font-size: .875rem; }
+  .required::after{ content: " *"; color: #dc2626; font-weight: 700; }
+
+  .table-excel{
+    border-collapse: collapse;
+    width: 100%;
+    background: #fff;
+  }
+  .table-excel th, .table-excel td{
+    border: 1px solid rgba(31,41,55,0.35);
+    padding: 6px 6px;
+    vertical-align: middle;
+  }
+  .table-excel th{ background: #f3f4f6; font-weight: 700; white-space: nowrap; }
+  .table-excel input, .table-excel textarea{
+    border: 1px solid rgba(31,41,55,0.15);
+    border-radius: 6px;
+    padding: 6px 8px;
+    width: 100%;
+    background: #fff;
+  }
+  .table-excel textarea{ resize: vertical; min-height: 34px; }
+
+  .sticky-actions{
+    position: sticky;
+    bottom: 0;
+    z-index: 10;
+    background: linear-gradient(to top, rgba(243,244,246,0.96), rgba(243,244,246,0.70));
+    padding-top: 10px;
+    margin-top: 8px;
+  }
+
+  /* Preview */
+  .preview-wrap{
+    position: sticky;
+    top: 1rem;
+  }
+
+  .preview-shell{
+    background: #e5e7eb;
+    padding: 12px;
+    border-radius: 12px;
+  }
+
+  .a4{
+    width: var(--paper-w);
+    min-height: var(--paper-h);
+    background: var(--bg);
+    color: #111827;
+    box-shadow: 0 6px 24px rgba(0,0,0,0.12);
+    margin: 0 auto;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .a4-inner{
+    padding: 0;
+  }
+
+  /* Print area typographic */
+  #print-area{
+    width: var(--paper-w);
+    min-height: var(--paper-h);
+    padding: var(--paper-mt) var(--paper-mr) var(--paper-mb) var(--paper-ml);
+  }
+
+  .print-title{
+    font-size: 20px;
+    font-weight: 800;
+    text-align: center;
+    margin: 2mm 0 4mm;
+  }
+
+  .print-meta{
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2mm;
+    font-size: 12px;
+  }
+
+  .box{
+    border: 1px solid var(--line);
+    padding: 2.5mm;
+  }
+
+  .kv{
+    display: grid;
+    grid-template-columns: 34mm 1fr;
+    gap: 1.5mm;
+    align-items: center;
+    margin: 0.8mm 0;
+  }
+  .kv .k{ color: #111827; font-weight: 700; }
+  .kv .v{ border-bottom: 1px dotted rgba(31,41,55,0.45); min-height: 5mm; padding: 0 1mm; }
+
+  .items-table{
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 3mm;
+    font-size: 11.5px;
+  }
+  .items-table th, .items-table td{
+    border: 1px solid var(--line);
+    padding: 1.8mm 1.5mm;
+    vertical-align: middle;
+  }
+  .items-table th{ background: #f3f4f6; font-weight: 800; }
+
+  .right{ text-align: right; }
+  .center{ text-align: center; }
+
+  .summary-grid{
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2mm;
+    margin-top: 3mm;
+    font-size: 12px;
+  }
+
+  .summary-table{
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .summary-table td{
+    border: 1px solid var(--line);
+    padding: 2mm 2mm;
+  }
+  .summary-table .label{ background: #f3f4f6; font-weight: 800; width: 42%; }
+
+  .note-box{ margin-top: 3mm; }
+  .note-text{ min-height: 12mm; white-space: pre-wrap; }
+
+  /* Mobile: preview full width */
+  @media (max-width: 991.98px){
+    .preview-wrap{ position: static; }
+    .a4{ width: 100%; min-height: auto; }
+    #print-area{ width: 100%; min-height: auto; padding: 12px; }
+  }
+
+  /* Print */
+  @page{
+    size: A4 portrait;
+    margin: var(--paper-mt) var(--paper-mr) var(--paper-mb) var(--paper-ml);
+  }
+
+  @media print{
+    body{ background: #fff; }
+    .container, .container-fluid{ max-width: none !important; }
+
+    .no-print, .no-print *{ display: none !important; }
+
+    /* Only print preview */
+    #print-host{ display: block !important; }
     #print-area{
-      width: min(100%, var(--a4w));
-      background: var(--paper);
-      border: 1px solid rgba(0,0,0,.18);
-      box-shadow: 0 12px 35px rgba(0,0,0,.12);
-      padding: 16px;
+      box-shadow: none !important;
+      margin: 0 !important;
+      padding: 0 !important; /* @page margin is used */
+      width: auto !important;
+      min-height: auto !important;
     }
 
-    .bill{
-      color: var(--ink);
-      font-size: 12px;
-      line-height: 1.35;
-    }
-
-    .bill .bill-title{
-      text-align:center;
-      font-size: 22px;
-      font-weight: 800;
-      margin: 2px 0 10px;
-      letter-spacing: .25em;
-    }
-
-    .bill-table{ width:100%; border-collapse: collapse; table-layout: fixed; }
-    .bill-table th, .bill-table td{ border: var(--line); padding: 6px 6px; vertical-align: middle; }
-    .bill-table th{ font-weight:700; text-align:center; }
-    .bill-table .strong-top th, .bill-table .strong-top td{ border-top: var(--line-strong); }
-    .bill-table .strong-bottom th, .bill-table .strong-bottom td{ border-bottom: var(--line-strong); }
-
-    .bill-meta td{ height: 28px; }
-
-    .label-cell{ background: #f3f3f3; font-weight:700; text-align:center; }
-
-    .mono{ font-variant-numeric: tabular-nums; }
-    .text-right{ text-align:right; }
-    .text-center{ text-align:center; }
-
-    .items-table th, .items-table td{ padding: 6px 6px; }
-
-    .signature-box{ height: 64px; }
-
-    .badge-soft{
-      background: #eef2ff;
-      border: 1px solid #c7d2fe;
-      color: #3730a3;
-      font-weight: 700;
-    }
-
-    /* 입력 테이블 */
-    .input-table thead th{ white-space: nowrap; }
-    .input-table input{ min-width: 90px; }
-
-    .error-live{ min-height: 1.2em; }
-
-    /* 모바일: 탭처럼 */
-    @media (max-width: 991.98px){
-      .a4-stage{ justify-content: stretch; }
-      #print-area{ width: 100%; }
-    }
-
-    /* Print */
-    @page { size: A4 portrait; margin: 10mm 4mm 10mm 19mm; }
-
-    @media print{
-      body{ background:#fff; }
-      .no-print{ display:none !important; }
-      .container{ max-width: none !important; padding:0 !important; margin:0 !important; }
-      #print-area{ box-shadow:none; border:none; padding:0; width:auto; }
-    }
-  
-    /* Navigation Header */
-    .demo-nav {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      padding: 10px 20px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      z-index: 9999;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-    }
-    .demo-nav a {
-      color: white;
-      text-decoration: none;
-      padding: 6px 12px;
-      border-radius: 6px;
-      font-size: 0.9rem;
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      transition: background 0.2s;
-    }
-    .demo-nav a:hover {
-      background: rgba(255,255,255,0.2);
-    }
-    .demo-nav .nav-title {
-      font-weight: 600;
-      font-size: 1rem;
-    }
-    .demo-nav .nav-links {
-      display: flex;
-      gap: 8px;
-    }
-    .demo-nav .btn-trace {
-      background: rgba(100, 255, 218, 0.2);
-      border: 1px solid #64ffda;
-    }
-    .demo-nav .btn-excel {
-      background: rgba(33, 115, 70, 0.8);
-    }
-    body {
-      padding-top: 50px !important;
-    }
-    @media print {
-      .demo-nav { display: none !important; }
-      body { padding-top: 0 !important; }
-    }
-
+    .a4, .preview-shell{ box-shadow: none !important; background: transparent !important; padding: 0 !important; }
+  }
   </style>
 </head>
 <body>
-<!-- Navigation Header -->
-<nav class="demo-nav">
-  <div>
-    <a href="../index.html">← 목록</a>
-    <span class="nav-title" style="margin-left: 15px;">계산서</span>
-  </div>
-  <div class="nav-links">
-    <a href="../traces/trace-viewer.html?demo=05" class="btn-trace">
-      <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M6 3.5A1.5 1.5 0 0 1 7.5 2h1A1.5 1.5 0 0 1 10 3.5v1A1.5 1.5 0 0 1 8.5 6v1H14a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-1 0V8h-5v.5a.5.5 0 0 1-1 0V8h-5v.5a.5.5 0 0 1-1 0v-1A.5.5 0 0 1 2 7h5.5V6A1.5 1.5 0 0 1 6 4.5v-1z"/></svg>
-      Agent Trace
-    </a>
-    <a href="../excel_files/엑셀서식(20160517)/계산서/계산서.xlsx" class="btn-excel" download>
-      <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M5.884 6.68a.5.5 0 1 0-.768.64L7.349 10l-2.233 2.68a.5.5 0 0 0 .768.64L8 10.781l2.116 2.54a.5.5 0 0 0 .768-.641L8.651 10l2.233-2.68a.5.5 0 0 0-.768-.64L8 9.219l-2.116-2.54z"/><path d="M14 14V4.5L9.5 0H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2zM9.5 3A1.5 1.5 0 0 0 11 4.5h2V14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h5.5v2z"/></svg>
-      Excel
-    </a>
-  </div>
-</nav>
-
-  <div class="container py-4" x-data="appData()" x-init="init()">
-
-    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
-      <div>
-        <h1 class="h4 m-0 app-title">계산서 작성/출력</h1>
-        <div class="help-text">엑셀(계산서.xlsx) 기반 레이아웃을 웹에서 입력/미리보기/A4 인쇄합니다. (현재는 일반 계산서 템플릿)</div>
+  <div class="container-fluid py-3" x-data="appData()" x-init="init()">
+    <header class="mb-3 no-print">
+      <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+        <div>
+          <h1 class="h4 mb-0 app-title">계산서 작성·출력 웹앱</h1>
+          <div class="help-text">엑셀 ‘계산서.xlsx’ 레이아웃을 참고한 표준 계산서 입력/미리보기/A4 출력</div>
+        </div>
+        <div class="d-flex gap-2 align-items-center">
+          <button type="button" class="btn btn-outline-secondary" @click="resetAll()">초기화</button>
+          <button type="button" class="btn btn-primary" @click="print()">인쇄</button>
+        </div>
       </div>
-      <div class="d-flex gap-2 no-print">
-        <button type="button" class="btn btn-outline-secondary" @click="resetAll()">초기화</button>
-        <button type="button" class="btn btn-primary" @click="printNow()">인쇄(PDF)</button>
-      </div>
-    </div>
+      <hr class="mt-3 mb-0" />
+    </header>
 
-    <div class="row g-3">
-      <!-- 입력 패널 -->
-      <div class="col-12 col-lg-5 no-print">
-        <div class="panel p-3">
-          <div class="d-flex align-items-center justify-content-between mb-2">
-            <h2 class="h6 m-0">입력</h2>
-            <span class="badge rounded-pill badge-soft">자동 계산</span>
-          </div>
-
-          <div class="alert alert-warning py-2 small mb-3" role="note">
-            실제 엑셀 셀 매핑(예: Sheet1!T37 등)은 분석 결과가 불완전하여 임시 정책으로 동작합니다. 추후 셀 매핑 확정 시 보정하세요.
-          </div>
-
-          <form class="needs-validation" novalidate @submit.prevent>
-            <div class="row g-2">
-              <div class="col-12 col-md-6">
-                <label class="form-label" for="issueDate">작성일</label>
-                <input class="form-control" id="issueDate" type="date" x-model="state.issueDate" @input="debouncedCalc()" />
+    <main class="row g-3 align-items-start">
+      <!-- Left: Inputs -->
+      <div class="col-12 col-lg-6 no-print">
+        <!-- Basic info -->
+        <section class="card" aria-labelledby="basic-info">
+          <div class="card-header" id="basic-info">기본정보(공급자/공급받는자/문서정보)</div>
+          <div class="card-body">
+            <form class="row g-3" @submit.prevent>
+              <div class="col-md-6">
+                <label class="form-label required" for="issueDate">작성일자</label>
+                <input class="form-control" id="issueDate" type="date" x-model="state.issueDate" @change="calculate()" required />
               </div>
-              <div class="col-12 col-md-6">
-                <label class="form-label" for="invoiceNo">계산서 번호</label>
-                <input class="form-control" id="invoiceNo" type="text" maxlength="30" x-model.trim="state.invoiceNo" @input="debouncedCalc()" placeholder="예: 2025-0001" />
+              <div class="col-md-6">
+                <label class="form-label" for="invoiceNo">계산서(문서)번호</label>
+                <input class="form-control" id="invoiceNo" type="text" x-model.trim="state.invoiceNo" @input="calculate()" placeholder="예: 2025-0001" />
               </div>
 
-              <div class="col-12"><hr class="my-2" /></div>
+              <div class="col-12"><hr class="my-1" /></div>
 
               <div class="col-12">
-                <div class="fw-bold mb-1">공급자</div>
+                <div class="fw-bold mb-2">공급자</div>
               </div>
-              <div class="col-12">
-                <label class="form-label" for="supplierName">상호(성명)</label>
-                <input class="form-control" id="supplierName" type="text" maxlength="50" x-model.trim="state.supplier.name" @input="debouncedCalc()" />
+              <div class="col-md-6">
+                <label class="form-label required" for="supplierName">상호(성명)</label>
+                <input class="form-control" id="supplierName" type="text" x-model.trim="state.supplierName" @input="calculate()" required />
               </div>
-              <div class="col-12">
-                <label class="form-label" for="supplierBizNo">사업자등록번호</label>
-                <input class="form-control" id="supplierBizNo" type="text" inputmode="numeric" maxlength="12" x-model.trim="state.supplier.bizNo" @input="debouncedCalc()" placeholder="예: 123-45-67890" />
+              <div class="col-md-6">
+                <label class="form-label required" for="supplierBizNo">사업자등록번호</label>
+                <input class="form-control" id="supplierBizNo" type="text" x-model.trim="state.supplierBizNo" @input="onBizNoInput('supplierBizNo')" placeholder="예: 123-45-67890" required
+                  :class="{ 'is-invalid': state.supplierBizNo && !validateBusinessNumber(state.supplierBizNo) }"
+                  aria-describedby="supplierBizNoHelp supplierBizNoInvalid" />
+                <div class="help-text" id="supplierBizNoHelp">하이픈(-)은 자동으로 무시됩니다.</div>
+                <div class="invalid-feedback" id="supplierBizNoInvalid">사업자등록번호는 숫자 10자리여야 합니다.</div>
               </div>
               <div class="col-12">
                 <label class="form-label" for="supplierAddress">주소</label>
-                <input class="form-control" id="supplierAddress" type="text" maxlength="120" x-model.trim="state.supplier.address" @input="debouncedCalc()" />
+                <input class="form-control" id="supplierAddress" type="text" x-model.trim="state.supplierAddress" @input="calculate()" />
+              </div>
+              <div class="col-md-6">
+                <label class="form-label" for="supplierBizType">업태</label>
+                <input class="form-control" id="supplierBizType" type="text" x-model.trim="state.supplierBizType" @input="calculate()" />
+              </div>
+              <div class="col-md-6">
+                <label class="form-label" for="supplierBizItem">종목</label>
+                <input class="form-control" id="supplierBizItem" type="text" x-model.trim="state.supplierBizItem" @input="calculate()" />
               </div>
               <div class="col-12">
-                <label class="form-label" for="supplierContact">연락처</label>
-                <input class="form-control" id="supplierContact" type="text" maxlength="30" x-model.trim="state.supplier.contact" @input="debouncedCalc()" placeholder="예: 02-1234-5678" />
+                <label class="form-label" for="supplierContact">담당자/연락처</label>
+                <input class="form-control" id="supplierContact" type="text" x-model.trim="state.supplierContact" @input="calculate()" placeholder="예: 홍길동 / 010-0000-0000" />
               </div>
 
-              <div class="col-12"><hr class="my-2" /></div>
+              <div class="col-12"><hr class="my-1" /></div>
 
               <div class="col-12">
-                <div class="fw-bold mb-1">공급받는자</div>
+                <div class="fw-bold mb-2">공급받는자</div>
               </div>
-              <div class="col-12">
-                <label class="form-label" for="buyerName">상호(성명)</label>
-                <input class="form-control" id="buyerName" type="text" maxlength="50" x-model.trim="state.buyer.name" @input="debouncedCalc()" />
+              <div class="col-md-6">
+                <label class="form-label required" for="buyerName">상호(성명)</label>
+                <input class="form-control" id="buyerName" type="text" x-model.trim="state.buyerName" @input="calculate()" required />
               </div>
-              <div class="col-12">
-                <label class="form-label" for="buyerBizNo">사업자등록번호</label>
-                <input class="form-control" id="buyerBizNo" type="text" inputmode="numeric" maxlength="12" x-model.trim="state.buyer.bizNo" @input="debouncedCalc()" placeholder="예: 123-45-67890" />
+              <div class="col-md-6">
+                <label class="form-label required" for="buyerBizNo">사업자등록번호</label>
+                <input class="form-control" id="buyerBizNo" type="text" x-model.trim="state.buyerBizNo" @input="onBizNoInput('buyerBizNo')" placeholder="예: 123-45-67890" required
+                  :class="{ 'is-invalid': state.buyerBizNo && !validateBusinessNumber(state.buyerBizNo) }"
+                  aria-describedby="buyerBizNoHelp buyerBizNoInvalid" />
+                <div class="help-text" id="buyerBizNoHelp">하이픈(-)은 자동으로 무시됩니다.</div>
+                <div class="invalid-feedback" id="buyerBizNoInvalid">사업자등록번호는 숫자 10자리여야 합니다.</div>
               </div>
               <div class="col-12">
                 <label class="form-label" for="buyerAddress">주소</label>
-                <input class="form-control" id="buyerAddress" type="text" maxlength="120" x-model.trim="state.buyer.address" @input="debouncedCalc()" />
+                <input class="form-control" id="buyerAddress" type="text" x-model.trim="state.buyerAddress" @input="calculate()" />
               </div>
               <div class="col-12">
-                <label class="form-label" for="buyerContact">연락처</label>
-                <input class="form-control" id="buyerContact" type="text" maxlength="30" x-model.trim="state.buyer.contact" @input="debouncedCalc()" />
+                <label class="form-label" for="buyerContact">담당자/연락처</label>
+                <input class="form-control" id="buyerContact" type="text" x-model.trim="state.buyerContact" @input="calculate()" placeholder="예: 김담당 / 02-000-0000" />
               </div>
 
-              <div class="col-12"><hr class="my-2" /></div>
+              <div class="col-12"><hr class="my-1" /></div>
 
-              <div class="col-12 col-md-6">
-                <label class="form-label" for="vatMode">부가세 방식</label>
-                <select class="form-select" id="vatMode" x-model="state.vatMode" @change="calculate()">
-                  <option value="별도">별도</option>
-                  <option value="포함">포함</option>
+              <div class="col-md-4">
+                <label class="form-label" for="taxMode">과세 구분</label>
+                <select class="form-select" id="taxMode" x-model="state.taxMode" @change="calculate()">
+                  <option value="과세">과세</option>
                   <option value="면세">면세</option>
                 </select>
               </div>
-              <div class="col-12 col-md-6">
+              <div class="col-md-4">
                 <label class="form-label" for="vatRate">부가세율(%)</label>
-                <input class="form-control" id="vatRate" type="number" min="0" max="100" step="0.1" x-model.number="state.vatRate" @input="debouncedCalc()" />
+                <input class="form-control num" id="vatRate" type="number" min="0" max="100" step="0.1" x-model.number="state.vatRate" @input="calculate()"
+                  :disabled="state.taxMode === '면세'" />
+                <div class="help-text">면세 선택 시 부가세율은 무시됩니다.</div>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label" for="notes">비고</label>
+                <input class="form-control" id="notes" type="text" x-model.trim="state.notes" @input="calculate()" />
+              </div>
+            </form>
+          </div>
+        </section>
+
+        <!-- Items -->
+        <section class="card mt-3" aria-labelledby="items">
+          <div class="card-header d-flex align-items-center justify-content-between" id="items">
+            <span>품목 내역</span>
+            <div class="d-flex gap-2">
+              <button type="button" class="btn btn-sm btn-outline-primary" @click="addRow()">행 추가</button>
+              <button type="button" class="btn btn-sm btn-outline-secondary" @click="addSampleRows()">샘플</button>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="table-responsive">
+              <table class="table-excel" aria-label="품목 내역 테이블">
+                <thead>
+                  <tr>
+                    <th style="width: 92px;">일자</th>
+                    <th>품목명</th>
+                    <th style="width: 120px;">규격</th>
+                    <th style="width: 84px;" class="right">수량</th>
+                    <th style="width: 120px;" class="right">단가</th>
+                    <th style="width: 140px;" class="right">공급가액</th>
+                    <th style="width: 120px;" class="right">부가세</th>
+                    <th style="width: 140px;" class="right">합계</th>
+                    <th style="width: 160px;">비고</th>
+                    <th style="width: 70px;" class="center">삭제</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <template x-for="(row, idx) in state.lineItems" :key="row._id">
+                    <tr>
+                      <td>
+                        <input type="date" x-model="row.date" @change="calculate()" :aria-label="`품목 ${idx+1} 일자`" />
+                      </td>
+                      <td>
+                        <input type="text" x-model.trim="row.name" @input="calculate()" :aria-label="`품목 ${idx+1} 품목명`" placeholder="예: 상품/용역명" />
+                      </td>
+                      <td>
+                        <input type="text" x-model.trim="row.spec" @input="calculate()" :aria-label="`품목 ${idx+1} 규격`" placeholder="예: EA" />
+                      </td>
+                      <td>
+                        <input class="num" type="number" min="0" step="0.01" x-model.number="row.qty" @input="calculate()" :aria-label="`품목 ${idx+1} 수량`" />
+                      </td>
+                      <td>
+                        <input class="num" type="number" min="0" step="1" x-model.number="row.unitPrice" @input="calculate()" :aria-label="`품목 ${idx+1} 단가`" />
+                      </td>
+                      <td class="num" x-text="formatCurrencyKRW(row.supplyAmount)"></td>
+                      <td class="num" x-text="formatCurrencyKRW(row.vatAmount)"></td>
+                      <td class="num" x-text="formatCurrencyKRW(row.totalAmount)"></td>
+                      <td>
+                        <input type="text" x-model.trim="row.note" @input="calculate()" :aria-label="`품목 ${idx+1} 비고`" />
+                      </td>
+                      <td class="center">
+                        <button type="button" class="btn btn-sm btn-outline-danger" @click="removeRow(idx)" :aria-label="`품목 ${idx+1} 삭제`">삭제</button>
+                      </td>
+                    </tr>
+                  </template>
+
+                  <tr x-show="state.lineItems.length === 0">
+                    <td colspan="10" class="text-center text-muted">품목이 없습니다. “행 추가”를 눌러 입력하세요.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="row g-2 mt-3">
+              <div class="col-12 col-md-4">
+                <div class="d-flex justify-content-between align-items-center">
+                  <div class="fw-bold">공급가액(품목합계)</div>
+                  <div class="num" x-text="formatCurrencyKRW(state.itemsSupplyAmount)"></div>
+                </div>
+              </div>
+              <div class="col-12 col-md-4">
+                <div class="d-flex justify-content-between align-items-center">
+                  <div class="fw-bold">부가세(품목합계)</div>
+                  <div class="num" x-text="formatCurrencyKRW(state.itemsVatAmount)"></div>
+                </div>
+              </div>
+              <div class="col-12 col-md-4">
+                <div class="d-flex justify-content-between align-items-center">
+                  <div class="fw-bold">합계금액(품목합계)</div>
+                  <div class="num" x-text="formatCurrencyKRW(state.itemsTotalAmount)"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Totals/Payment -->
+        <section class="card mt-3" aria-labelledby="totals">
+          <div class="card-header" id="totals">합계/결제정보</div>
+          <div class="card-body">
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label class="form-label" for="discountAmount">할인금액</label>
+                <input class="form-control num" id="discountAmount" type="number" min="0" step="1" x-model.number="state.discountAmount" @input="calculate()" />
+              </div>
+              <div class="col-md-6">
+                <label class="form-label" for="extraFee">추가비용(배송비 등)</label>
+                <input class="form-control num" id="extraFee" type="number" min="0" step="1" x-model.number="state.extraFee" @input="calculate()" />
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label" for="paymentDueDate">지급기한</label>
+                <input class="form-control" id="paymentDueDate" type="date" x-model="state.paymentDueDate" @change="calculate()" />
+              </div>
+              <div class="col-md-6">
+                <label class="form-label" for="paymentMethod">결제수단</label>
+                <select class="form-select" id="paymentMethod" x-model="state.paymentMethod" @change="calculate()">
+                  <option value="계좌이체">계좌이체</option>
+                  <option value="카드">카드</option>
+                  <option value="현금">현금</option>
+                  <option value="기타">기타</option>
+                </select>
+              </div>
+              <div class="col-12">
+                <label class="form-label" for="bankInfo">입금계좌/안내</label>
+                <input class="form-control" id="bankInfo" type="text" x-model.trim="state.bankInfo" @input="calculate()" placeholder="예: OO은행 123-456-7890 (예금주: 홍길동)" />
+              </div>
+
+              <div class="col-12"><hr class="my-1" /></div>
+
+              <div class="col-md-4">
+                <div class="d-flex justify-content-between">
+                  <div class="fw-bold">최종 공급가액</div>
+                  <div class="num" x-text="formatCurrencyKRW(state.finalSupplyAmount)"></div>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="d-flex justify-content-between">
+                  <div class="fw-bold">최종 부가세</div>
+                  <div class="num" x-text="formatCurrencyKRW(state.finalVatAmount)"></div>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="d-flex justify-content-between">
+                  <div class="fw-bold">최종 합계금액</div>
+                  <div class="num" x-text="formatCurrencyKRW(state.finalTotalAmount)"></div>
+                </div>
               </div>
 
               <div class="col-12">
-                <div class="small text-muted mt-1">정책: 품목의 <b>공급가액</b>을 사용자가 직접 입력하면 해당 값을 우선합니다. 미입력 시 수량×단가로 자동 계산합니다.</div>
-              </div>
-
-              <div class="col-12">
-                <div class="d-flex align-items-center justify-content-between mt-2">
-                  <h3 class="h6 m-0">품목(내역)</h3>
-                  <div class="d-flex gap-2">
-                    <button type="button" class="btn btn-sm btn-outline-primary" @click="addItem()">행 추가</button>
-                    <button type="button" class="btn btn-sm btn-outline-danger" @click="removeLastItem()" :disabled="state.items.length<=1">행 삭제</button>
-                  </div>
+                <div class="alert alert-warning mb-0" role="alert" x-show="!isFormValid" x-transition>
+                  필수 입력 또는 사업자등록번호 형식을 확인해주세요. (인쇄는 가능하지만 문서 완성도를 위해 점검 권장)
                 </div>
-
-                <div class="table-responsive mt-2">
-                  <table class="table table-sm table-bordered align-middle input-table" aria-label="품목 입력 테이블">
-                    <thead class="table-light">
-                      <tr>
-                        <th scope="col">품목명</th>
-                        <th scope="col">규격</th>
-                        <th scope="col" class="text-end">수량</th>
-                        <th scope="col" class="text-end">단가</th>
-                        <th scope="col" class="text-end">공급가액</th>
-                        <th scope="col">비고</th>
-                        <th scope="col" class="text-center">삭제</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <template x-for="(it, idx) in state.items" :key="it._id">
-                        <tr>
-                          <td>
-                            <input class="form-control form-control-sm" type="text" maxlength="60" x-model.trim="it.name" @input="debouncedCalc()" :aria-label="'품목명 '+(idx+1)" />
-                          </td>
-                          <td>
-                            <input class="form-control form-control-sm" type="text" maxlength="30" x-model.trim="it.spec" @input="debouncedCalc()" :aria-label="'규격 '+(idx+1)" />
-                          </td>
-                          <td>
-                            <input class="form-control form-control-sm text-end mono" type="number" min="0" step="1" x-model.number="it.qty" @input="debouncedCalc()" :aria-label="'수량 '+(idx+1)" />
-                          </td>
-                          <td>
-                            <input class="form-control form-control-sm text-end mono" type="number" min="0" step="1" x-model.number="it.unitPrice" @input="debouncedCalc()" :aria-label="'단가 '+(idx+1)" />
-                          </td>
-                          <td>
-                            <input class="form-control form-control-sm text-end mono" type="number" min="0" step="1" x-model.number="it.amount" @input="debouncedCalc()" :aria-label="'공급가액 '+(idx+1)" placeholder="(자동)" />
-                          </td>
-                          <td>
-                            <input class="form-control form-control-sm" type="text" maxlength="80" x-model.trim="it.note" @input="debouncedCalc()" :aria-label="'비고 '+(idx+1)" />
-                          </td>
-                          <td class="text-center">
-                            <button type="button" class="btn btn-sm btn-outline-danger" @click="removeItem(idx)" :aria-label="'행 삭제 '+(idx+1)">×</button>
-                          </td>
-                        </tr>
-                      </template>
-                    </tbody>
-                  </table>
-                </div>
-
-                <div class="row g-2 mt-1">
-                  <div class="col-12 col-md-4">
-                    <div class="border rounded p-2">
-                      <div class="small text-muted">공급가액 합계</div>
-                      <div class="fw-bold mono" x-text="formatKRW(state.subtotal)"></div>
-                    </div>
-                  </div>
-                  <div class="col-12 col-md-4">
-                    <div class="border rounded p-2">
-                      <div class="small text-muted">부가세</div>
-                      <div class="fw-bold mono" x-text="formatKRW(state.vatAmount)"></div>
-                    </div>
-                  </div>
-                  <div class="col-12 col-md-4">
-                    <div class="border rounded p-2">
-                      <div class="small text-muted">총 합계금액</div>
-                      <div class="fw-bold mono" x-text="formatKRW(state.totalAmount)"></div>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="error-live text-danger small mt-2" aria-live="polite" x-text="ui.errorMessage"></div>
               </div>
             </div>
-          </form>
-        </div>
+
+            <div class="sticky-actions mt-3">
+              <div class="d-flex gap-2 justify-content-end">
+                <button type="button" class="btn btn-outline-secondary" @click="calculate()">미리보기 갱신</button>
+                <button type="button" class="btn btn-primary" @click="print()">인쇄</button>
+              </div>
+            </div>
+          </div>
+        </section>
       </div>
 
-      <!-- 미리보기 패널 -->
-      <div class="col-12 col-lg-7">
-        <div class="panel p-3">
-          <div class="d-flex align-items-center justify-content-between mb-2">
-            <h2 class="h6 m-0">A4 미리보기</h2>
-            <div class="no-print d-flex gap-2">
-              <button type="button" class="btn btn-sm btn-outline-secondary" @click="calculate()">새로고침</button>
-              <button type="button" class="btn btn-sm btn-primary" @click="printNow()">인쇄</button>
+      <!-- Right: Preview -->
+      <div class="col-12 col-lg-6" id="print-host">
+        <section class="preview-wrap" aria-labelledby="preview">
+          <div class="d-flex align-items-center justify-content-between mb-2 no-print">
+            <div>
+              <div class="fw-bold" id="preview">미리보기/출력</div>
+              <div class="help-text">인쇄 시 이 영역만 A4로 출력됩니다.</div>
+            </div>
+            <div class="d-flex gap-2 no-print">
+              <button type="button" class="btn btn-sm btn-outline-secondary" @click="downloadJson()">JSON 저장</button>
+              <label class="btn btn-sm btn-outline-secondary mb-0" for="jsonFile">JSON 불러오기</label>
+              <input id="jsonFile" type="file" accept="application/json" class="d-none" @change="importJson($event)" />
             </div>
           </div>
 
-          <div class="a4-stage">
-            <section id="print-area" aria-label="인쇄 미리보기 영역">
-              <div class="bill" x-html="state.printPreviewHtml"></div>
-            </section>
+          <div class="preview-shell">
+            <div class="a4">
+              <div class="a4-inner" id="print-area" x-html="state.printPreviewHtml"></div>
+            </div>
           </div>
-
-          <div class="help-text mt-2 no-print">
-            인쇄 시 입력 패널은 숨겨지고 미리보기만 출력됩니다. 브라우저 인쇄 설정에서 “머리글/바닥글”은 끄는 것을 권장합니다.
-          </div>
-        </div>
+        </section>
       </div>
-    </div>
-
+    </main>
   </div>
 
   <script>
-    // ===== Excel formula helper functions (provided) =====
-    function _sum(...args) {
-        return args.flat().reduce((a, b) => (parseFloat(a) || 0) + (parseFloat(b) || 0), 0);
-    }
+  /* ===== Excel formula helper functions (provided) ===== */
+  function _sum(...args) {
+      return args.flat().reduce((a, b) => (parseFloat(a) || 0) + (parseFloat(b) || 0), 0);
+  }
+  function _sumRange(rangeData) {
+      if (Array.isArray(rangeData)) {
+          return rangeData.flat().reduce((a, b) => (parseFloat(a) || 0) + (parseFloat(b) || 0), 0);
+      }
+      return parseFloat(rangeData) || 0;
+  }
+  function _average(...args) {
+      const flat = args.flat().filter(x => x !== null && x !== '' && !isNaN(x));
+      return flat.length ? _sum(...flat) / flat.length : 0;
+  }
+  function _averageRange(rangeData) {
+      if (Array.isArray(rangeData)) {
+          const flat = rangeData.flat().filter(x => x !== null && x !== '' && !isNaN(x));
+          return flat.length ? _sumRange(flat) / flat.length : 0;
+      }
+      return parseFloat(rangeData) || 0;
+  }
+  function _count(...args) {
+      return args.flat().filter(x => typeof x === 'number' && !isNaN(x)).length;
+  }
+  function _counta(...args) {
+      return args.flat().filter(x => x !== null && x !== '' && x !== undefined).length;
+  }
+  function _and(...args) {
+      return args.every(x => Boolean(x));
+  }
+  function _or(...args) {
+      return args.some(x => Boolean(x));
+  }
+  function _round(num, digits = 0) {
+      const factor = Math.pow(10, digits);
+      return Math.round(num * factor) / factor;
+  }
+  function _roundUp(num, digits = 0) {
+      const factor = Math.pow(10, digits);
+      return Math.ceil(num * factor) / factor;
+  }
+  function _roundDown(num, digits = 0) {
+      const factor = Math.pow(10, digits);
+      return Math.floor(num * factor) / factor;
+  }
+  function _len(text) {
+      return String(text).length;
+  }
+  function _left(text, numChars = 1) {
+      return String(text).substring(0, numChars);
+  }
+  function _right(text, numChars = 1) {
+      const str = String(text);
+      return str.substring(str.length - numChars);
+  }
+  function _mid(text, startNum, numChars) {
+      return String(text).substring(startNum - 1, startNum - 1 + numChars);
+  }
+  function _trim(text) {
+      return String(text).trim();
+  }
+  function _upper(text) {
+      return String(text).toUpperCase();
+  }
+  function _lower(text) {
+      return String(text).toLowerCase();
+  }
+  function _concat(...args) {
+      return args.join('');
+  }
+  function formatNumber(num, decimals = 0) {
+      return new Intl.NumberFormat('ko-KR', {
+          minimumFractionDigits: decimals,
+          maximumFractionDigits: decimals
+      }).format(num);
+  }
+  function formatCurrency(num) {
+      return new Intl.NumberFormat('ko-KR', {
+          style: 'currency',
+          currency: 'KRW',
+          maximumFractionDigits: 0
+      }).format(num);
+  }
+  function formatPercent(num, decimals = 1) {
+      return new Intl.NumberFormat('ko-KR', {
+          style: 'percent',
+          minimumFractionDigits: decimals,
+          maximumFractionDigits: decimals
+      }).format(num / 100);
+  }
 
-    function _sumRange(rangeData) {
-        if (Array.isArray(rangeData)) {
-            return rangeData.flat().reduce((a, b) => (parseFloat(a) || 0) + (parseFloat(b) || 0), 0);
-        }
-        return parseFloat(rangeData) || 0;
-    }
+  /* ===== App logic ===== */
+  function uid() {
+    return Math.random().toString(16).slice(2) + Date.now().toString(16);
+  }
 
-    function _average(...args) {
-        const flat = args.flat().filter(x => x !== null && x !== '' && !isNaN(x));
-        return flat.length ? _sum(...flat) / flat.length : 0;
-    }
+  function toNumber(v) {
+    const n = (typeof v === 'string') ? v.replace(/,/g, '') : v;
+    const out = Number(n);
+    return Number.isFinite(out) ? out : 0;
+  }
 
-    function _averageRange(rangeData) {
-        if (Array.isArray(rangeData)) {
-            const flat = rangeData.flat().filter(x => x !== null && x !== '' && !isNaN(x));
-            return flat.length ? _sumRange(flat) / flat.length : 0;
-        }
-        return parseFloat(rangeData) || 0;
-    }
+  function safeText(v) {
+    return (v ?? '').toString();
+  }
 
-    function _count(...args) {
-        return args.flat().filter(x => typeof x === 'number' && !isNaN(x)).length;
-    }
+  function escapeHtml(str) {
+    return safeText(str)
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#039;');
+  }
 
-    function _counta(...args) {
-        return args.flat().filter(x => x !== null && x !== '' && x !== undefined).length;
-    }
+  function formatDateKR(dateStr){
+    if(!dateStr) return '';
+    // keep ISO date as YYYY-MM-DD, but show KR style
+    const d = new Date(dateStr);
+    if (Number.isNaN(d.getTime())) return escapeHtml(dateStr);
+    const y = d.getFullYear();
+    const m = String(d.getMonth()+1).padStart(2,'0');
+    const da = String(d.getDate()).padStart(2,'0');
+    return `${y}-${m}-${da}`;
+  }
 
-    function _and(...args) {
-        return args.every(x => Boolean(x));
-    }
+  function formatCurrencyKRW(value){
+    const n = toNumber(value);
+    // “원” suffix to match typical invoice style
+    return new Intl.NumberFormat('ko-KR', { maximumFractionDigits: 0 }).format(Math.round(n)) + '원';
+  }
 
-    function _or(...args) {
-        return args.some(x => Boolean(x));
-    }
+  function validateBusinessNumber(bizNo){
+    const digits = safeText(bizNo).replace(/[^0-9]/g,'');
+    return digits.length === 10;
+  }
 
-    function _round(num, digits = 0) {
-        const factor = Math.pow(10, digits);
-        return Math.round(num * factor) / factor;
-    }
+  function calculateLineItemAmounts(lineItems, taxMode, vatRate){
+    const rate = (taxMode === '과세') ? (toNumber(vatRate) / 100) : 0;
 
-    function _roundUp(num, digits = 0) {
-        const factor = Math.pow(10, digits);
-        return Math.ceil(num * factor) / factor;
-    }
+    const normalized = (lineItems || []).map((r) => {
+      const qty = Math.max(0, toNumber(r.qty));
+      const unitPrice = Math.max(0, toNumber(r.unitPrice));
+      const supplyAmount = Math.round(qty * unitPrice);
+      const vatAmount = (taxMode === '과세') ? Math.round(supplyAmount * rate) : 0;
+      const totalAmount = supplyAmount + vatAmount;
 
-    function _roundDown(num, digits = 0) {
-        const factor = Math.pow(10, digits);
-        return Math.floor(num * factor) / factor;
-    }
-
-    function _len(text) {
-        return String(text).length;
-    }
-
-    function _left(text, numChars = 1) {
-        return String(text).substring(0, numChars);
-    }
-
-    function _right(text, numChars = 1) {
-        const str = String(text);
-        return str.substring(str.length - numChars);
-    }
-
-    function _mid(text, startNum, numChars) {
-        return String(text).substring(startNum - 1, startNum - 1 + numChars);
-    }
-
-    function _trim(text) {
-        return String(text).trim();
-    }
-
-    function _upper(text) {
-        return String(text).toUpperCase();
-    }
-
-    function _lower(text) {
-        return String(text).toLowerCase();
-    }
-
-    function _concat(...args) {
-        return args.join('');
-    }
-
-    // Number formatting
-    function formatNumber(num, decimals = 0) {
-        return new Intl.NumberFormat('ko-KR', {
-            minimumFractionDigits: decimals,
-            maximumFractionDigits: decimals
-        }).format(num);
-    }
-
-    function formatCurrency(num) {
-        return new Intl.NumberFormat('ko-KR', {
-            style: 'currency',
-            currency: 'KRW',
-            maximumFractionDigits: 0
-        }).format(num);
-    }
-
-    function formatPercent(num, decimals = 1) {
-        return new Intl.NumberFormat('ko-KR', {
-            style: 'percent',
-            minimumFractionDigits: decimals,
-            maximumFractionDigits: decimals
-        }).format(num / 100);
-    }
-
-    // ===== App =====
-    function appData(){
       return {
-        ui: {
-          errorMessage: '',
-          _debounceTimer: null,
-        },
-        state: {
-          // Inputs (임시 셀 매핑)
-          issueDate: '',       // Sheet1!B3
-          invoiceNo: '',       // Sheet1!J3
-          supplier: {
-            name: '',          // Sheet1!B6
-            bizNo: '',         // Sheet1!B7
-            address: '',       // Sheet1!B8
-            contact: ''        // Sheet1!B9
-          },
-          buyer: {
-            name: '',          // Sheet1!J6
-            bizNo: '',         // Sheet1!J7
-            address: '',       // Sheet1!J8
-            contact: ''        // Sheet1!J9
-          },
-          vatMode: '별도',     // Sheet1!B11
-          vatRate: 10,         // Sheet1!J11
+        ...r,
+        qty,
+        unitPrice,
+        supplyAmount,
+        vatAmount,
+        totalAmount
+      };
+    });
 
-          // Items range: Sheet1!A15:AF35 (임시로 최대 15행 정도를 가정)
-          items: [],
+    return normalized;
+  }
 
-          // Outputs
-          subtotal: 0,         // Sheet1!T37
-          vatAmount: 0,        // Sheet1!Z37
-          totalAmount: 0,      // Sheet1!AF37
+  function calculateTotals(itemsSupplyAmount, itemsVatAmount, discountAmount, extraFee, taxMode, vatRate){
+    // Standard logic:
+    // - discount reduces supply amount
+    // - extraFee increases supply amount
+    // - VAT is recalculated on adjusted supply if taxable
+    const supply0 = Math.max(0, toNumber(itemsSupplyAmount));
+    const vat0 = Math.max(0, toNumber(itemsVatAmount));
 
-          // Preview output
-          printPreviewHtml: '' // Sheet1!A1:AF50
-        },
+    const discount = Math.max(0, toNumber(discountAmount));
+    const extra = Math.max(0, toNumber(extraFee));
 
-        init(){
-          // 기본 5행
-          const initialRows = 5;
-          this.state.items = Array.from({length: initialRows}, () => this.newItem());
+    const adjustedSupply = Math.max(0, Math.round(supply0 - discount + extra));
 
-          // 오늘 날짜 기본값
-          const today = new Date();
-          this.state.issueDate = today.toISOString().slice(0,10);
-
-          this.calculate();
-        },
-
-        newItem(){
-          return {
-            _id: (crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now() + Math.random()),
-            name: '',
-            spec: '',
-            qty: 0,
-            unitPrice: 0,
-            amount: null, // 사용자가 직접 입력하면 우선. null/''이면 자동.
-            note: '',
-            _computedSupply: 0,
-          };
-        },
-
-        addItem(){
-          this.state.items.push(this.newItem());
-          this.calculate();
-        },
-
-        removeItem(idx){
-          this.state.items.splice(idx, 1);
-          if(this.state.items.length === 0) this.state.items.push(this.newItem());
-          this.calculate();
-        },
-
-        removeLastItem(){
-          if(this.state.items.length > 1){
-            this.state.items.pop();
-            this.calculate();
-          }
-        },
-
-        resetAll(){
-          if(!confirm('입력값을 모두 초기화할까요?')) return;
-          this.ui.errorMessage = '';
-          this.state.issueDate = new Date().toISOString().slice(0,10);
-          this.state.invoiceNo = '';
-          this.state.supplier = {name:'', bizNo:'', address:'', contact:''};
-          this.state.buyer = {name:'', bizNo:'', address:'', contact:''};
-          this.state.vatMode = '별도';
-          this.state.vatRate = 10;
-          this.state.items = Array.from({length: 5}, () => this.newItem());
-          this.calculate();
-        },
-
-        debouncedCalc(){
-          clearTimeout(this.ui._debounceTimer);
-          this.ui._debounceTimer = setTimeout(() => this.calculate(), 150);
-        },
-
-        // 원화 포맷(요구사항: 천단위, 음수처리)
-        formatKRW(value){
-          const n = Number(value);
-          if(!isFinite(n)) return '0원';
-          const sign = n < 0 ? '-' : '';
-          const abs = Math.abs(Math.round(n));
-          return sign + new Intl.NumberFormat('ko-KR', { maximumFractionDigits: 0 }).format(abs) + '원';
-        },
-
-        // 품목 1행 계산
-        computeLineAmount(item, vatMode, vatRate){
-          const qty = Math.max(0, Number(item.qty) || 0);
-          const unitPrice = Math.max(0, Number(item.unitPrice) || 0);
-
-          // 정책: amount가 null/''이면 자동(수량×단가). 숫자가 들어오면 그 값을 우선.
-          let supply = 0;
-          const hasManualAmount = item.amount !== null && item.amount !== '' && typeof item.amount !== 'undefined';
-          if(hasManualAmount){
-            supply = Math.max(0, Number(item.amount) || 0);
-          } else {
-            supply = qty * unitPrice;
-          }
-
-          // 부가세는 라인에서는 표시만을 위한 계산(출력 템플릿용)
-          const rate = Math.min(100, Math.max(0, Number(vatRate) || 0));
-          let vat = 0;
-          let lineTotal = supply;
-
-          if(vatMode === '면세'){
-            vat = 0;
-            lineTotal = supply;
-          } else if(vatMode === '별도'){
-            vat = Math.round(supply * rate / 100);
-            lineTotal = supply + vat;
-          } else if(vatMode === '포함'){
-            // 공급가액(supply)을 '총액'으로 보고 역산
-            const gross = supply;
-            const denom = 1 + (rate/100);
-            const net = denom === 0 ? 0 : Math.round(gross / denom);
-            vat = gross - net;
-            supply = net;
-            lineTotal = gross;
-          }
-
-          return {
-            supply: Math.round(supply),
-            vat: Math.round(vat),
-            total: Math.round(lineTotal)
-          };
-        },
-
-        validate(){
-          const rate = Number(this.state.vatRate);
-          if(!isFinite(rate) || rate < 0 || rate > 100){
-            return '부가세율(%)은 0~100 범위로 입력해 주세요.';
-          }
-          // 길이 제한(간단)
-          if((this.state.invoiceNo || '').length > 30) return '계산서 번호는 30자 이내로 입력해 주세요.';
-          if((this.state.supplier.name || '').length > 50) return '공급자 상호(성명)은 50자 이내로 입력해 주세요.';
-          if((this.state.buyer.name || '').length > 50) return '공급받는자 상호(성명)은 50자 이내로 입력해 주세요.';
-          return '';
-        },
-
-        // 메인 계산 함수
-        calculate(){
-          const msg = this.validate();
-          this.ui.errorMessage = msg;
-          if(msg){
-            // 에러가 있어도 미리보기는 렌더(입력값은 그대로)
-          }
-
-          // 각 라인 계산/정규화
-          const computed = this.state.items.map(it => {
-            const r = this.computeLineAmount(it, this.state.vatMode, this.state.vatRate);
-            it._computedSupply = r.supply;
-            return r;
-          });
-
-          // subtotal: SUM(line.supply)
-          // (엑셀이라면 =SUM(공급가액범위)와 유사)
-          const subtotal = _sum(computed.map(x => x.supply));
-
-          let vatAmount = 0;
-          let totalAmount = 0;
-          const rate = Math.min(100, Math.max(0, Number(this.state.vatRate) || 0));
-
-          if(this.state.vatMode === '면세'){
-            vatAmount = 0;
-            totalAmount = subtotal;
-          } else if(this.state.vatMode === '별도'){
-            vatAmount = Math.round(subtotal * rate / 100);
-            totalAmount = subtotal + vatAmount;
-          } else if(this.state.vatMode === '포함'){
-            // subtotal을 총액(=공급가액 입력값들의 합)로 보고 역산
-            const gross = subtotal;
-            const denom = 1 + (rate/100);
-            const net = denom === 0 ? 0 : Math.round(gross / denom);
-            vatAmount = gross - net;
-            // 포함 모드에서는 subtotal(출력)을 관행적으로 공급가액(순액)으로 보여주기 위해 net으로 치환
-            this.state.subtotal = net;
-            this.state.vatAmount = vatAmount;
-            this.state.totalAmount = gross;
-            this.renderPrintTemplate();
-            return;
-          }
-
-          this.state.subtotal = Math.round(subtotal);
-          this.state.vatAmount = Math.round(vatAmount);
-          this.state.totalAmount = Math.round(totalAmount);
-
-          this.renderPrintTemplate();
-        },
-
-        // 인쇄 템플릿 렌더
-        renderPrintTemplate(){
-          const s = this.state;
-          const safe = (v) => String(v ?? '').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');
-
-          const issueDateText = s.issueDate ? safe(s.issueDate) : '';
-          const vatModeText = safe(s.vatMode);
-          const vatRateText = (s.vatMode === '면세') ? '0%' : (Number(s.vatRate) || 0) + '%';
-
-          const items = s.items
-            .map((it, idx) => {
-              const r = this.computeLineAmount(it, s.vatMode, s.vatRate);
-              const show = (v) => safe(v);
-              const qty = Math.max(0, Number(it.qty) || 0);
-              const unitPrice = Math.max(0, Number(it.unitPrice) || 0);
-
-              return `
-                <tr>
-                  <td class="text-center mono">${idx+1}</td>
-                  <td>${show(it.name)}</td>
-                  <td>${show(it.spec)}</td>
-                  <td class="text-right mono">${qty ? formatNumber(qty,0) : ''}</td>
-                  <td class="text-right mono">${unitPrice ? formatNumber(unitPrice,0) : ''}</td>
-                  <td class="text-right mono">${r.supply ? formatNumber(r.supply,0) : ''}</td>
-                  <td>${show(it.note)}</td>
-                </tr>`;
-            })
-            .join('');
-
-          const supplierBizNo = safe(s.supplier.bizNo);
-          const buyerBizNo = safe(s.buyer.bizNo);
-
-          // 레이아웃: 엑셀 느낌(표/선)
-          const html = `
-            <div class="bill-title">계 산 서</div>
-
-            <table class="bill-table bill-meta">
-              <colgroup>
-                <col style="width: 14%">
-                <col style="width: 36%">
-                <col style="width: 14%">
-                <col style="width: 36%">
-              </colgroup>
-              <tbody>
-                <tr class="strong-top">
-                  <td class="label-cell">작성일</td>
-                  <td class="mono">${issueDateText}</td>
-                  <td class="label-cell">계산서 번호</td>
-                  <td class="mono">${safe(s.invoiceNo)}</td>
-                </tr>
-                <tr>
-                  <td class="label-cell">부가세</td>
-                  <td class="mono">${vatModeText} (${safe(vatRateText)})</td>
-                  <td class="label-cell">총 합계금액</td>
-                  <td class="text-right mono" style="font-weight:800;">${formatNumber(s.totalAmount||0,0)}원</td>
-                </tr>
-              </tbody>
-            </table>
-
-            <table class="bill-table mt-2">
-              <colgroup>
-                <col style="width: 50%">
-                <col style="width: 50%">
-              </colgroup>
-              <tbody>
-                <tr class="strong-top">
-                  <th>공급자</th>
-                  <th>공급받는자</th>
-                </tr>
-                <tr>
-                  <td>
-                    <table class="bill-table" style="border:none;">
-                      <colgroup>
-                        <col style="width: 30%">
-                        <col style="width: 70%">
-                      </colgroup>
-                      <tbody>
-                        <tr>
-                          <td class="label-cell">상호(성명)</td>
-                          <td>${safe(s.supplier.name)}</td>
-                        </tr>
-                        <tr>
-                          <td class="label-cell">사업자번호</td>
-                          <td class="mono">${supplierBizNo}</td>
-                        </tr>
-                        <tr>
-                          <td class="label-cell">주소</td>
-                          <td>${safe(s.supplier.address)}</td>
-                        </tr>
-                        <tr>
-                          <td class="label-cell">연락처</td>
-                          <td class="mono">${safe(s.supplier.contact)}</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </td>
-                  <td>
-                    <table class="bill-table" style="border:none;">
-                      <colgroup>
-                        <col style="width: 30%">
-                        <col style="width: 70%">
-                      </colgroup>
-                      <tbody>
-                        <tr>
-                          <td class="label-cell">상호(성명)</td>
-                          <td>${safe(s.buyer.name)}</td>
-                        </tr>
-                        <tr>
-                          <td class="label-cell">사업자번호</td>
-                          <td class="mono">${buyerBizNo}</td>
-                        </tr>
-                        <tr>
-                          <td class="label-cell">주소</td>
-                          <td>${safe(s.buyer.address)}</td>
-                        </tr>
-                        <tr>
-                          <td class="label-cell">연락처</td>
-                          <td class="mono">${safe(s.buyer.contact)}</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-
-            <table class="bill-table items-table mt-2">
-              <colgroup>
-                <col style="width: 6%">
-                <col style="width: 22%">
-                <col style="width: 16%">
-                <col style="width: 10%">
-                <col style="width: 14%">
-                <col style="width: 16%">
-                <col style="width: 16%">
-              </colgroup>
-              <thead>
-                <tr class="strong-top">
-                  <th>NO</th>
-                  <th>품목명</th>
-                  <th>규격</th>
-                  <th>수량</th>
-                  <th>단가</th>
-                  <th>공급가액</th>
-                  <th>비고</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${items}
-                ${this.renderEmptyRowsIfNeeded()}
-              </tbody>
-              <tfoot>
-                <tr class="strong-top">
-                  <td colspan="5" class="text-center" style="font-weight:800;">합계</td>
-                  <td class="text-right mono" style="font-weight:800;">${formatNumber(s.subtotal||0,0)}</td>
-                  <td></td>
-                </tr>
-                <tr>
-                  <td colspan="5" class="text-center" style="font-weight:800;">부가세</td>
-                  <td class="text-right mono" style="font-weight:800;">${formatNumber(s.vatAmount||0,0)}</td>
-                  <td></td>
-                </tr>
-                <tr class="strong-bottom">
-                  <td colspan="5" class="text-center" style="font-weight:900;">총액</td>
-                  <td class="text-right mono" style="font-weight:900;">${formatNumber(s.totalAmount||0,0)}</td>
-                  <td></td>
-                </tr>
-              </tfoot>
-            </table>
-
-            <table class="bill-table mt-2">
-              <colgroup>
-                <col style="width: 50%">
-                <col style="width: 50%">
-              </colgroup>
-              <tbody>
-                <tr class="strong-top">
-                  <td>
-                    <div class="d-flex justify-content-between">
-                      <div><b>비고</b></div>
-                      <div class="text-muted">(필요 시 기재)</div>
-                    </div>
-                    <div class="signature-box"></div>
-                  </td>
-                  <td>
-                    <div class="d-flex justify-content-between">
-                      <div><b>서명</b></div>
-                      <div class="text-muted">(인/서)</div>
-                    </div>
-                    <div class="signature-box"></div>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          `;
-
-          this.state.printPreviewHtml = html;
-        },
-
-        renderEmptyRowsIfNeeded(){
-          // 인쇄 레이아웃을 위해 최소 10행 정도 맞춤
-          const minRows = 10;
-          const current = this.state.items.length;
-          const needed = Math.max(0, minRows - current);
-          let out = '';
-          for(let i=0;i<needed;i++){
-            out += `
-              <tr>
-                <td class="text-center mono">${current + i + 1}</td>
-                <td></td><td></td>
-                <td class="text-right mono"></td>
-                <td class="text-right mono"></td>
-                <td class="text-right mono"></td>
-                <td></td>
-              </tr>`;
-          }
-          return out;
-        },
-
-        printNow(){
-          // 인쇄 직전 최신화
-          this.calculate();
-          // DOM 반영 후 인쇄
-          requestAnimationFrame(() => window.print());
-        }
+    if (taxMode === '면세') {
+      return {
+        finalSupplyAmount: adjustedSupply,
+        finalVatAmount: 0,
+        finalTotalAmount: adjustedSupply
       };
     }
+
+    const rate = Math.max(0, toNumber(vatRate)) / 100;
+    // Prefer recalculation on adjusted supply for consistency with discount/fee.
+    const finalVatAmount = Math.round(adjustedSupply * rate);
+    const finalTotalAmount = adjustedSupply + finalVatAmount;
+
+    return {
+      finalSupplyAmount: adjustedSupply,
+      finalVatAmount,
+      finalTotalAmount
+    };
+  }
+
+  function renderPrintTemplate(state){
+    const s = state;
+
+    const supplierBizDigits = safeText(s.supplierBizNo).replace(/[^0-9]/g,'');
+    const buyerBizDigits = safeText(s.buyerBizNo).replace(/[^0-9]/g,'');
+
+    const items = (s.lineItems || []).filter(r => {
+      // show non-empty rows (name or amounts)
+      return safeText(r.name).trim() !== '' || toNumber(r.qty) > 0 || toNumber(r.unitPrice) > 0;
+    });
+
+    // pad to stable height (prevents page wobble)
+    const targetRows = 20;
+    const padded = items.slice(0, targetRows);
+    while (padded.length < targetRows) {
+      padded.push({ date:'', name:'', spec:'', qty:'', unitPrice:'', supplyAmount:'', vatAmount:'', totalAmount:'', note:'' });
+    }
+
+    const taxLabel = (s.taxMode === '면세') ? '면세' : `과세 (${formatPercent(toNumber(s.vatRate), 1)})`;
+
+    const rowsHtml = padded.map((r) => {
+      const qty = (r.qty === '' || r.qty === null || r.qty === undefined) ? '' : formatNumber(toNumber(r.qty), 2);
+      const unitPrice = (r.unitPrice === '' || r.unitPrice === null || r.unitPrice === undefined) ? '' : formatNumber(Math.round(toNumber(r.unitPrice)), 0);
+
+      const supply = (r.supplyAmount === '' || r.supplyAmount === null || r.supplyAmount === undefined) ? '' : formatNumber(Math.round(toNumber(r.supplyAmount)), 0);
+      const vat = (r.vatAmount === '' || r.vatAmount === null || r.vatAmount === undefined) ? '' : formatNumber(Math.round(toNumber(r.vatAmount)), 0);
+      const total = (r.totalAmount === '' || r.totalAmount === null || r.totalAmount === undefined) ? '' : formatNumber(Math.round(toNumber(r.totalAmount)), 0);
+
+      return `
+        <tr>
+          <td class="center">${escapeHtml(formatDateKR(r.date))}</td>
+          <td>${escapeHtml(r.name)}</td>
+          <td class="center">${escapeHtml(r.spec)}</td>
+          <td class="right">${escapeHtml(qty)}</td>
+          <td class="right">${escapeHtml(unitPrice)}</td>
+          <td class="right">${escapeHtml(supply)}</td>
+          <td class="right">${escapeHtml(vat)}</td>
+          <td class="right">${escapeHtml(total)}</td>
+          <td>${escapeHtml(r.note)}</td>
+        </tr>`;
+    }).join('');
+
+    return `
+      <div class="print-title">계산서</div>
+
+      <div class="print-meta">
+        <div class="box">
+          <div class="fw-bold mb-1">공급자</div>
+          <div class="kv"><div class="k">상호(성명)</div><div class="v">${escapeHtml(s.supplierName)}</div></div>
+          <div class="kv"><div class="k">사업자등록번호</div><div class="v">${escapeHtml(supplierBizDigits)}</div></div>
+          <div class="kv"><div class="k">주소</div><div class="v">${escapeHtml(s.supplierAddress)}</div></div>
+          <div class="kv"><div class="k">업태</div><div class="v">${escapeHtml(s.supplierBizType)}</div></div>
+          <div class="kv"><div class="k">종목</div><div class="v">${escapeHtml(s.supplierBizItem)}</div></div>
+          <div class="kv"><div class="k">담당자/연락처</div><div class="v">${escapeHtml(s.supplierContact)}</div></div>
+        </div>
+
+        <div class="box">
+          <div class="fw-bold mb-1">공급받는자</div>
+          <div class="kv"><div class="k">상호(성명)</div><div class="v">${escapeHtml(s.buyerName)}</div></div>
+          <div class="kv"><div class="k">사업자등록번호</div><div class="v">${escapeHtml(buyerBizDigits)}</div></div>
+          <div class="kv"><div class="k">주소</div><div class="v">${escapeHtml(s.buyerAddress)}</div></div>
+          <div class="kv"><div class="k">담당자/연락처</div><div class="v">${escapeHtml(s.buyerContact)}</div></div>
+          <div class="kv"><div class="k">작성일자</div><div class="v">${escapeHtml(formatDateKR(s.issueDate))}</div></div>
+          <div class="kv"><div class="k">문서번호</div><div class="v">${escapeHtml(s.invoiceNo)}</div></div>
+          <div class="kv"><div class="k">과세구분</div><div class="v">${escapeHtml(taxLabel)}</div></div>
+        </div>
+      </div>
+
+      <table class="items-table" aria-label="인쇄용 품목 테이블">
+        <thead>
+          <tr>
+            <th style="width: 20mm;" class="center">일자</th>
+            <th>품목명</th>
+            <th style="width: 18mm;" class="center">규격</th>
+            <th style="width: 16mm;" class="right">수량</th>
+            <th style="width: 22mm;" class="right">단가</th>
+            <th style="width: 24mm;" class="right">공급가액</th>
+            <th style="width: 20mm;" class="right">부가세</th>
+            <th style="width: 24mm;" class="right">합계</th>
+            <th style="width: 26mm;">비고</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rowsHtml}
+        </tbody>
+      </table>
+
+      <div class="summary-grid">
+        <div class="box">
+          <div class="fw-bold mb-2">합계</div>
+          <table class="summary-table" aria-label="인쇄용 합계 테이블">
+            <tr><td class="label">품목 공급가액</td><td class="right">${escapeHtml(formatCurrencyKRW(s.itemsSupplyAmount))}</td></tr>
+            <tr><td class="label">품목 부가세</td><td class="right">${escapeHtml(formatCurrencyKRW(s.itemsVatAmount))}</td></tr>
+            <tr><td class="label">품목 합계</td><td class="right">${escapeHtml(formatCurrencyKRW(s.itemsTotalAmount))}</td></tr>
+            <tr><td class="label">할인금액</td><td class="right">${escapeHtml(formatCurrencyKRW(s.discountAmount))}</td></tr>
+            <tr><td class="label">추가비용</td><td class="right">${escapeHtml(formatCurrencyKRW(s.extraFee))}</td></tr>
+            <tr><td class="label">최종 공급가액</td><td class="right">${escapeHtml(formatCurrencyKRW(s.finalSupplyAmount))}</td></tr>
+            <tr><td class="label">최종 부가세</td><td class="right">${escapeHtml(formatCurrencyKRW(s.finalVatAmount))}</td></tr>
+            <tr><td class="label">최종 합계금액</td><td class="right fw-bold">${escapeHtml(formatCurrencyKRW(s.finalTotalAmount))}</td></tr>
+          </table>
+        </div>
+
+        <div>
+          <div class="box">
+            <div class="fw-bold mb-1">결제정보</div>
+            <div class="kv"><div class="k">지급기한</div><div class="v">${escapeHtml(formatDateKR(s.paymentDueDate))}</div></div>
+            <div class="kv"><div class="k">결제수단</div><div class="v">${escapeHtml(s.paymentMethod)}</div></div>
+            <div class="kv"><div class="k">입금계좌/안내</div><div class="v">${escapeHtml(s.bankInfo)}</div></div>
+          </div>
+
+          <div class="box note-box">
+            <div class="fw-bold mb-1">비고</div>
+            <div class="note-text">${escapeHtml(s.notes)}</div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function appData(){
+    return {
+      state: {
+        // basic
+        issueDate: '',
+        invoiceNo: '',
+        supplierName: '',
+        supplierBizNo: '',
+        supplierAddress: '',
+        supplierBizType: '',
+        supplierBizItem: '',
+        supplierContact: '',
+        buyerName: '',
+        buyerBizNo: '',
+        buyerAddress: '',
+        buyerContact: '',
+        notes: '',
+        taxMode: '과세',
+        vatRate: 10,
+
+        // items
+        lineItems: [],
+
+        // totals
+        itemsSupplyAmount: 0,
+        itemsVatAmount: 0,
+        itemsTotalAmount: 0,
+
+        discountAmount: 0,
+        extraFee: 0,
+        paymentDueDate: '',
+        paymentMethod: '계좌이체',
+        bankInfo: '',
+
+        finalSupplyAmount: 0,
+        finalVatAmount: 0,
+        finalTotalAmount: 0,
+
+        // preview html
+        printPreviewHtml: ''
+      },
+
+      init(){
+        // default date
+        const today = new Date();
+        const y = today.getFullYear();
+        const m = String(today.getMonth()+1).padStart(2,'0');
+        const d = String(today.getDate()).padStart(2,'0');
+        this.state.issueDate = `${y}-${m}-${d}`;
+        // initial rows
+        this.state.lineItems = [this.newRow(), this.newRow(), this.newRow()];
+        this.calculate();
+      },
+
+      get isFormValid(){
+        const s = this.state;
+        const basicOk = !!s.issueDate && !!s.supplierName && !!s.buyerName;
+        const bizOk = validateBusinessNumber(s.supplierBizNo) && validateBusinessNumber(s.buyerBizNo);
+        return basicOk && bizOk;
+      },
+
+      newRow(){
+        return {
+          _id: uid(),
+          date: '',
+          name: '',
+          spec: '',
+          qty: 0,
+          unitPrice: 0,
+          supplyAmount: 0,
+          vatAmount: 0,
+          totalAmount: 0,
+          note: ''
+        };
+      },
+
+      addRow(){
+        this.state.lineItems.push(this.newRow());
+        this.calculate();
+      },
+
+      removeRow(idx){
+        this.state.lineItems.splice(idx, 1);
+        this.calculate();
+      },
+
+      addSampleRows(){
+        this.state.lineItems = [
+          { ...this.newRow(), date: this.state.issueDate, name: '상품 A', spec: 'EA', qty: 2, unitPrice: 15000, note: '' },
+          { ...this.newRow(), date: this.state.issueDate, name: '서비스 B', spec: '건', qty: 1, unitPrice: 80000, note: '월 유지보수' },
+          { ...this.newRow(), date: this.state.issueDate, name: '배송비', spec: '', qty: 1, unitPrice: 3000, note: '' }
+        ];
+        this.calculate();
+      },
+
+      onBizNoInput(field){
+        // allow user typing; just recalc & validation display
+        this.state[field] = safeText(this.state[field]);
+        this.calculate();
+      },
+
+      validateBusinessNumber,
+      formatCurrencyKRW,
+
+      calculate(){
+        // 1) normalize items
+        const items = calculateLineItemAmounts(this.state.lineItems, this.state.taxMode, this.state.vatRate);
+        this.state.lineItems = items;
+
+        // 2) item totals
+        const itemsSupplyAmount = items.reduce((acc, r) => acc + toNumber(r.supplyAmount), 0);
+        const itemsVatAmount = items.reduce((acc, r) => acc + toNumber(r.vatAmount), 0);
+        const itemsTotalAmount = items.reduce((acc, r) => acc + toNumber(r.totalAmount), 0);
+
+        this.state.itemsSupplyAmount = Math.round(itemsSupplyAmount);
+        this.state.itemsVatAmount = Math.round(itemsVatAmount);
+        this.state.itemsTotalAmount = Math.round(itemsTotalAmount);
+
+        // 3) final totals with discount/fee
+        const finals = calculateTotals(
+          this.state.itemsSupplyAmount,
+          this.state.itemsVatAmount,
+          this.state.discountAmount,
+          this.state.extraFee,
+          this.state.taxMode,
+          this.state.vatRate
+        );
+
+        this.state.finalSupplyAmount = finals.finalSupplyAmount;
+        this.state.finalVatAmount = finals.finalVatAmount;
+        this.state.finalTotalAmount = finals.finalTotalAmount;
+
+        // 4) preview html
+        this.state.printPreviewHtml = renderPrintTemplate(this.state);
+      },
+
+      print(){
+        // ensure preview up to date
+        this.calculate();
+        window.print();
+      },
+
+      resetAll(){
+        if (!confirm('모든 입력을 초기화할까요?')) return;
+        const keepDate = this.state.issueDate;
+        this.state = {
+          issueDate: keepDate,
+          invoiceNo: '',
+          supplierName: '',
+          supplierBizNo: '',
+          supplierAddress: '',
+          supplierBizType: '',
+          supplierBizItem: '',
+          supplierContact: '',
+          buyerName: '',
+          buyerBizNo: '',
+          buyerAddress: '',
+          buyerContact: '',
+          notes: '',
+          taxMode: '과세',
+          vatRate: 10,
+          lineItems: [this.newRow(), this.newRow(), this.newRow()],
+          itemsSupplyAmount: 0,
+          itemsVatAmount: 0,
+          itemsTotalAmount: 0,
+          discountAmount: 0,
+          extraFee: 0,
+          paymentDueDate: '',
+          paymentMethod: '계좌이체',
+          bankInfo: '',
+          finalSupplyAmount: 0,
+          finalVatAmount: 0,
+          finalTotalAmount: 0,
+          printPreviewHtml: ''
+        };
+        this.calculate();
+      },
+
+      downloadJson(){
+        this.calculate();
+        const data = {
+          version: 1,
+          exportedAt: new Date().toISOString(),
+          state: this.state
+        };
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `계산서_${this.state.invoiceNo || '미지정'}.json`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      },
+
+      async importJson(evt){
+        const file = evt.target.files && evt.target.files[0];
+        if (!file) return;
+        try{
+          const text = await file.text();
+          const parsed = JSON.parse(text);
+          if (!parsed || !parsed.state) throw new Error('state가 없습니다.');
+
+          // shallow merge with defaults for forward compatibility
+          const incoming = parsed.state;
+          const next = { ...this.state, ...incoming };
+
+          // ensure rows have ids
+          next.lineItems = (next.lineItems || []).map(r => ({ ...this.newRow(), ...r, _id: r._id || uid() }));
+          this.state = next;
+          this.calculate();
+        }catch(e){
+          alert('JSON 불러오기 실패: ' + (e?.message || e));
+        }finally{
+          evt.target.value = '';
+        }
+      }
+    };
+  }
   </script>
 
-<!-- Agent Trace Viewer -->
-<style>
-.trace-toggle {
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    z-index: 9999;
-    background: #6366f1;
-    color: white;
-    border: none;
-    padding: 12px 20px;
-    border-radius: 25px;
-    cursor: pointer;
-    font-size: 14px;
-    box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-.trace-toggle:hover { background: #4f46e5; }
-.trace-panel {
+<!-- 해커톤 선정 정보 -->
+<div id="selection-banner" style="
     position: fixed;
     top: 0;
-    right: -450px;
-    width: 450px;
-    height: 100vh;
-    background: #1e1e2e;
-    color: #cdd6f4;
-    z-index: 9998;
-    transition: right 0.3s ease;
-    overflow-y: auto;
-    font-family: 'Monaco', 'Menlo', monospace;
-    font-size: 12px;
-}
-.trace-panel.open { right: 0; }
-.trace-header {
-    padding: 16px;
-    background: #313244;
-    border-bottom: 1px solid #45475a;
+    left: 0;
+    right: 0;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 12px 20px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 14px;
+    z-index: 10000;
     display: flex;
     justify-content: space-between;
     align-items: center;
-}
-.trace-header h3 { margin: 0; font-size: 14px; }
-.trace-close {
-    background: none;
-    border: none;
-    color: #cdd6f4;
-    cursor: pointer;
-    font-size: 18px;
-}
-.trace-content { padding: 16px; }
-.span-item {
-    margin-bottom: 12px;
-    padding: 12px;
-    background: #313244;
-    border-radius: 8px;
-    border-left: 3px solid #89b4fa;
-}
-.span-item.agent { border-left-color: #a6e3a1; }
-.span-item.generation { border-left-color: #f9e2af; }
-.span-item.function { border-left-color: #cba6f7; }
-.span-type {
-    font-size: 10px;
-    text-transform: uppercase;
-    color: #6c7086;
-    margin-bottom: 4px;
-}
-.span-name { font-weight: bold; color: #89dceb; }
-.span-data {
-    margin-top: 8px;
-    padding: 8px;
-    background: #1e1e2e;
-    border-radius: 4px;
-    overflow-x: auto;
-    white-space: pre-wrap;
-    word-break: break-all;
-}
-.span-time { color: #6c7086; font-size: 11px; }
-.trace-summary {
-    padding: 12px 16px;
-    background: #45475a;
-    margin: 0 16px 16px;
-    border-radius: 8px;
-}
-.trace-summary-item { display: flex; justify-content: space-between; margin: 4px 0; }
-
-    /* Navigation Header */
-    .demo-nav {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      padding: 10px 20px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      z-index: 9999;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-    }
-    .demo-nav a {
-      color: white;
-      text-decoration: none;
-      padding: 6px 12px;
-      border-radius: 6px;
-      font-size: 0.9rem;
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      transition: background 0.2s;
-    }
-    .demo-nav a:hover {
-      background: rgba(255,255,255,0.2);
-    }
-    .demo-nav .nav-title {
-      font-weight: 600;
-      font-size: 1rem;
-    }
-    .demo-nav .nav-links {
-      display: flex;
-      gap: 8px;
-    }
-    .demo-nav .btn-trace {
-      background: rgba(100, 255, 218, 0.2);
-      border: 1px solid #64ffda;
-    }
-    .demo-nav .btn-excel {
-      background: rgba(33, 115, 70, 0.8);
-    }
-    body {
-      padding-top: 50px !important;
-    }
-    @media print {
-      .demo-nav { display: none !important; }
-      body { padding-top: 0 !important; }
-    }
-
-  </style>
-
-<button class="trace-toggle" onclick="toggleTracePanel()">
-    <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-        <path d="M9.5 13a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm0-5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm0-5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/>
-    </svg>
-    Agent Trace
-</button>
-
-<div class="trace-panel" id="tracePanel">
-    <div class="trace-header">
-        <h3>Agent Trace Viewer</h3>
-        <button class="trace-close" onclick="toggleTracePanel()">&times;</button>
+    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+">
+    <div>
+        <strong>📊 계산서</strong>
+        <span style="margin-left: 10px; opacity: 0.9;">| 세무/회계</span>
     </div>
-    <div class="trace-summary" id="traceSummary"></div>
-    <div class="trace-content" id="traceContent"></div>
+    <div style="display: flex; align-items: center; gap: 15px;">
+        <span style="background: rgba(255,255,255,0.2); padding: 4px 10px; border-radius: 12px; font-size: 12px;">
+            0개 수식
+        </span>
+        <button onclick="document.getElementById('selection-info').style.display='block'"
+                style="background: white; color: #667eea; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: 500;">
+            선정 이유 보기
+        </button>
+    </div>
 </div>
 
-<script>
-const TRACE_DATA = {"trace_id": "trace_a6b667f220ac47fb98dc7fcc23758634", "workflow_name": "Excel-to-WebApp: 계산서.xlsx", "group_id": null, "metadata": null, "started_at": "2025-12-28T11:38:07.201191", "ended_at": "2025-12-28T11:41:14.677282", "spans": [{"span_id": "span_5963e4f50ac847a28731afb4", "parent_id": "span_eb845ae667754552a6acafb1", "started_at": "2025-12-28T02:38:07.237533+00:00", "ended_at": "2025-12-28T02:38:09.408657+00:00", "error": null, "type": "response", "data": {"type": "response", "response_id": "resp_0ef65982b2db034d006950980fc84c8193bbf8d2204f5beba2"}}, {"span_id": "span_f10df888221d45ad84ab87cf", "parent_id": "span_eb845ae667754552a6acafb1", "started_at": "2025-12-28T02:38:09.410617+00:00", "ended_at": "2025-12-28T02:38:09.548438+00:00", "error": null, "type": "function", "data": {"type": "function", "name": "analyze_excel", "input": "{\"file_path\":\"excel_files/엑셀서식(20160517)/계산서/계산서.xlsx\"}", "output": "{'filename': '계산서.xlsx', 'file_type': 'xlsx', 'sheets': [{'name': 'Sheet1', 'row_count': 50, 'col_count': 32, 'used_range': 'A1:AF50', 'input_cells': [], 'output_cells': [], 'formulas': [], 'has_print_area': False, 'print_area': None}, {'name': 'Sheet2', 'row_count': 1, 'col_count': 1, 'used_range': 'A1:A1', 'input_cells': [], 'output_cells': [], 'formulas': [], 'has_print_area': False, 'print_area': None}, {'name': 'Sheet3', 'row_count': 1, 'col_count': 1, 'used_range': 'A1:A1', 'input_cells': [], 'output_cells': [], 'formulas': [], 'has_print_area': False, 'print_area': None}, {'name': 'Sheet4', 'row_count': 1, 'col_count': 1, 'used_range': 'A1:A1', 'input_cells': [], 'output_cells': [], 'formulas': [], 'has_print_area': False, 'print_area': None}, {'name': 'Sheet5', 'row_count': 1, 'col_count': 1, 'used_range': 'A1:A1', 'input_cells': [], 'output_cells': [], 'formulas': [], 'has_print_area': False, 'print_area': None}, {'name': 'Sheet6', 'row_count': 1, 'col_count': 1, 'used_range': 'A1:A1', 'input_cells': [], 'output_cells': [], 'formulas': [], 'has_print_area': False, 'print_area': None}, {'name': 'Sheet7', 'row_count': 1, 'col_count': 1, 'used_range': 'A1:A1', 'input_cells': [], 'output_cells': [], 'formulas': [], 'has_print_area': False, 'print_area': None}, {'name': 'Sheet8', 'row_count': 1, 'col_count': 1, 'used_range': 'A1:A1', 'input_cells': [], 'output_cells': [], 'formulas': [], 'has_print_area': False, 'print_area': None}, {'name': 'Sheet9', 'row_count': 1, 'col_count': 1, 'used_range': 'A1:A1', 'input_cells': [], 'output_cells': [], 'formulas': [], 'has_print_area': False, 'print_area': None}, {'name': 'Sheet10', 'row_count': 1, 'col_count': 1, 'used_range': 'A1:A1', 'input_cells': [], 'output_cells': [], 'formulas': [], 'has_print_area': False, 'print_area': None}], 'vba_modules': [], 'has_vba': False, 'print_settings': {'orientation': 'portrait', 'paper_size': 'A4', 'margins': {'top': 0.39375, 'bottom': 0.39375, 'left': 0.747916666666667, 'right': 0.157638888888889}, 'header': None, 'footer': None, 'fit_to_page': False, 'scale': 100}, 'total_formulas': 0, 'total_input_cells': 0, 'total_output_cells': 0, 'complexity_score': 'medium'}", "mcp_data": null}}, {"span_id": "span_869f47b971de4105ab069d91", "parent_id": "span_eb845ae667754552a6acafb1", "started_at": "2025-12-28T02:38:09.552421+00:00", "ended_at": "2025-12-28T02:38:14.179422+00:00", "error": null, "type": "response", "data": {"type": "response", "response_id": "resp_0ef65982b2db034d0069509811c1988193af2b4271fa32f628"}}, {"span_id": "span_72f50c032d944bc4ba41cd4f", "parent_id": "span_eb845ae667754552a6acafb1", "started_at": "2025-12-28T02:38:14.179891+00:00", "ended_at": "2025-12-28T02:38:14.273715+00:00", "error": null, "type": "function", "data": {"type": "function", "name": "get_sheet_cells", "input": "{\"file_path\":\"excel_files/엑셀서식(20160517)/계산서/계산서.xlsx\",\"sheet_name\":\"Sheet1\"}", "output": "{'A1': {'address': 'A1', 'value': '[별지 제11호 서식]', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'A2': {'address': 'A2', 'value': '계    산    서', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'P2': {'address': 'P2', 'value': '(', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'Q2': {'address': 'Q2', 'value': '공급받는자', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'V2': {'address': 'V2', 'value': ')', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'W2': {'address': 'W2', 'value': '책   번   호', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'AC2': {'address': 'AC2', 'value': '권', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'AF2': {'address': 'AF2', 'value': '호', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'Q3': {'address': 'Q3', 'value': '보  관  용', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'W3': {'address': 'W3', 'value': '일 련 번 호', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'A4': {'address': 'A4', 'value': '공 급 자', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'B4': {'address': 'B4', 'value': '등록번호', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'Q4': {'address': 'Q4', 'value': '공급받는자', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'R4': {'address': 'R4', 'value': '등록번호', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'B6': {'address': 'B6', 'value': '상     호', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'K6': {'address': 'K6', 'value': '성명', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'P6': {'address': 'P6', 'value': '인', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'R6': {'address': 'R6', 'value': '상     호', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'AA6': {'address': 'AA6', 'value': '성명', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'AF6': {'address': 'AF6', 'value': '인', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'B7': {'address': 'B7', 'value': '(법인명)', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'R7': {'address': 'R7', 'value': '(법인명)', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'B8': {'address': 'B8', 'value': '사 업 장', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'R8': {'address': 'R8', 'value': '사 업 장', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'B9': {'address': 'B9', 'value': '주     소', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'R9': {'address': 'R9', 'value': '주     소', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'B10': {'address': 'B10', 'value': '업     태', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'K10': {'address': 'K10', 'value': '종목', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'R10': {'address': 'R10', 'value': '업     태', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'AA10': {'address': 'AA10', 'value': '종목', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'A12': {'address': 'A12', 'value': '작     성', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'E12': {'address': 'E12', 'value': '공      급      가      액', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'R12': {'address': 'R12', 'value': '비      고', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'A13': {'address': 'A13', 'value': '년', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'C13': {'address': 'C13', 'value': '월', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'D13': {'address': 'D13', 'value': '일', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'E13': {'address': 'E13', 'value': '공란수', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'G13': {'address': 'G13', 'value': '백', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'H13': {'address': 'H13', 'value': '십', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'I13': {'address': 'I13', 'value': '억', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'J13': {'address': 'J13', 'value': '천', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'K13': {'address': 'K13', 'value': '백', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'L13': {'address': 'L13', 'value': '십', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'M13': {'address': 'M13', 'value': '만', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'N13': {'address': 'N13', 'value': '천', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'O13': {'address': 'O13', 'value': '백', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'P13': {'address': 'P13', 'value': '십', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'Q13': {'address': 'Q13', 'value': '일', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'A15': {'address': 'A15', 'value': '월', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'B15': {'address': 'B15', 'value': '일', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'C15': {'address': 'C15', 'value': '품          목', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'I15': {'address': 'I15', 'value': '규격', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'M15': {'address': 'M15', 'value': '수량', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'O15': {'address': 'O15', 'value': '단      가', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'T15': {'address': 'T15', 'value': '공  급  가  액', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'AA15': {'address': 'AA15', 'value': '비고', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'A20': {'address': 'A20', 'value': '합계금액', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'F20': {'address': 'F20', 'value': '현  금', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'K20': {'address': 'K20', 'value': '수  표', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'P20': {'address': 'P20', 'value': '어  음', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'U20': {'address': 'U20', 'value': '외상미수금', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'Z20': {'address': 'Z20', 'value': '이 금액을 ', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'AD20': {'address': 'AD20', 'value': '영수\\n청구', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'AF20': {'address': 'AF20', 'value': '함', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'A22': {'address': 'A22', 'value': \"22226-28131일 '96.3.27승인\", 'formula': None, 'data_type': 'string', 'format': 'General'}, 'AF22': {'address': 'AF22', 'value': '인쇄용지(특급)34g/m2 182mmx128mm', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'AF24': {'address': 'AF24', 'value': '본 세금계산서는 첨부된 프로그램으로 출력하였습니다.', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'A27': {'address': 'A27', 'value': '[별지 제11호 서식]', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'A28': {'address': 'A28', 'value': '계    산    서', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'P28': {'address': 'P28', 'value': '(', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'Q28': {'address': 'Q28', 'value': '공  급  자', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'V28': {'address': 'V28', 'value': ')', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'W28': {'address': 'W28', 'value': '책   번   호', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'AC28': {'address': 'AC28', 'value': '권', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'AF28': {'address': 'AF28', 'value': '호', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'Q29': {'address': 'Q29', 'value': '보  관  용', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'W29': {'address': 'W29', 'value': '일 련 번 호', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'A30': {'address': 'A30', 'value': '공 급 자', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'B30': {'address': 'B30', 'value': '등록번호', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'Q30': {'address': 'Q30', 'value': '공급받는자', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'R30': {'address': 'R30', 'value': '등록번호', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'B32': {'address': 'B32', 'value': '상     호', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'K32': {'address': 'K32', 'value': '성명', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'P32': {'address': 'P32', 'value': '인', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'R32': {'address': 'R32', 'value': '상     호', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'AA32': {'address': 'AA32', 'value': '성명', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'AF32': {'address': 'AF32', 'value': '인', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'B33': {'address': 'B33', 'value': '(법인명)', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'R33': {'address': 'R33', 'value': '(법인명)', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'B34': {'address': 'B34', 'value': '사 업 장', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'R34': {'address': 'R34', 'value': '사 업 장', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'B35': {'address': 'B35', 'value': '주     소', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'R35': {'address': 'R35', 'value': '주     소', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'B36': {'address': 'B36', 'value': '업     태', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'K36': {'address': 'K36', 'value': '종목', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'R36': {'address': 'R36', 'value': '업     태', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'AA36': {'address': 'AA36', 'value': '종목', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'A38': {'address': 'A38', 'value': '작     성', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'E38': {'address': 'E38', 'value': '공      급       가      액', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'R38': {'address': 'R38', 'value': '비     고', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'A39': {'address': 'A39', 'value': '년', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'C39': {'address': 'C39', 'value': '월', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'D39': {'address': 'D39', 'value': '일', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'E39': {'address': 'E39', 'value': '공란수', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'G39': {'address': 'G39', 'value': '백', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'H39': {'address': 'H39', 'value': '십', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'I39': {'address': 'I39', 'value': '억', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'J39': {'address': 'J39', 'value': '천', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'K39': {'address': 'K39', 'value': '백', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'L39': {'address': 'L39', 'value': '십', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'M39': {'address': 'M39', 'value': '만', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'N39': {'address': 'N39', 'value': '천', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'O39': {'address': 'O39', 'value': '백', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'P39': {'address': 'P39', 'value': '십', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'Q39': {'address': 'Q39', 'value': '일', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'A41': {'address': 'A41', 'value': '월', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'B41': {'address': 'B41', 'value': '일', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'C41': {'address': 'C41', 'value': '품          목', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'I41': {'address': 'I41', 'value': '규격', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'M41': {'address': 'M41', 'value': '수량', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'O41': {'address': 'O41', 'value': '단      가', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'T41': {'address': 'T41', 'value': '공  급  가  액', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'AA41': {'address': 'AA41', 'value': '비고', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'A46': {'address': 'A46', 'value': '합계금액', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'F46': {'address': 'F46', 'value': '현  금', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'K46': {'address': 'K46', 'value': '수  표', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'P46': {'address': 'P46', 'value': '어  음', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'U46': {'address': 'U46', 'value': '외상미수금', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'Z46': {'address': 'Z46', 'value': '이 금액을 ', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'AD46': {'address': 'AD46', 'value': '영수\\n청구', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'AF46': {'address': 'AF46', 'value': '함', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'A48': {'address': 'A48', 'value': \"22226-28131일 '96.3.27승인\", 'formula': None, 'data_type': 'string', 'format': 'General'}, 'AF49': {'address': 'AF49', 'value': 'http://ecw100.com', 'formula': None, 'data_type': 'string', 'format': 'General'}}", "mcp_data": null}}, {"span_id": "span_dc7b29e136734261baeb3e71", "parent_id": "span_eb845ae667754552a6acafb1", "started_at": "2025-12-28T02:38:14.274516+00:00", "ended_at": "2025-12-28T02:39:20.655224+00:00", "error": null, "type": "response", "data": {"type": "response", "response_id": "resp_0ef65982b2db034d006950981678ac8193a496d1adb1a6e898"}}, {"span_id": "span_eb845ae667754552a6acafb1", "parent_id": null, "started_at": "2025-12-28T02:38:07.205117+00:00", "ended_at": "2025-12-28T02:39:20.655624+00:00", "error": null, "type": "agent", "data": {"type": "agent", "name": "Excel Analyzer", "handoffs": [], "tools": ["analyze_excel", "get_sheet_cells"], "output_type": "str"}}, {"span_id": "span_67c6ff22bd894682938f4015", "parent_id": "span_25d765f072c240aaa9ef046a", "started_at": "2025-12-28T02:39:20.656123+00:00", "ended_at": "2025-12-28T02:39:48.925499+00:00", "error": null, "type": "response", "data": {"type": "response", "response_id": "resp_0831b8a20e4391fd0069509858dd288194817a8de7b6208790"}}, {"span_id": "span_25d765f072c240aaa9ef046a", "parent_id": null, "started_at": "2025-12-28T02:39:20.655866+00:00", "ended_at": "2025-12-28T02:39:48.926081+00:00", "error": null, "type": "agent", "data": {"type": "agent", "name": "WebApp Planner", "handoffs": [], "tools": [], "output_type": "WebAppPlan"}}, {"span_id": "span_941d14182c5849a2b6f01dbc", "parent_id": "span_dbbf12f764304b268eaff252", "started_at": "2025-12-28T02:39:48.926575+00:00", "ended_at": "2025-12-28T02:39:50.314661+00:00", "error": null, "type": "response", "data": {"type": "response", "response_id": "resp_04fbc4fb24f9ffac006950987522b08193873a4482430059f0"}}, {"span_id": "span_0d1f10d444cb4b17ae81b89d", "parent_id": "span_dbbf12f764304b268eaff252", "started_at": "2025-12-28T02:39:50.314859+00:00", "ended_at": "2025-12-28T02:39:50.315002+00:00", "error": null, "type": "function", "data": {"type": "function", "name": "get_js_helpers", "input": "{}", "output": "\n// Excel formula helper functions\nfunction _sum(...args) {\n    return args.flat().reduce((a, b) => (parseFloat(a) || 0) + (parseFloat(b) || 0), 0);\n}\n\nfunction _sumRange(rangeData) {\n    if (Array.isArray(rangeData)) {\n        return rangeData.flat().reduce((a, b) => (parseFloat(a) || 0) + (parseFloat(b) || 0), 0);\n    }\n    return parseFloat(rangeData) || 0;\n}\n\nfunction _average(...args) {\n    const flat = args.flat().filter(x => x !== null && x !== '' && !isNaN(x));\n    return flat.length ? _sum(...flat) / flat.length : 0;\n}\n\nfunction _averageRange(rangeData) {\n    if (Array.isArray(rangeData)) {\n        const flat = rangeData.flat().filter(x => x !== null && x !== '' && !isNaN(x));\n        return flat.length ? _sumRange(flat) / flat.length : 0;\n    }\n    return parseFloat(rangeData) || 0;\n}\n\nfunction _count(...args) {\n    return args.flat().filter(x => typeof x === 'number' && !isNaN(x)).length;\n}\n\nfunction _counta(...args) {\n    return args.flat().filter(x => x !== null && x !== '' && x !== undefined).length;\n}\n\nfunction _and(...args) {\n    return args.every(x => Boolean(x));\n}\n\nfunction _or(...args) {\n    return args.some(x => Boolean(x));\n}\n\nfunction _round(num, digits = 0) {\n    const factor = Math.pow(10, digits);\n    return Math.round(num * factor) / factor;\n}\n\nfunction _roundUp(num, digits = 0) {\n    const factor = Math.pow(10, digits);\n    return Math.ceil(num * factor) / factor;\n}\n\nfunction _roundDown(num, digits = 0) {\n    const factor = Math.pow(10, digits);\n    return Math.floor(num * factor) / factor;\n}\n\nfunction _len(text) {\n    return String(text).length;\n}\n\nfunction _left(text, numChars = 1) {\n    return String(text).substring(0, numChars);\n}\n\nfunction _right(text, numChars = 1) {\n    const str = String(text);\n    return str.substring(str.length - numChars);\n}\n\nfunction _mid(text, startNum, numChars) {\n    return String(text).substring(startNum - 1, startNum - 1 + numChars);\n}\n\nfunction _trim(text) {\n    return String(text).trim();\n}\n\nfunction _upper(text) {\n    return String(text).toUpperCase();\n}\n\nfunction _lower(text) {\n    return String(text).toLowerCase();\n}\n\nfunction _concat(...args) {\n    return args.join('');\n}\n\n// Number formatting\nfunction formatNumber(num, decimals = 0) {\n    return new Intl.NumberFormat('ko-KR', {\n        minimumFractionDigits: decimals,\n        maximumFractionDigits: decimals\n    }).format(num);\n}\n\nfunction formatCurrency(num) {\n    return new Intl.NumberFormat('ko-KR', {\n        style: 'currency',\n        currency: 'KRW',\n        maximumFractionDigits: 0\n    }).format(num);\n}\n\nfunction formatPercent(num, decimals = 1) {\n    return new Intl.NumberFormat('ko-KR', {\n        style: 'percent',\n        minimumFractionDigits: decimals,\n        maximumFractionDigits: decimals\n    }).format(num / 100);\n}\n", "mcp_data": null}}, {"span_id": "span_bbb154a0282e46988cd1a8d8", "parent_id": "span_dbbf12f764304b268eaff252", "started_at": "2025-12-28T02:39:50.315383+00:00", "ended_at": "2025-12-28T02:41:14.676399+00:00", "error": null, "type": "response", "data": {"type": "response", "response_id": "resp_04fbc4fb24f9ffac006950987689048193b8bc437c3334cf71"}}, {"span_id": "span_dbbf12f764304b268eaff252", "parent_id": null, "started_at": "2025-12-28T02:39:48.926324+00:00", "ended_at": "2025-12-28T02:41:14.676877+00:00", "error": null, "type": "agent", "data": {"type": "agent", "name": "WebApp Generator", "handoffs": [], "tools": ["convert_formula", "check_formula_complexity", "get_js_helpers"], "output_type": "GeneratedWebApp"}}]};
+<div id="selection-info" style="
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 10001;
+    display: none;
+    justify-content: center;
+    align-items: center;
+" onclick="this.style.display='none'">
+    <div style="
+        background: white;
+        padding: 30px;
+        border-radius: 16px;
+        max-width: 500px;
+        margin: 20px;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    " onclick="event.stopPropagation()">
+        <h2 style="margin: 0 0 15px; color: #333;">🏆 해커톤 선정 이유</h2>
+        <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+            <strong style="color: #667eea;">세무/회계</strong>
+            <p style="margin: 10px 0 0; color: #555; line-height: 1.6;">기본 세무 양식 - 비즈니스 실용성</p>
+        </div>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            
+        </div>
+        <button onclick="document.getElementById('selection-info').style.display='none'"
+                style="margin-top: 20px; width: 100%; padding: 12px; background: #667eea; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px;">
+            닫기
+        </button>
+    </div>
+</div>
 
-function toggleTracePanel() {
-    document.getElementById('tracePanel').classList.toggle('open');
-}
-
-function renderTrace() {
-    const summary = document.getElementById('traceSummary');
-    const content = document.getElementById('traceContent');
-
-    if (!TRACE_DATA) {
-        content.innerHTML = '<p>No trace data available</p>';
-        return;
-    }
-
-    // Summary
-    const spans = TRACE_DATA.spans || [];
-    const agentSpans = spans.filter(s => s.type === 'agent').length;
-    const genSpans = spans.filter(s => s.type === 'generation').length;
-    const funcSpans = spans.filter(s => s.type === 'function').length;
-
-    summary.innerHTML = `
-        <div class="trace-summary-item"><span>Workflow</span><span>${TRACE_DATA.workflow_name || '-'}</span></div>
-        <div class="trace-summary-item"><span>Agent Spans</span><span>${agentSpans}</span></div>
-        <div class="trace-summary-item"><span>LLM Generations</span><span>${genSpans}</span></div>
-        <div class="trace-summary-item"><span>Function Calls</span><span>${funcSpans}</span></div>
-    `;
-
-    // Spans
-    let html = '';
-    spans.forEach(span => {
-        const typeClass = span.type || 'custom';
-        const data = span.data || {};
-        html += `
-            <div class="span-item ${typeClass}">
-                <div class="span-type">${span.type || 'span'}</div>
-                <div class="span-name">${data.name || data.model || span.span_id?.slice(0, 8) || '-'}</div>
-                ${data.input ? `<div class="span-data">${typeof data.input === 'string' ? data.input.slice(0, 200) : JSON.stringify(data.input).slice(0, 200)}...</div>` : ''}
-                ${data.output ? `<div class="span-data">${typeof data.output === 'string' ? data.output.slice(0, 200) : JSON.stringify(data.output).slice(0, 200)}...</div>` : ''}
-                ${data.usage ? `<div class="span-time">Tokens: ${data.usage.total_tokens || '-'}</div>` : ''}
-            </div>
-        `;
-    });
-    content.innerHTML = html || '<p>No spans recorded</p>';
-}
-
-document.addEventListener('DOMContentLoaded', renderTrace);
-</script>
+<style>
+body { padding-top: 56px !important; }
+</style>
 </body>
 </html>

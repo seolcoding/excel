@@ -359,7 +359,7 @@ def create_tester_agent() -> Agent:
             validate_korean_ui,
             check_formula_implementation,
         ],
-        model="gpt-4o-mini",  # Cost-optimized for evaluation
+        model="gpt-5-mini",  # Cost-optimized for evaluation
         output_type=AgentOutputSchema(TestEvaluation, strict_json_schema=False),
     )
 

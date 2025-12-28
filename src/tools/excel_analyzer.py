@@ -253,11 +253,15 @@ def _extract_vba(file_path: str) -> list[VBAModule]:
                 # Extract procedure names
                 procedures = _extract_vba_procedures(vba_code)
 
+                # For initial analysis, only include code summary (size info)
+                # Full code can be retrieved separately using get_vba_module_code tool
+                code_summary = f"[{len(vba_code)} chars, {len(procedures)} procedures]"
+
                 modules.append(VBAModule(
                     name=vba_filename,
                     module_type=module_type,
-                    code=vba_code,
-                    procedures=procedures,
+                    code=code_summary,
+                    procedures=procedures[:10],  # Limit to first 10 procedures
                 ))
 
         vba_parser.close()
@@ -377,6 +381,42 @@ def _calculate_complexity(formula_count: int, vba_count: int, sheet_count: int) 
         return "medium"
     else:
         return "low"
+
+
+def get_vba_module_code(file_path: str, module_name: str) -> dict:
+    """
+    Get full VBA code for a specific module.
+
+    Args:
+        file_path: Path to the Excel file (.xlsm)
+        module_name: Name of the VBA module to retrieve
+
+    Returns:
+        Dictionary with module info and full code
+    """
+    try:
+        from oletools.olevba import VBA_Parser
+
+        vba_parser = VBA_Parser(file_path)
+
+        if vba_parser.detect_vba_macros():
+            for (filename, stream_path, vba_filename, vba_code) in vba_parser.extract_macros():
+                if vba_filename == module_name:
+                    vba_parser.close()
+                    return {
+                        "name": vba_filename,
+                        "code": vba_code,
+                        "size": len(vba_code),
+                        "procedures": _extract_vba_procedures(vba_code),
+                    }
+
+        vba_parser.close()
+        return {"error": f"Module '{module_name}' not found"}
+
+    except ImportError:
+        return {"error": "oletools not installed"}
+    except Exception as e:
+        return {"error": str(e)}
 
 
 def get_cell_data(file_path: str, sheet_name: str = None) -> dict[str, CellInfo]:

@@ -20,6 +20,21 @@ from .vba_converter import (
     VBAConversionResult,
     VBAConversionError,
 )
+from .test_generator import (
+    extract_test_cases,
+    generate_node_test_script,
+    generate_playwright_tests,
+)
+from .static_test_runner import (
+    StaticTestRunner,
+    run_static_tests,
+    run_static_tests_sync,
+)
+from .e2e_test_runner import (
+    PlaywrightE2ERunner,
+    run_e2e_tests,
+    run_e2e_tests_sync,
+)
 
 __all__ = [
     # Excel analyzer
@@ -39,4 +54,16 @@ __all__ = [
     "validate_converted_js",
     "VBAConversionResult",
     "VBAConversionError",
+    # Test generator
+    "extract_test_cases",
+    "generate_node_test_script",
+    "generate_playwright_tests",
+    # Static test runner
+    "StaticTestRunner",
+    "run_static_tests",
+    "run_static_tests_sync",
+    # E2E test runner
+    "PlaywrightE2ERunner",
+    "run_e2e_tests",
+    "run_e2e_tests_sync",
 ]

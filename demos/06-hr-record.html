@@ -3,288 +3,270 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>엑셀 시트 뷰어/인쇄 도구</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <title>엑셀 표 보기/인쇄 웹앱</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-  <!-- SheetJS (XLSX) for client-side parsing -->
-  <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-
   <style>
     :root{
-      --excel-border:#d9d9d9;
-      --excel-header:#f3f4f6;
-      --excel-text:#111827;
-      --excel-muted:#6b7280;
-      --cell-minw:80px;
+      --bg:#ffffff;
+      --fg:#111827;
+      --muted:#6b7280;
+      --border:#d1d5db;
+      --header-bg:#f3f4f6;
+      --focus:#2563eb;
       --cell-pad-y:6px;
       --cell-pad-x:8px;
-      --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", Arial, sans-serif;
+      --table-font: 13px;
+      --table-font-print: 10pt;
     }
 
-    body{ font-family: var(--font-sans); color:var(--excel-text); }
+    html, body{ height:100%; }
+    body{
+      background:var(--bg);
+      color:var(--fg);
+      font-family: "Noto Sans KR", system-ui, -apple-system, "Segoe UI", Roboto, "Apple SD Gothic Neo", "Malgun Gothic", "Helvetica Neue", Arial, sans-serif;
+    }
 
-    .appbar{
+    .app-header{
       position: sticky;
       top: 0;
       z-index: 1020;
-      background: rgba(255,255,255,0.95);
-      backdrop-filter: blur(8px);
-      border-bottom: 1px solid #e5e7eb;
+      background: rgba(255,255,255,0.92);
+      backdrop-filter: blur(6px);
+      border-bottom: 1px solid var(--border);
     }
 
-    .sheet-area{
-      height: calc(100vh - 120px);
-      min-height: 320px;
-    }
+    .toolbar .btn{ white-space: nowrap; }
+
+    .status-area{ min-height: 1.5rem; }
 
     .table-wrap{
-      border: 1px solid #e5e7eb;
-      border-radius: 10px;
-      overflow: hidden;
-      background: #fff;
-      height: 100%;
-      display: flex;
-      flex-direction: column;
-    }
-
-    .table-scroll{
+      border: 1px solid var(--border);
+      border-radius: .5rem;
       overflow: auto;
-      height: 100%;
-    }
-
-    table.excel{
-      width: max-content;
-      min-width: 100%;
-      border-collapse: collapse;
-      table-layout: fixed;
-    }
-
-    table.excel caption{
-      caption-side: top;
-      text-align: left;
-      padding: 10px 12px;
-      font-weight: 700;
-      color: var(--excel-text);
       background: #fff;
-      border-bottom: 1px solid #e5e7eb;
+      max-height: calc(100vh - 170px);
     }
 
-    table.excel td{
-      border: 1px solid var(--excel-border);
-      min-width: var(--cell-minw);
+    table.sheet-table{
+      width: 100%;
+      border-collapse: collapse;
+      font-size: var(--table-font);
+    }
+
+    table.sheet-table caption{
+      caption-side: top;
+      padding: .5rem .75rem;
+      color: var(--muted);
+      font-size: 0.95rem;
+      text-align: left;
+    }
+
+    table.sheet-table th,
+    table.sheet-table td{
+      border: 1px solid var(--border);
       padding: var(--cell-pad-y) var(--cell-pad-x);
-      vertical-align: middle;
-      white-space: normal; /* 화면 기본: 줄바꿈 */
-      word-break: break-word;
-      font-size: 14px;
+      vertical-align: top;
       line-height: 1.25;
       background: #fff;
     }
 
-    td.cell-num{ text-align: right; font-variant-numeric: tabular-nums; }
-    td.cell-text{ text-align: left; }
+    table.sheet-table thead th{
+      background: var(--header-bg);
+      font-weight: 600;
+    }
 
-    /* Sticky top row / left col like Excel headers (not data headers) */
-    td.sticky-top{ position: sticky; top: 0; z-index: 3; background: var(--excel-header); }
-    td.sticky-left{ position: sticky; left: 0; z-index: 2; background: var(--excel-header); }
-    td.sticky-corner{ position: sticky; top: 0; left: 0; z-index: 4; background: var(--excel-header); }
+    .sticky-header thead th{
+      position: sticky;
+      top: 0;
+      z-index: 3;
+    }
 
-    .meta-note{ color: var(--excel-muted); font-size: 0.875rem; }
+    .col-headers thead th{
+      text-align: center;
+    }
 
-    .sheet-pill{ font-size: 0.875rem; }
+    .row-headers tbody th.row-h{
+      background: var(--header-bg);
+      position: sticky;
+      left: 0;
+      z-index: 2;
+      text-align: right;
+      min-width: 3.25rem;
+    }
+
+    .row-headers thead th.corner{
+      position: sticky;
+      left: 0;
+      z-index: 4;
+      background: var(--header-bg);
+    }
+
+    .cell-empty{ color: #9ca3af; }
+
+    .sr-only{
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0,0,0,0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    :focus-visible{
+      outline: 3px solid color-mix(in srgb, var(--focus) 55%, transparent);
+      outline-offset: 2px;
+      border-radius: .25rem;
+    }
 
     /* Print */
-    @page {
+    @page{
       size: A4 landscape;
-      /* top right bottom left */
       margin: 0.4in 0.4597in 0.2097in 0.4597in;
     }
 
     @media print{
-      .no-print{ display:none !important; }
       body{ background:#fff; }
-      #print-root{ display:block !important; }
-      #screen-root{ display:none !important; }
+      .app-header, .screen-only{ display:none !important; }
+      .print-only{ display:block !important; }
+      main{ padding: 0 !important; }
 
-      .print-sheet{
-        width: 100%;
+      .table-wrap{
+        max-height: none !important;
+        overflow: visible !important;
+        border: none !important;
+        border-radius: 0 !important;
       }
 
-      table.excel{
-        width: 100%;
-        min-width: 100%;
+      table.sheet-table{
+        font-size: var(--table-font-print);
       }
 
-      table.excel caption{
-        border: none;
-        padding: 0 0 8px 0;
-        background: transparent;
-      }
-
-      table.excel td{
-        font-size: 10.5pt;
+      table.sheet-table th, table.sheet-table td{
         padding: 4px 6px;
-        white-space: normal; /* 인쇄: 줄바꿈 권장 */
       }
 
-      tr{ break-inside: avoid; page-break-inside: avoid; }
-      .table-scroll{ overflow: visible !important; height: auto !important; }
-
-      /* Avoid sticky artifacts in print */
-      td.sticky-top, td.sticky-left, td.sticky-corner{
-        position: static !important;
-        background: #fff !important;
-      }
+      tr, td, th{ page-break-inside: avoid; }
     }
 
-    /* Print root hidden on screen */
-    #print-root{ display:none; }
-  
-    /* Navigation Header */
-    .demo-nav {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      padding: 10px 20px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      z-index: 9999;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-    }
-    .demo-nav a {
-      color: white;
-      text-decoration: none;
-      padding: 6px 12px;
-      border-radius: 6px;
-      font-size: 0.9rem;
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      transition: background 0.2s;
-    }
-    .demo-nav a:hover {
-      background: rgba(255,255,255,0.2);
-    }
-    .demo-nav .nav-title {
-      font-weight: 600;
-      font-size: 1rem;
-    }
-    .demo-nav .nav-links {
-      display: flex;
-      gap: 8px;
-    }
-    .demo-nav .btn-trace {
-      background: rgba(100, 255, 218, 0.2);
-      border: 1px solid #64ffda;
-    }
-    .demo-nav .btn-excel {
-      background: rgba(33, 115, 70, 0.8);
-    }
-    body {
-      padding-top: 50px !important;
-    }
-    @media print {
-      .demo-nav { display: none !important; }
-      body { padding-top: 0 !important; }
-    }
-
+    .print-only{ display:none; }
   </style>
 </head>
 <body>
-<!-- Navigation Header -->
-<nav class="demo-nav">
-  <div>
-    <a href="../index.html">← 목록</a>
-    <span class="nav-title" style="margin-left: 15px;">인사기록카드</span>
-  </div>
-  <div class="nav-links">
-    <a href="../traces/trace-viewer.html?demo=06" class="btn-trace">
-      <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M6 3.5A1.5 1.5 0 0 1 7.5 2h1A1.5 1.5 0 0 1 10 3.5v1A1.5 1.5 0 0 1 8.5 6v1H14a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-1 0V8h-5v.5a.5.5 0 0 1-1 0V8h-5v.5a.5.5 0 0 1-1 0v-1A.5.5 0 0 1 2 7h5.5V6A1.5 1.5 0 0 1 6 4.5v-1z"/></svg>
-      Agent Trace
-    </a>
-    <a href="../excel_files/엑셀서식(20160517)/인사기록카드(외국인근로자관리)/3.xlsx" class="btn-excel" download>
-      <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M5.884 6.68a.5.5 0 1 0-.768.64L7.349 10l-2.233 2.68a.5.5 0 0 0 .768.64L8 10.781l2.116 2.54a.5.5 0 0 0 .768-.641L8.651 10l2.233-2.68a.5.5 0 0 0-.768-.64L8 9.219l-2.116-2.54z"/><path d="M14 14V4.5L9.5 0H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2zM9.5 3A1.5 1.5 0 0 0 11 4.5h2V14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h5.5v2z"/></svg>
-      Excel
-    </a>
-  </div>
-</nav>
+  <div class="container-fluid py-3" x-data="appData()" x-init="init()">
 
-  <div class="container-fluid px-3 px-lg-4 py-3" x-data="appData()" x-init="init()">
+    <header class="app-header py-2 mb-3" aria-label="상단 툴바">
+      <div class="container-fluid">
+        <div class="d-flex flex-column flex-lg-row align-items-lg-center gap-2 justify-content-between">
+          <div class="d-flex align-items-center gap-2">
+            <h1 class="h5 m-0">엑셀 표 보기/인쇄 웹앱</h1>
+            <span class="text-secondary small">Sheet1 · A1:R102</span>
+          </div>
 
-    <!-- Screen UI -->
-    <div id="screen-root">
-      <header class="appbar no-print py-3">
-        <div class="container-fluid px-0">
-          <div class="row g-2 align-items-end">
-            <div class="col-12 col-lg-4">
-              <h1 class="h4 mb-1">엑셀 시트 뷰어/인쇄 도구</h1>
-              <div class="meta-note">업로드한 xlsx 파일을 시트별로 조회하고 A4 가로 인쇄에 최적화하여 출력합니다.</div>
+          <div class="toolbar d-flex flex-wrap gap-2 align-items-center justify-content-end">
+            <div class="d-flex align-items-center gap-2">
+              <label class="btn btn-outline-secondary btn-sm mb-0" aria-label="파일 불러오기">
+                파일 불러오기(선택)
+                <input class="d-none" type="file" accept=".xlsx" @change="onFileSelected($event)" />
+              </label>
+              <button type="button" class="btn btn-outline-secondary btn-sm" @click="reloadStatic()" aria-label="정적 데이터 다시 불러오기">
+                정적 데이터
+              </button>
             </div>
 
-            <div class="col-12 col-lg-4">
-              <label class="form-label" for="fileInput">엑셀 파일 업로드(.xlsx)</label>
-              <input class="form-control" id="fileInput" type="file" accept=".xlsx" @change="onFileChange($event)" aria-describedby="fileHelp" />
-              <div id="fileHelp" class="form-text">로컬에서만 처리됩니다(서버 업로드 없음).</div>
-            </div>
+            <div class="vr d-none d-lg-block" aria-hidden="true"></div>
 
-            <div class="col-12 col-lg-2">
-              <label class="form-label" for="sheetSelect">시트 선택</label>
-              <select class="form-select" id="sheetSelect" x-model="selectedSheet" @change="renderSelected()" :disabled="sheetNames.length===0">
-                <template x-for="name in sheetNames" :key="name">
-                  <option :value="name" x-text="name"></option>
-                </template>
-              </select>
-            </div>
-
-            <div class="col-12 col-lg-2 d-grid">
-              <button type="button" class="btn btn-primary" @click="exportPrintView(selectedSheet)" :disabled="!workbookLoaded" aria-label="선택한 시트 인쇄">
+            <div class="d-flex align-items-center gap-2">
+              <button type="button" class="btn btn-outline-primary btn-sm" @click="togglePreview()" :aria-pressed="String(previewOn)" aria-label="인쇄 미리보기 토글">
+                인쇄 미리보기
+              </button>
+              <button type="button" class="btn btn-primary btn-sm" @click="printPage()" aria-label="A4 가로 인쇄">
                 인쇄
               </button>
             </div>
-          </div>
 
-          <!-- Tabs (accessible) -->
-          <div class="mt-3 no-print" role="tablist" aria-label="시트 탭">
-            <div class="d-flex flex-wrap gap-2">
-              <template x-for="name in sheetNames" :key="name">
-                <button
-                  type="button"
-                  class="btn btn-outline-secondary sheet-pill"
-                  role="tab"
-                  :aria-selected="selectedSheet===name"
-                  :class="selectedSheet===name ? 'btn-secondary text-white' : 'btn-outline-secondary'"
-                  @click="selectedSheet=name; renderSelected();"
-                  x-text="name"
-                ></button>
-              </template>
+            <div class="vr d-none d-lg-block" aria-hidden="true"></div>
+
+            <div class="d-flex flex-wrap gap-2 align-items-center">
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" role="switch" id="optColHeaders" x-model="options.colHeaders" @change="rerender()" aria-label="열 헤더 표시" />
+                <label class="form-check-label" for="optColHeaders">열 헤더</label>
+              </div>
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" role="switch" id="optRowHeaders" x-model="options.rowHeaders" @change="rerender()" aria-label="행 헤더 표시" />
+                <label class="form-check-label" for="optRowHeaders">행 헤더</label>
+              </div>
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" role="switch" id="optSticky" x-model="options.stickyHeader" @change="rerender()" aria-label="고정 헤더(스크롤)" />
+                <label class="form-check-label" for="optSticky">고정 헤더</label>
+              </div>
             </div>
           </div>
         </div>
-      </header>
 
-      <main class="mt-3 sheet-area" role="tabpanel" :aria-label="selectedSheet + ' 패널'">
-        <div class="table-wrap">
-          <div class="table-scroll" id="sheetRenderRoot" aria-live="polite" aria-busy="false"></div>
+        <div class="mt-2 status-area">
+          <template x-if="status.loading">
+            <div class="text-secondary small">데이터를 불러오는 중입니다…</div>
+          </template>
+          <template x-if="status.error">
+            <div class="alert alert-danger py-2 my-0" role="alert" x-text="status.error"></div>
+          </template>
+          <template x-if="(!status.loading && !status.error && status.message)">
+            <div class="text-secondary small" x-text="status.message"></div>
+          </template>
         </div>
-      </main>
+      </div>
+    </header>
 
-      <footer class="mt-3 no-print">
-        <div class="meta-note">
-          <div><strong>인쇄 팁:</strong> 브라우저 인쇄 설정에서 “머리글/바닥글”을 꺼두면 Excel과 더 유사하게 출력됩니다.</div>
+    <main class="container-fluid" :class="{ 'pt-0': previewOn }">
+      <div class="row g-3">
+
+        <div class="col-12" :class="previewOn ? 'col-lg-7' : 'col-12'">
+          <section aria-label="Sheet1 데이터 표">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <h2 class="h6 m-0">Sheet1 데이터 표</h2>
+              <div class="text-secondary small" x-text="tableMetaText"></div>
+            </div>
+
+            <div class="table-wrap" aria-describedby="sheetDesc">
+              <div id="sheetDesc" class="sr-only">Sheet1의 범위 A1:R102를 표 형태로 표시합니다.</div>
+              <div x-ref="sheetTableHost">
+                <!-- renderSheetTable() output -->
+              </div>
+            </div>
+          </section>
         </div>
-      </footer>
-    </div>
 
-    <!-- Print-only DOM -->
-    <div id="print-root" aria-hidden="true"></div>
+        <div class="col-12 col-lg-5" x-show="previewOn" x-transition.opacity.duration.150ms>
+          <section aria-label="인쇄 미리보기" class="screen-only">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <h2 class="h6 m-0">인쇄 미리보기</h2>
+              <div class="text-secondary small">A4 가로 · 여백 적용</div>
+            </div>
+            <div class="border rounded p-2 bg-white">
+              <div class="small text-secondary mb-2">※ 미리보기는 브라우저 인쇄 결과와 완전히 동일하지 않을 수 있습니다. 최종 확인은 “인쇄”에서 확인하세요.</div>
+              <div class="table-wrap" style="max-height: 55vh;">
+                <div x-ref="printPreviewHost"></div>
+              </div>
+            </div>
+          </section>
+        </div>
 
+      </div>
+
+      <!-- Print-only container (optional). We reuse the same table markup by cloning before print. -->
+      <section class="print-only" aria-label="인쇄 전용 영역">
+        <div id="printHost"></div>
+      </section>
+
+    </main>
   </div>
 
   <script>
-    // === Excel formula helper functions (requested to include) ===
+    /* ---- Excel formula helper functions (included per requirement) ---- */
     function _sum(...args) {
         return args.flat().reduce((a, b) => (parseFloat(a) || 0) + (parseFloat(b) || 0), 0);
     }
@@ -373,6 +355,7 @@
         return args.join('');
     }
 
+    // Number formatting
     function formatNumber(num, decimals = 0) {
         return new Intl.NumberFormat('ko-KR', {
             minimumFractionDigits: decimals,
@@ -396,466 +379,319 @@
         }).format(num / 100);
     }
 
-    // === App ===
+    /* ---- App logic ---- */
+
+    // 기본 정적 데이터(샘플). 실제 운영 시 빌드 단계에서 3.xlsx의 Sheet1 A1:R102 값을 JSON으로 추출해 여기에 주입하세요.
+    // 102x18 2차원 배열 형태: data[rowIndex][colIndex]
+    const STATIC_SHEET1_A1_R102 = (function buildSample(){
+      const rows = 102, cols = 18;
+      const data = Array.from({length: rows}, (_, r) =>
+        Array.from({length: cols}, (_, c) => {
+          if (r === 0) return `열${c+1}`; // 첫 행 샘플 헤더
+          return (r <= 8 && c <= 5) ? `R${r+1}C${c+1}` : ""; // 일부만 채운 샘플
+        })
+      );
+      return data;
+    })();
+
     function appData(){
       return {
-        workbook: null,
-        workbookLoaded: false,
-        sheetNames: [],
-        selectedSheet: '',
-
-        // Prefer provided analysis ranges (fixed) when present
-        declaredRanges: {
-          'Sheet1': 'A1:R102',
-          'Sheet2': 'A1:A1',
-          'Sheet3': 'A1:A1'
+        sheetName: 'Sheet1',
+        range: 'A1:R102',
+        data2d: null,
+        previewOn: false,
+        options: {
+          colHeaders: true,
+          rowHeaders: true,
+          stickyHeader: true,
+        },
+        status: {
+          loading: false,
+          error: '',
+          message: '',
         },
 
-        // cached parsed 2D arrays by sheet name
-        sheetData: {},
+        get tableMetaText(){
+          const r = this.data2d?.length ?? 0;
+          const c = (this.data2d && this.data2d[0]) ? this.data2d[0].length : 0;
+          return (r && c) ? `${r}행 × ${c}열` : '';
+        },
 
         init(){
-          // No-op; keep for Alpine init
+          this.bindPrintEvents();
+          this.reloadStatic();
         },
 
-        async onFileChange(evt){
-          const file = evt?.target?.files?.[0];
-          if(!file) return;
-          await this.loadWorkbook(file);
+        bindPrintEvents(){
+          // 인쇄 전/후 훅으로 인쇄 전용 DOM을 구성/정리
+          window.addEventListener('beforeprint', () => {
+            this.enterPrintMode();
+          });
+          window.addEventListener('afterprint', () => {
+            this.exitPrintMode();
+          });
+
+          // 일부 브라우저에서 beforeprint가 불안정할 수 있어 matchMedia도 보조
+          if (window.matchMedia) {
+            const mql = window.matchMedia('print');
+            const handler = (e) => {
+              if (e.matches) this.enterPrintMode();
+              else this.exitPrintMode();
+            };
+            if (mql.addEventListener) mql.addEventListener('change', handler);
+            else if (mql.addListener) mql.addListener(handler);
+          }
         },
 
-        async loadWorkbook(file){
+        async reloadStatic(){
+          this.status.error = '';
+          this.status.message = '';
+          this.status.loading = true;
           try{
-            if(!window.XLSX){
-              alert('XLSX 파서 로딩에 실패했습니다. 네트워크 상태를 확인해주세요.');
-              return;
-            }
-
-            const arrayBuffer = await file.arrayBuffer();
-            const wb = XLSX.read(arrayBuffer, { type: 'array', cellText: true, cellDates: true });
-            this.workbook = wb;
-            this.sheetNames = wb.SheetNames || [];
-            this.workbookLoaded = this.sheetNames.length > 0;
-
-            // Default selected sheet
-            if(this.workbookLoaded){
-              this.selectedSheet = this.sheetNames.includes('Sheet1') ? 'Sheet1' : this.sheetNames[0];
-            } else {
-              this.selectedSheet = '';
-            }
-
-            // Preload only known sheets if exist
-            this.sheetData = {};
-            for(const name of this.sheetNames){
-              // Only parse on demand; but we can prime known ones quickly
-              // keep lazy to avoid heavy memory; parse on render
-            }
-
-            this.renderSelected();
+            const data = await this.loadWorkbookData({ source: 'static' });
+            this.data2d = data;
+            this.status.message = '정적 데이터로 표를 표시합니다. (샘플 데이터)';
+            this.rerender();
           } catch(err){
-            console.error(err);
-            alert('파일을 읽는 중 오류가 발생했습니다. 다른 파일이거나 손상되었을 수 있습니다.');
+            this.status.error = `불러오기 실패: ${err?.message ?? err}`;
+          } finally{
+            this.status.loading = false;
           }
         },
 
-        renderSelected(){
-          if(!this.workbookLoaded || !this.selectedSheet) return;
-          this.renderSheetTable(this.selectedSheet);
-        },
+        async onFileSelected(evt){
+          const file = evt.target.files?.[0];
+          evt.target.value = '';
+          if (!file) return;
 
-        _getRangeForSheet(sheetName){
-          // If declared range exists and sheet exists, use it; else use !ref
-          const ws = this.workbook?.Sheets?.[sheetName];
-          if(!ws) return null;
-          const declared = this.declaredRanges[sheetName];
-          if(declared) return declared;
-          if(ws['!ref']) return ws['!ref'];
-          return null;
-        },
+          this.status.error = '';
+          this.status.message = '';
+          this.status.loading = true;
 
-        _parseSheetTo2D(sheetName){
-          const ws = this.workbook?.Sheets?.[sheetName];
-          if(!ws) return { data: [["(시트를 찾을 수 없습니다)"]], range: 'A1:A1' };
-
-          const rangeStr = this._getRangeForSheet(sheetName) || 'A1:A1';
-          const range = XLSX.utils.decode_range(rangeStr);
-
-          const rows = range.e.r - range.s.r + 1;
-          const cols = range.e.c - range.s.c + 1;
-
-          const data = Array.from({length: rows}, () => Array.from({length: cols}, () => ({ v: '', t: 'z' })));
-
-          for(let r=0; r<rows; r++){
-            for(let c=0; c<cols; c++){
-              const addr = XLSX.utils.encode_cell({ r: range.s.r + r, c: range.s.c + c });
-              const cell = ws[addr];
-              if(cell){
-                // Prefer formatted text if provided, else raw value
-                let v = (cell.w !== undefined) ? cell.w : (cell.v !== undefined ? cell.v : '');
-                let t = cell.t || (typeof cell.v === 'number' ? 'n' : 's');
-                data[r][c] = { v, t, raw: cell.v };
-              }
-            }
+          try{
+            // 주의: 본 앱은 외부 의존성을 금지(요구사항)하므로 브라우저에서 xlsx 파싱(SheetJS)을 포함하지 않습니다.
+            // 따라서 업로드는 “선택 UI”만 제공하며, 실제 파싱이 필요하면 서버 변환(JSON) 또는 빌드타임 추출 방식을 권장합니다.
+            throw new Error('현재 버전은 브라우저 내 xlsx 파싱을 지원하지 않습니다. (권장: Sheet1 범위를 JSON으로 추출해 정적 포함)');
+          } catch(err){
+            this.status.error = `업로드 처리 실패: ${err?.message ?? err}`;
+          } finally{
+            this.status.loading = false;
           }
-
-          return { data, range: rangeStr };
         },
 
-        renderSheetTable(sheetName){
-          const root = document.getElementById('sheetRenderRoot');
-          if(!root) return;
-
-          root.setAttribute('aria-busy', 'true');
-          root.innerHTML = '';
-
-          const parsed = this._parseSheetTo2D(sheetName);
-          this.sheetData[sheetName] = parsed;
-
-          const { data, range } = parsed;
-
-          const table = document.createElement('table');
-          table.className = 'excel';
-          table.setAttribute('role', 'table');
-
-          const caption = document.createElement('caption');
-          caption.textContent = `${sheetName} (${range})`;
-          table.appendChild(caption);
-
-          const tbody = document.createElement('tbody');
-
-          // Add Excel-like row/col headers (not data headers)
-          const rows = data.length;
-          const cols = data[0]?.length || 0;
-
-          // Top header row: corner + column letters
-          const trHead = document.createElement('tr');
-          const corner = document.createElement('td');
-          corner.className = 'sticky-corner';
-          corner.textContent = '';
-          trHead.appendChild(corner);
-
-          // Determine starting col index from range
-          const rangeObj = XLSX.utils.decode_range(range);
-          for(let c=0; c<cols; c++){
-            const td = document.createElement('td');
-            td.className = 'sticky-top';
-            td.textContent = XLSX.utils.encode_col(rangeObj.s.c + c);
-            trHead.appendChild(td);
+        async loadWorkbookData({source}){
+          // 요구사항: 정적 JSON(또는 업로드된 xlsx)에서 Sheet1 A1:R102를 로드
+          if (source === 'static'){
+            // 깊은 복사(렌더링 과정에서 원본 훼손 방지)
+            return STATIC_SHEET1_A1_R102.map(row => row.slice());
           }
-          tbody.appendChild(trHead);
-
-          for(let r=0; r<rows; r++){
-            const tr = document.createElement('tr');
-
-            const rowHdr = document.createElement('td');
-            rowHdr.className = 'sticky-left';
-            rowHdr.textContent = String(rangeObj.s.r + r + 1);
-            tr.appendChild(rowHdr);
-
-            for(let c=0; c<cols; c++){
-              const cell = data[r][c];
-              const td = document.createElement('td');
-
-              const isNum = (cell && (cell.t === 'n' || typeof cell.raw === 'number'));
-              td.className = isNum ? 'cell-num' : 'cell-text';
-
-              // Render empty as blank (not "undefined")
-              td.textContent = (cell && cell.v !== null && cell.v !== undefined) ? String(cell.v) : '';
-
-              tr.appendChild(td);
-            }
-            tbody.appendChild(tr);
-          }
-
-          table.appendChild(tbody);
-          root.appendChild(table);
-          root.setAttribute('aria-busy', 'false');
+          throw new Error('지원하지 않는 데이터 소스입니다.');
         },
 
-        exportPrintView(sheetName){
-          if(!this.workbookLoaded || !sheetName){
-            alert('먼저 엑셀 파일을 업로드하고 시트를 선택해주세요.');
+        rerender(){
+          if (!this.data2d){
+            this.$refs.sheetTableHost.innerHTML = '<div class="p-3 text-secondary">표 데이터가 없습니다.</div>';
+            if (this.$refs.printPreviewHost) this.$refs.printPreviewHost.innerHTML = '';
             return;
           }
 
-          // Ensure current sheet is rendered & cached
-          if(!this.sheetData[sheetName]){
-            this.sheetData[sheetName] = this._parseSheetTo2D(sheetName);
+          const tableEl = this.renderSheetTable(this.sheetName, this.range, this.data2d, this.options);
+          this.$refs.sheetTableHost.innerHTML = '';
+          this.$refs.sheetTableHost.appendChild(tableEl);
+
+          if (this.previewOn && this.$refs.printPreviewHost){
+            const previewTable = tableEl.cloneNode(true);
+            this.$refs.printPreviewHost.innerHTML = '';
+            this.$refs.printPreviewHost.appendChild(previewTable);
           }
+        },
 
-          const printRoot = document.getElementById('print-root');
-          if(!printRoot) return;
+        renderSheetTable(sheetName, range, data2d, options){
+          const rows = data2d.length;
+          const cols = Math.max(...data2d.map(r => r.length));
 
-          // Build print DOM fresh
-          printRoot.innerHTML = '';
-
-          const wrapper = document.createElement('div');
-          wrapper.className = 'print-sheet';
-
-          // Title (optional)
-          const title = document.createElement('div');
-          title.style.marginBottom = '8px';
-          title.style.fontWeight = '700';
-          title.textContent = `시트: ${sheetName}`;
-          wrapper.appendChild(title);
-
-          // Render a non-scroll table from cached data
-          const { data, range } = this.sheetData[sheetName];
           const table = document.createElement('table');
-          table.className = 'excel';
+          table.className = 'sheet-table ' +
+            (options.stickyHeader ? 'sticky-header ' : '') +
+            (options.colHeaders ? 'col-headers ' : '') +
+            (options.rowHeaders ? 'row-headers ' : '');
+
           const caption = document.createElement('caption');
           caption.textContent = `${sheetName} (${range})`;
           table.appendChild(caption);
 
-          const tbody = document.createElement('tbody');
-          const rows = data.length;
-          const cols = data[0]?.length || 0;
-          const rangeObj = XLSX.utils.decode_range(range);
-
-          // Include row/col headers also in print (as normal cells)
-          const trHead = document.createElement('tr');
-          const corner = document.createElement('td');
-          corner.textContent = '';
-          trHead.appendChild(corner);
-          for(let c=0; c<cols; c++){
-            const td = document.createElement('td');
-            td.textContent = XLSX.utils.encode_col(rangeObj.s.c + c);
-            trHead.appendChild(td);
-          }
-          tbody.appendChild(trHead);
-
-          for(let r=0; r<rows; r++){
+          // THEAD (optional col headers)
+          if (options.colHeaders){
+            const thead = document.createElement('thead');
             const tr = document.createElement('tr');
-            const rowHdr = document.createElement('td');
-            rowHdr.textContent = String(rangeObj.s.r + r + 1);
-            tr.appendChild(rowHdr);
 
-            for(let c=0; c<cols; c++){
-              const cell = data[r][c];
+            if (options.rowHeaders){
+              const corner = document.createElement('th');
+              corner.className = 'corner';
+              corner.scope = 'col';
+              corner.textContent = '';
+              corner.setAttribute('aria-label', '행 번호');
+              tr.appendChild(corner);
+            }
+
+            for (let c=0; c<cols; c++){
+              const th = document.createElement('th');
+              th.scope = 'col';
+              th.textContent = this.colName(c);
+              tr.appendChild(th);
+            }
+            thead.appendChild(tr);
+            table.appendChild(thead);
+          }
+
+          const tbody = document.createElement('tbody');
+
+          for (let r=0; r<rows; r++){
+            const tr = document.createElement('tr');
+
+            if (options.rowHeaders){
+              const th = document.createElement('th');
+              th.className = 'row-h';
+              th.scope = 'row';
+              th.textContent = String(r+1);
+              tr.appendChild(th);
+            }
+
+            for (let c=0; c<cols; c++){
               const td = document.createElement('td');
-              const isNum = (cell && (cell.t === 'n' || typeof cell.raw === 'number'));
-              td.className = isNum ? 'cell-num' : 'cell-text';
-              td.textContent = (cell && cell.v !== null && cell.v !== undefined) ? String(cell.v) : '';
+              const v = (data2d[r] && data2d[r][c] != null) ? String(data2d[r][c]) : '';
+              if (v === ''){
+                td.className = 'cell-empty';
+                td.textContent = '';
+              } else {
+                td.textContent = v;
+              }
               tr.appendChild(td);
             }
+
             tbody.appendChild(tr);
           }
 
           table.appendChild(tbody);
-          wrapper.appendChild(table);
-          printRoot.appendChild(wrapper);
+          return table;
+        },
 
-          // Print
+        colName(idx){
+          // 0->A ... 25->Z 26->AA
+          let n = idx + 1;
+          let s = '';
+          while (n > 0){
+            const r = (n - 1) % 26;
+            s = String.fromCharCode(65 + r) + s;
+            n = Math.floor((n - 1) / 26);
+          }
+          return s;
+        },
+
+        togglePreview(){
+          this.previewOn = !this.previewOn;
+          this.rerender();
+        },
+
+        enterPrintMode(){
+          // 인쇄 전용 영역에 테이블을 복제하여 넣어, 화면 스크롤 컨테이너/높이 제한 영향 제거
+          const printHost = document.getElementById('printHost');
+          if (!printHost) return;
+          printHost.innerHTML = '';
+
+          const currentTable = this.$refs.sheetTableHost.querySelector('table');
+          if (currentTable){
+            const clone = currentTable.cloneNode(true);
+            // 인쇄에서는 sticky가 의미 없을 수 있으므로 클래스 제거
+            clone.classList.remove('sticky-header');
+            printHost.appendChild(clone);
+          }
+        },
+
+        exitPrintMode(){
+          const printHost = document.getElementById('printHost');
+          if (printHost) printHost.innerHTML = '';
+        },
+
+        printPage(){
+          // 인쇄 직전에 전용 DOM 구성
+          this.enterPrintMode();
           window.print();
-        }
+        },
       };
     }
   </script>
 
-<!-- Agent Trace Viewer -->
-<style>
-.trace-toggle {
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    z-index: 9999;
-    background: #6366f1;
-    color: white;
-    border: none;
-    padding: 12px 20px;
-    border-radius: 25px;
-    cursor: pointer;
-    font-size: 14px;
-    box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-.trace-toggle:hover { background: #4f46e5; }
-.trace-panel {
+<!-- 해커톤 선정 정보 -->
+<div id="selection-banner" style="
     position: fixed;
     top: 0;
-    right: -450px;
-    width: 450px;
-    height: 100vh;
-    background: #1e1e2e;
-    color: #cdd6f4;
-    z-index: 9998;
-    transition: right 0.3s ease;
-    overflow-y: auto;
-    font-family: 'Monaco', 'Menlo', monospace;
-    font-size: 12px;
-}
-.trace-panel.open { right: 0; }
-.trace-header {
-    padding: 16px;
-    background: #313244;
-    border-bottom: 1px solid #45475a;
+    left: 0;
+    right: 0;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 12px 20px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 14px;
+    z-index: 10000;
     display: flex;
     justify-content: space-between;
     align-items: center;
-}
-.trace-header h3 { margin: 0; font-size: 14px; }
-.trace-close {
-    background: none;
-    border: none;
-    color: #cdd6f4;
-    cursor: pointer;
-    font-size: 18px;
-}
-.trace-content { padding: 16px; }
-.span-item {
-    margin-bottom: 12px;
-    padding: 12px;
-    background: #313244;
-    border-radius: 8px;
-    border-left: 3px solid #89b4fa;
-}
-.span-item.agent { border-left-color: #a6e3a1; }
-.span-item.generation { border-left-color: #f9e2af; }
-.span-item.function { border-left-color: #cba6f7; }
-.span-type {
-    font-size: 10px;
-    text-transform: uppercase;
-    color: #6c7086;
-    margin-bottom: 4px;
-}
-.span-name { font-weight: bold; color: #89dceb; }
-.span-data {
-    margin-top: 8px;
-    padding: 8px;
-    background: #1e1e2e;
-    border-radius: 4px;
-    overflow-x: auto;
-    white-space: pre-wrap;
-    word-break: break-all;
-}
-.span-time { color: #6c7086; font-size: 11px; }
-.trace-summary {
-    padding: 12px 16px;
-    background: #45475a;
-    margin: 0 16px 16px;
-    border-radius: 8px;
-}
-.trace-summary-item { display: flex; justify-content: space-between; margin: 4px 0; }
-
-    /* Navigation Header */
-    .demo-nav {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      padding: 10px 20px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      z-index: 9999;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-    }
-    .demo-nav a {
-      color: white;
-      text-decoration: none;
-      padding: 6px 12px;
-      border-radius: 6px;
-      font-size: 0.9rem;
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      transition: background 0.2s;
-    }
-    .demo-nav a:hover {
-      background: rgba(255,255,255,0.2);
-    }
-    .demo-nav .nav-title {
-      font-weight: 600;
-      font-size: 1rem;
-    }
-    .demo-nav .nav-links {
-      display: flex;
-      gap: 8px;
-    }
-    .demo-nav .btn-trace {
-      background: rgba(100, 255, 218, 0.2);
-      border: 1px solid #64ffda;
-    }
-    .demo-nav .btn-excel {
-      background: rgba(33, 115, 70, 0.8);
-    }
-    body {
-      padding-top: 50px !important;
-    }
-    @media print {
-      .demo-nav { display: none !important; }
-      body { padding-top: 0 !important; }
-    }
-
-  </style>
-
-<button class="trace-toggle" onclick="toggleTracePanel()">
-    <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-        <path d="M9.5 13a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm0-5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm0-5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/>
-    </svg>
-    Agent Trace
-</button>
-
-<div class="trace-panel" id="tracePanel">
-    <div class="trace-header">
-        <h3>Agent Trace Viewer</h3>
-        <button class="trace-close" onclick="toggleTracePanel()">&times;</button>
+    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+">
+    <div>
+        <strong>📊 인사기록카드</strong>
+        <span style="margin-left: 10px; opacity: 0.9;">| 인사/HR</span>
     </div>
-    <div class="trace-summary" id="traceSummary"></div>
-    <div class="trace-content" id="traceContent"></div>
+    <div style="display: flex; align-items: center; gap: 15px;">
+        <span style="background: rgba(255,255,255,0.2); padding: 4px 10px; border-radius: 12px; font-size: 12px;">
+            0개 수식
+        </span>
+        <button onclick="document.getElementById('selection-info').style.display='block'"
+                style="background: white; color: #667eea; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: 500;">
+            선정 이유 보기
+        </button>
+    </div>
 </div>
 
-<script>
-const TRACE_DATA = {"trace_id": "trace_c8727c55199c4dcd81edd8d92e12455f", "workflow_name": "Excel-to-WebApp: 3.xlsx", "group_id": null, "metadata": null, "started_at": "2025-12-28T11:41:22.057323", "ended_at": "2025-12-28T11:55:35.815914", "spans": [{"span_id": "span_f4748272c0ca4032a7e4f3d6", "parent_id": "span_dc9e1fc861994ed299bd55e7", "started_at": "2025-12-28T02:41:22.068393+00:00", "ended_at": "2025-12-28T02:41:24.905647+00:00", "error": null, "type": "response", "data": {"type": "response", "response_id": "resp_0776e29e456c253000695098d263448190ab953ae3e43f4802"}}, {"span_id": "span_f47a2b88292a4103b8138938", "parent_id": "span_dc9e1fc861994ed299bd55e7", "started_at": "2025-12-28T02:41:24.906090+00:00", "ended_at": "2025-12-28T02:41:24.936734+00:00", "error": null, "type": "function", "data": {"type": "function", "name": "analyze_excel", "input": "{\"file_path\":\"excel_files/엑셀서식(20160517)/인사기록카드(외국인근로자관리)/3.xlsx\"}", "output": "{'filename': '3.xlsx', 'file_type': 'xlsx', 'sheets': [{'name': 'Sheet1', 'row_count': 102, 'col_count': 18, 'used_range': 'A1:R102', 'input_cells': [], 'output_cells': [], 'formulas': [], 'has_print_area': False, 'print_area': None}, {'name': 'Sheet2', 'row_count': 1, 'col_count': 1, 'used_range': 'A1:A1', 'input_cells': [], 'output_cells': [], 'formulas': [], 'has_print_area': False, 'print_area': None}, {'name': 'Sheet3', 'row_count': 1, 'col_count': 1, 'used_range': 'A1:A1', 'input_cells': [], 'output_cells': [], 'formulas': [], 'has_print_area': False, 'print_area': None}], 'vba_modules': [], 'has_vba': False, 'print_settings': {'orientation': 'landscape', 'paper_size': 'A4', 'margins': {'top': 0.4, 'bottom': 0.209722222222222, 'left': 0.459722222222222, 'right': 0.459722222222222}, 'header': None, 'footer': None, 'fit_to_page': False, 'scale': 100}, 'total_formulas': 0, 'total_input_cells': 0, 'total_output_cells': 0, 'complexity_score': 'low'}", "mcp_data": null}}, {"span_id": "span_9d59f73d449a492ab69bb435", "parent_id": "span_dc9e1fc861994ed299bd55e7", "started_at": "2025-12-28T02:41:24.937855+00:00", "ended_at": "2025-12-28T02:42:03.616377+00:00", "error": null, "type": "response", "data": {"type": "response", "response_id": "resp_0776e29e456c253000695098d5261c8190a2e76e4b1022e7af"}}, {"span_id": "span_dc9e1fc861994ed299bd55e7", "parent_id": null, "started_at": "2025-12-28T02:41:22.057749+00:00", "ended_at": "2025-12-28T02:42:03.616680+00:00", "error": null, "type": "agent", "data": {"type": "agent", "name": "Excel Analyzer", "handoffs": [], "tools": ["analyze_excel", "get_sheet_cells"], "output_type": "str"}}, {"span_id": "span_51656e946b6d45dea358d12d", "parent_id": "span_a94cc6603b9641cea375dae4", "started_at": "2025-12-28T02:42:03.617111+00:00", "ended_at": "2025-12-28T02:42:22.279576+00:00", "error": null, "type": "response", "data": {"type": "response", "response_id": "resp_017552bfcfd297c300695098fbd3408194b0cf40d0df6a5103"}}, {"span_id": "span_a94cc6603b9641cea375dae4", "parent_id": null, "started_at": "2025-12-28T02:42:03.616863+00:00", "ended_at": "2025-12-28T02:42:22.279998+00:00", "error": null, "type": "agent", "data": {"type": "agent", "name": "WebApp Planner", "handoffs": [], "tools": [], "output_type": "WebAppPlan"}}, {"span_id": "span_22ca8d2eef204bfea9b5f131", "parent_id": "span_5d99fdee3065470bbc6a7239", "started_at": "2025-12-28T02:42:22.280413+00:00", "ended_at": "2025-12-28T02:42:23.306276+00:00", "error": null, "type": "response", "data": {"type": "response", "response_id": "resp_0c95744cf3025194006950990e7c54819590c3d5c751b384a7"}}, {"span_id": "span_1349f2e09d5c452ba5adda9e", "parent_id": "span_5d99fdee3065470bbc6a7239", "started_at": "2025-12-28T02:42:23.306527+00:00", "ended_at": "2025-12-28T02:42:23.306712+00:00", "error": null, "type": "function", "data": {"type": "function", "name": "get_js_helpers", "input": "{}", "output": "\n// Excel formula helper functions\nfunction _sum(...args) {\n    return args.flat().reduce((a, b) => (parseFloat(a) || 0) + (parseFloat(b) || 0), 0);\n}\n\nfunction _sumRange(rangeData) {\n    if (Array.isArray(rangeData)) {\n        return rangeData.flat().reduce((a, b) => (parseFloat(a) || 0) + (parseFloat(b) || 0), 0);\n    }\n    return parseFloat(rangeData) || 0;\n}\n\nfunction _average(...args) {\n    const flat = args.flat().filter(x => x !== null && x !== '' && !isNaN(x));\n    return flat.length ? _sum(...flat) / flat.length : 0;\n}\n\nfunction _averageRange(rangeData) {\n    if (Array.isArray(rangeData)) {\n        const flat = rangeData.flat().filter(x => x !== null && x !== '' && !isNaN(x));\n        return flat.length ? _sumRange(flat) / flat.length : 0;\n    }\n    return parseFloat(rangeData) || 0;\n}\n\nfunction _count(...args) {\n    return args.flat().filter(x => typeof x === 'number' && !isNaN(x)).length;\n}\n\nfunction _counta(...args) {\n    return args.flat().filter(x => x !== null && x !== '' && x !== undefined).length;\n}\n\nfunction _and(...args) {\n    return args.every(x => Boolean(x));\n}\n\nfunction _or(...args) {\n    return args.some(x => Boolean(x));\n}\n\nfunction _round(num, digits = 0) {\n    const factor = Math.pow(10, digits);\n    return Math.round(num * factor) / factor;\n}\n\nfunction _roundUp(num, digits = 0) {\n    const factor = Math.pow(10, digits);\n    return Math.ceil(num * factor) / factor;\n}\n\nfunction _roundDown(num, digits = 0) {\n    const factor = Math.pow(10, digits);\n    return Math.floor(num * factor) / factor;\n}\n\nfunction _len(text) {\n    return String(text).length;\n}\n\nfunction _left(text, numChars = 1) {\n    return String(text).substring(0, numChars);\n}\n\nfunction _right(text, numChars = 1) {\n    const str = String(text);\n    return str.substring(str.length - numChars);\n}\n\nfunction _mid(text, startNum, numChars) {\n    return String(text).substring(startNum - 1, startNum - 1 + numChars);\n}\n\nfunction _trim(text) {\n    return String(text).trim();\n}\n\nfunction _upper(text) {\n    return String(text).toUpperCase();\n}\n\nfunction _lower(text) {\n    return String(text).toLowerCase();\n}\n\nfunction _concat(...args) {\n    return args.join('');\n}\n\n// Number formatting\nfunction formatNumber(num, decimals = 0) {\n    return new Intl.NumberFormat('ko-KR', {\n        minimumFractionDigits: decimals,\n        maximumFractionDigits: decimals\n    }).format(num);\n}\n\nfunction formatCurrency(num) {\n    return new Intl.NumberFormat('ko-KR', {\n        style: 'currency',\n        currency: 'KRW',\n        maximumFractionDigits: 0\n    }).format(num);\n}\n\nfunction formatPercent(num, decimals = 1) {\n    return new Intl.NumberFormat('ko-KR', {\n        style: 'percent',\n        minimumFractionDigits: decimals,\n        maximumFractionDigits: decimals\n    }).format(num / 100);\n}\n", "mcp_data": null}}, {"span_id": "span_a355657673fe4459ab9dcccb", "parent_id": "span_5d99fdee3065470bbc6a7239", "started_at": "2025-12-28T02:42:23.307283+00:00", "ended_at": "2025-12-28T02:53:29.174262+00:00", "error": null, "type": "response", "data": {"type": "response", "response_id": "resp_0c95744cf30251940069509b67f64881958f5014fdd0668fae"}}, {"span_id": "span_5d99fdee3065470bbc6a7239", "parent_id": null, "started_at": "2025-12-28T02:42:22.280178+00:00", "ended_at": "2025-12-28T02:53:29.174622+00:00", "error": null, "type": "agent", "data": {"type": "agent", "name": "WebApp Generator", "handoffs": [], "tools": ["convert_formula", "check_formula_complexity", "get_js_helpers"], "output_type": "GeneratedWebApp"}}, {"span_id": "span_7d423a0ed9034da391602476", "parent_id": "span_3fc5de6238814ebba5f80142", "started_at": "2025-12-28T02:53:29.175259+00:00", "ended_at": "2025-12-28T02:53:30.205435+00:00", "error": null, "type": "response", "data": {"type": "response", "response_id": "resp_097381919bc7a9740069509ba962508196abd17f5b769ce322"}}, {"span_id": "span_fd741e7173f341c6a208f83c", "parent_id": "span_3fc5de6238814ebba5f80142", "started_at": "2025-12-28T02:53:30.205617+00:00", "ended_at": "2025-12-28T02:53:30.205898+00:00", "error": null, "type": "function", "data": {"type": "function", "name": "get_js_helpers", "input": "{}", "output": "\n// Excel formula helper functions\nfunction _sum(...args) {\n    return args.flat().reduce((a, b) => (parseFloat(a) || 0) + (parseFloat(b) || 0), 0);\n}\n\nfunction _sumRange(rangeData) {\n    if (Array.isArray(rangeData)) {\n        return rangeData.flat().reduce((a, b) => (parseFloat(a) || 0) + (parseFloat(b) || 0), 0);\n    }\n    return parseFloat(rangeData) || 0;\n}\n\nfunction _average(...args) {\n    const flat = args.flat().filter(x => x !== null && x !== '' && !isNaN(x));\n    return flat.length ? _sum(...flat) / flat.length : 0;\n}\n\nfunction _averageRange(rangeData) {\n    if (Array.isArray(rangeData)) {\n        const flat = rangeData.flat().filter(x => x !== null && x !== '' && !isNaN(x));\n        return flat.length ? _sumRange(flat) / flat.length : 0;\n    }\n    return parseFloat(rangeData) || 0;\n}\n\nfunction _count(...args) {\n    return args.flat().filter(x => typeof x === 'number' && !isNaN(x)).length;\n}\n\nfunction _counta(...args) {\n    return args.flat().filter(x => x !== null && x !== '' && x !== undefined).length;\n}\n\nfunction _and(...args) {\n    return args.every(x => Boolean(x));\n}\n\nfunction _or(...args) {\n    return args.some(x => Boolean(x));\n}\n\nfunction _round(num, digits = 0) {\n    const factor = Math.pow(10, digits);\n    return Math.round(num * factor) / factor;\n}\n\nfunction _roundUp(num, digits = 0) {\n    const factor = Math.pow(10, digits);\n    return Math.ceil(num * factor) / factor;\n}\n\nfunction _roundDown(num, digits = 0) {\n    const factor = Math.pow(10, digits);\n    return Math.floor(num * factor) / factor;\n}\n\nfunction _len(text) {\n    return String(text).length;\n}\n\nfunction _left(text, numChars = 1) {\n    return String(text).substring(0, numChars);\n}\n\nfunction _right(text, numChars = 1) {\n    const str = String(text);\n    return str.substring(str.length - numChars);\n}\n\nfunction _mid(text, startNum, numChars) {\n    return String(text).substring(startNum - 1, startNum - 1 + numChars);\n}\n\nfunction _trim(text) {\n    return String(text).trim();\n}\n\nfunction _upper(text) {\n    return String(text).toUpperCase();\n}\n\nfunction _lower(text) {\n    return String(text).toLowerCase();\n}\n\nfunction _concat(...args) {\n    return args.join('');\n}\n\n// Number formatting\nfunction formatNumber(num, decimals = 0) {\n    return new Intl.NumberFormat('ko-KR', {\n        minimumFractionDigits: decimals,\n        maximumFractionDigits: decimals\n    }).format(num);\n}\n\nfunction formatCurrency(num) {\n    return new Intl.NumberFormat('ko-KR', {\n        style: 'currency',\n        currency: 'KRW',\n        maximumFractionDigits: 0\n    }).format(num);\n}\n\nfunction formatPercent(num, decimals = 1) {\n    return new Intl.NumberFormat('ko-KR', {\n        style: 'percent',\n        minimumFractionDigits: decimals,\n        maximumFractionDigits: decimals\n    }).format(num / 100);\n}\n", "mcp_data": null}}, {"span_id": "span_d509354a53b342539f947552", "parent_id": "span_3fc5de6238814ebba5f80142", "started_at": "2025-12-28T02:53:30.206206+00:00", "ended_at": "2025-12-28T02:54:33.740902+00:00", "error": null, "type": "response", "data": {"type": "response", "response_id": "resp_097381919bc7a9740069509baa6a64819687590e9b586d6e18"}}, {"span_id": "span_3fc5de6238814ebba5f80142", "parent_id": null, "started_at": "2025-12-28T02:53:29.175030+00:00", "ended_at": "2025-12-28T02:54:33.741239+00:00", "error": null, "type": "agent", "data": {"type": "agent", "name": "WebApp Generator", "handoffs": [], "tools": ["convert_formula", "check_formula_complexity", "get_js_helpers"], "output_type": "GeneratedWebApp"}}, {"span_id": "span_0de8b40c4e8746e7b29553b9", "parent_id": "span_5d969840853546bc96e9f3a2", "started_at": "2025-12-28T02:54:33.741884+00:00", "ended_at": "2025-12-28T02:54:34.868951+00:00", "error": null, "type": "response", "data": {"type": "response", "response_id": "resp_07274a9797f42e4b0069509be9f6408190aa4e2fdc41633cd4"}}, {"span_id": "span_22efd54f13fe4a5a94e24338", "parent_id": "span_5d969840853546bc96e9f3a2", "started_at": "2025-12-28T02:54:34.869137+00:00", "ended_at": "2025-12-28T02:54:34.869260+00:00", "error": null, "type": "function", "data": {"type": "function", "name": "get_js_helpers", "input": "{}", "output": "\n// Excel formula helper functions\nfunction _sum(...args) {\n    return args.flat().reduce((a, b) => (parseFloat(a) || 0) + (parseFloat(b) || 0), 0);\n}\n\nfunction _sumRange(rangeData) {\n    if (Array.isArray(rangeData)) {\n        return rangeData.flat().reduce((a, b) => (parseFloat(a) || 0) + (parseFloat(b) || 0), 0);\n    }\n    return parseFloat(rangeData) || 0;\n}\n\nfunction _average(...args) {\n    const flat = args.flat().filter(x => x !== null && x !== '' && !isNaN(x));\n    return flat.length ? _sum(...flat) / flat.length : 0;\n}\n\nfunction _averageRange(rangeData) {\n    if (Array.isArray(rangeData)) {\n        const flat = rangeData.flat().filter(x => x !== null && x !== '' && !isNaN(x));\n        return flat.length ? _sumRange(flat) / flat.length : 0;\n    }\n    return parseFloat(rangeData) || 0;\n}\n\nfunction _count(...args) {\n    return args.flat().filter(x => typeof x === 'number' && !isNaN(x)).length;\n}\n\nfunction _counta(...args) {\n    return args.flat().filter(x => x !== null && x !== '' && x !== undefined).length;\n}\n\nfunction _and(...args) {\n    return args.every(x => Boolean(x));\n}\n\nfunction _or(...args) {\n    return args.some(x => Boolean(x));\n}\n\nfunction _round(num, digits = 0) {\n    const factor = Math.pow(10, digits);\n    return Math.round(num * factor) / factor;\n}\n\nfunction _roundUp(num, digits = 0) {\n    const factor = Math.pow(10, digits);\n    return Math.ceil(num * factor) / factor;\n}\n\nfunction _roundDown(num, digits = 0) {\n    const factor = Math.pow(10, digits);\n    return Math.floor(num * factor) / factor;\n}\n\nfunction _len(text) {\n    return String(text).length;\n}\n\nfunction _left(text, numChars = 1) {\n    return String(text).substring(0, numChars);\n}\n\nfunction _right(text, numChars = 1) {\n    const str = String(text);\n    return str.substring(str.length - numChars);\n}\n\nfunction _mid(text, startNum, numChars) {\n    return String(text).substring(startNum - 1, startNum - 1 + numChars);\n}\n\nfunction _trim(text) {\n    return String(text).trim();\n}\n\nfunction _upper(text) {\n    return String(text).toUpperCase();\n}\n\nfunction _lower(text) {\n    return String(text).toLowerCase();\n}\n\nfunction _concat(...args) {\n    return args.join('');\n}\n\n// Number formatting\nfunction formatNumber(num, decimals = 0) {\n    return new Intl.NumberFormat('ko-KR', {\n        minimumFractionDigits: decimals,\n        maximumFractionDigits: decimals\n    }).format(num);\n}\n\nfunction formatCurrency(num) {\n    return new Intl.NumberFormat('ko-KR', {\n        style: 'currency',\n        currency: 'KRW',\n        maximumFractionDigits: 0\n    }).format(num);\n}\n\nfunction formatPercent(num, decimals = 1) {\n    return new Intl.NumberFormat('ko-KR', {\n        style: 'percent',\n        minimumFractionDigits: decimals,\n        maximumFractionDigits: decimals\n    }).format(num / 100);\n}\n", "mcp_data": null}}, {"span_id": "span_8fbd808a778749168fbe03a8", "parent_id": "span_5d969840853546bc96e9f3a2", "started_at": "2025-12-28T02:54:34.869569+00:00", "ended_at": "2025-12-28T02:55:35.815262+00:00", "error": null, "type": "response", "data": {"type": "response", "response_id": "resp_07274a9797f42e4b0069509beb1acc8190b3a77d30dc585199"}}, {"span_id": "span_5d969840853546bc96e9f3a2", "parent_id": null, "started_at": "2025-12-28T02:54:33.741646+00:00", "ended_at": "2025-12-28T02:55:35.815649+00:00", "error": null, "type": "agent", "data": {"type": "agent", "name": "WebApp Generator", "handoffs": [], "tools": ["convert_formula", "check_formula_complexity", "get_js_helpers"], "output_type": "GeneratedWebApp"}}]};
+<div id="selection-info" style="
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 10001;
+    display: none;
+    justify-content: center;
+    align-items: center;
+" onclick="this.style.display='none'">
+    <div style="
+        background: white;
+        padding: 30px;
+        border-radius: 16px;
+        max-width: 500px;
+        margin: 20px;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    " onclick="event.stopPropagation()">
+        <h2 style="margin: 0 0 15px; color: #333;">🏆 해커톤 선정 이유</h2>
+        <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+            <strong style="color: #667eea;">인사/HR</strong>
+            <p style="margin: 10px 0 0; color: #555; line-height: 1.6;">HR 문서 양식 - 도메인 다양성</p>
+        </div>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            
+        </div>
+        <button onclick="document.getElementById('selection-info').style.display='none'"
+                style="margin-top: 20px; width: 100%; padding: 12px; background: #667eea; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px;">
+            닫기
+        </button>
+    </div>
+</div>
 
-function toggleTracePanel() {
-    document.getElementById('tracePanel').classList.toggle('open');
-}
-
-function renderTrace() {
-    const summary = document.getElementById('traceSummary');
-    const content = document.getElementById('traceContent');
-
-    if (!TRACE_DATA) {
-        content.innerHTML = '<p>No trace data available</p>';
-        return;
-    }
-
-    // Summary
-    const spans = TRACE_DATA.spans || [];
-    const agentSpans = spans.filter(s => s.type === 'agent').length;
-    const genSpans = spans.filter(s => s.type === 'generation').length;
-    const funcSpans = spans.filter(s => s.type === 'function').length;
-
-    summary.innerHTML = `
-        <div class="trace-summary-item"><span>Workflow</span><span>${TRACE_DATA.workflow_name || '-'}</span></div>
-        <div class="trace-summary-item"><span>Agent Spans</span><span>${agentSpans}</span></div>
-        <div class="trace-summary-item"><span>LLM Generations</span><span>${genSpans}</span></div>
-        <div class="trace-summary-item"><span>Function Calls</span><span>${funcSpans}</span></div>
-    `;
-
-    // Spans
-    let html = '';
-    spans.forEach(span => {
-        const typeClass = span.type || 'custom';
-        const data = span.data || {};
-        html += `
-            <div class="span-item ${typeClass}">
-                <div class="span-type">${span.type || 'span'}</div>
-                <div class="span-name">${data.name || data.model || span.span_id?.slice(0, 8) || '-'}</div>
-                ${data.input ? `<div class="span-data">${typeof data.input === 'string' ? data.input.slice(0, 200) : JSON.stringify(data.input).slice(0, 200)}...</div>` : ''}
-                ${data.output ? `<div class="span-data">${typeof data.output === 'string' ? data.output.slice(0, 200) : JSON.stringify(data.output).slice(0, 200)}...</div>` : ''}
-                ${data.usage ? `<div class="span-time">Tokens: ${data.usage.total_tokens || '-'}</div>` : ''}
-            </div>
-        `;
-    });
-    content.innerHTML = html || '<p>No spans recorded</p>';
-}
-
-document.addEventListener('DOMContentLoaded', renderTrace);
-</script>
+<style>
+body { padding-top: 56px !important; }
+</style>
 </body>
 </html>

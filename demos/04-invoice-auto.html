@@ -3,384 +3,244 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>항목별 금액·세액 계산기</title>
+  <title>항목별 금액/부가세 계산기</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
   <style>
     :root{
-      --font-sans: "Noto Sans KR", system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
-      --border-color:#d9dee3;
-      --muted:#6c757d;
-      --sheet-bg:#ffffff;
-      --header-bg:#f3f4f6;
-      --total-bg:#f8fafc;
+      --app-max-width: 1100px;
+      --grid-gap: 12px;
+      --border-color: #d9d9d9;
+      --header-bg: #f3f4f6;
+      --result-bg: #f7f7f7;
+      --danger: #dc3545;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
     }
 
-    body{ font-family: var(--font-sans); background:#f6f7fb; }
-    .card{ border:1px solid var(--border-color); }
-    .sheet-like{ background:var(--sheet-bg); }
-
-    .num, input[type="number"]{ text-align:right; font-variant-numeric: tabular-nums; }
-    .unit{ color:var(--muted); font-size:.825rem; white-space:nowrap; }
-
-    table.table-sheet{ border-collapse:collapse; }
-    table.table-sheet th, table.table-sheet td{ vertical-align:middle; border:1px solid var(--border-color); }
-    table.table-sheet thead th{ background:var(--header-bg); }
-    .total-row td{ font-weight:700; background:var(--total-bg); }
-
-    .sticky-actions{ position:sticky; top:0; z-index:10; background:rgba(246,247,251,.9); backdrop-filter: blur(6px); border-bottom:1px solid rgba(0,0,0,.06); }
-
-    /* Print */
-    @page{
-      size: A4 portrait;
-      margin: 25mm 19mm 25mm 19mm;
+    body{
+      font-family: "Noto Sans KR", system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+      color: #111;
+      background: #fff;
     }
+
+    .app-wrap{ max-width: var(--app-max-width); margin: 0 auto; }
+
+    .excel-like{
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      overflow: hidden;
+      background: #fff;
+    }
+
+    .excel-like .card-header{
+      background: var(--header-bg);
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    table.table{
+      margin-bottom: 0;
+    }
+
+    .table thead th{
+      background: var(--header-bg);
+      border-bottom: 1px solid var(--border-color) !important;
+      font-weight: 700;
+      vertical-align: middle;
+      white-space: nowrap;
+    }
+
+    .table td, .table th{
+      border-color: var(--border-color) !important;
+      vertical-align: middle;
+    }
+
+    .num, .num input{
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+      font-family: var(--mono);
+    }
+
+    .input-num{
+      width: 140px;
+      min-width: 120px;
+    }
+
+    .result-cell{
+      background: var(--result-bg);
+      font-weight: 700;
+    }
+
+    .hint{
+      font-size: 0.875rem;
+      color: #6c757d;
+    }
+
+    .error-text{
+      color: var(--danger);
+      font-size: 0.875rem;
+    }
+
+    .invalid input{
+      border-color: var(--danger) !important;
+      box-shadow: 0 0 0 0.2rem rgba(220,53,69,.15);
+    }
+
+    .sr-live{
+      position: relative;
+      min-height: 1.25rem;
+    }
+
     @media print{
+      @page{
+        size: A4 portrait;
+        margin: 25mm 19mm 25mm 19mm;
+      }
+
       body{ background:#fff; }
       .no-print{ display:none !important; }
-      .print-area{ display:block !important; }
-      .screen-area{ display:none !important; }
+      .app-wrap{ max-width: none; }
 
-      .print-area{
-        width: 210mm;
-        min-height: 297mm;
+      .excel-like{ border-radius: 0; }
+
+      /* 입력은 인쇄시 테두리/배경 제거하여 엑셀 느낌 유지 */
+      input.form-control{
+        border: 0 !important;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+        background: transparent !important;
+        box-shadow: none !important;
       }
-      .print-sheet{
-        border:0;
-        box-shadow:none !important;
-      }
-      .print-table th, .print-table td{
-        border:1px solid #000 !important;
-      }
-      .print-muted{ color:#000 !important; }
-    }
 
-    /* Hide print by default on screen */
-    .print-area{ display:none; }
-
-    /* Small helper */
-    .help{ color:var(--muted); font-size:.9rem; }
-  
-    /* Navigation Header */
-    .demo-nav {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      padding: 10px 20px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      z-index: 9999;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+      table{ break-inside: avoid; }
+      tr{ break-inside: avoid; }
     }
-    .demo-nav a {
-      color: white;
-      text-decoration: none;
-      padding: 6px 12px;
-      border-radius: 6px;
-      font-size: 0.9rem;
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      transition: background 0.2s;
-    }
-    .demo-nav a:hover {
-      background: rgba(255,255,255,0.2);
-    }
-    .demo-nav .nav-title {
-      font-weight: 600;
-      font-size: 1rem;
-    }
-    .demo-nav .nav-links {
-      display: flex;
-      gap: 8px;
-    }
-    .demo-nav .btn-trace {
-      background: rgba(100, 255, 218, 0.2);
-      border: 1px solid #64ffda;
-    }
-    .demo-nav .btn-excel {
-      background: rgba(33, 115, 70, 0.8);
-    }
-    body {
-      padding-top: 50px !important;
-    }
-    @media print {
-      .demo-nav { display: none !important; }
-      body { padding-top: 0 !important; }
-    }
-
   </style>
 </head>
 <body>
-<!-- Navigation Header -->
-<nav class="demo-nav">
-  <div>
-    <a href="../index.html">← 목록</a>
-    <span class="nav-title" style="margin-left: 15px;">거래명세표 (자동계산)</span>
-  </div>
-  <div class="nav-links">
-    <a href="../traces/trace-viewer.html?demo=04" class="btn-trace">
-      <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M6 3.5A1.5 1.5 0 0 1 7.5 2h1A1.5 1.5 0 0 1 10 3.5v1A1.5 1.5 0 0 1 8.5 6v1H14a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-1 0V8h-5v.5a.5.5 0 0 1-1 0V8h-5v.5a.5.5 0 0 1-1 0v-1A.5.5 0 0 1 2 7h5.5V6A1.5 1.5 0 0 1 6 4.5v-1z"/></svg>
-      Agent Trace
-    </a>
-    <a href="../excel_files/엑셀서식(20160517)/거래명세표(자동계산)/3.xlsx" class="btn-excel" download>
-      <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M5.884 6.68a.5.5 0 1 0-.768.64L7.349 10l-2.233 2.68a.5.5 0 0 0 .768.64L8 10.781l2.116 2.54a.5.5 0 0 0 .768-.641L8.651 10l2.233-2.68a.5.5 0 0 0-.768-.64L8 9.219l-2.116-2.54z"/><path d="M14 14V4.5L9.5 0H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2zM9.5 3A1.5 1.5 0 0 0 11 4.5h2V14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h5.5v2z"/></svg>
-      Excel
-    </a>
-  </div>
-</nav>
+  <div class="container py-4" x-data="appData()" x-init="init()">
+    <div class="app-wrap">
+      <header class="mb-3">
+        <h1 class="h4 mb-1">항목별 금액/부가세 계산기</h1>
+        <p class="text-muted mb-0">단가×수량으로 공급가액을 계산하고, 부가세(10%) 및 합계를 산출합니다.</p>
+      </header>
 
-  <div class="sticky-actions no-print">
-    <div class="container py-3" x-data="appData()" x-init="init()">
-      <div class="d-flex flex-column flex-md-row gap-2 align-items-md-center justify-content-between">
-        <div>
-          <h1 class="h4 mb-1">항목별 금액·세액 계산기</h1>
-          <div class="help">단가×수량(금액) 및 부가세(10%)를 계산하고 A4 인쇄용 문서를 생성합니다.</div>
-        </div>
-        <div class="d-flex gap-2">
-          <button type="button" class="btn btn-outline-secondary" @click="resetAll()" aria-label="입력 초기화">초기화</button>
-          <button type="button" class="btn btn-primary" @click="prepareAndPrint()" aria-label="인쇄">인쇄</button>
-        </div>
-      </div>
+      <main class="d-grid" style="gap: var(--grid-gap);">
+
+        <!-- 항목 입력 테이블 -->
+        <section class="excel-like" aria-labelledby="sec-items">
+          <div class="card-header px-3 py-2">
+            <h2 id="sec-items" class="h6 mb-0">항목 입력(단가/수량)</h2>
+          </div>
+
+          <div class="table-responsive">
+            <table class="table table-sm align-middle">
+              <thead>
+                <tr>
+                  <th scope="col" style="width:90px;">행</th>
+                  <th scope="col" class="num">단가(M)</th>
+                  <th scope="col" class="num">수량(O)</th>
+                  <th scope="col" class="num">공급가액(T)</th>
+                  <th scope="col" class="num">부가세(Z, 10%)</th>
+                </tr>
+              </thead>
+              <tbody>
+                <template x-for="line in lines" :key="line.row">
+                  <tr :class="(line.errors.unitPrice || line.errors.quantity) ? 'invalid' : ''">
+                    <th scope="row">#<span x-text="line.row"></span></th>
+
+                    <td class="num">
+                      <label class="visually-hidden" :for="'unitPrice-'+line.row">단가 (행 <span x-text="line.row"></span>)</label>
+                      <input
+                        class="form-control form-control-sm input-num num"
+                        type="number" inputmode="decimal" step="1" min="0"
+                        :id="'unitPrice-'+line.row"
+                        :aria-label="'단가 (행 '+line.row+')'"
+                        x-model="line.unitPrice"
+                        @input.debounce.120ms="calculate()"
+                      />
+                      <div class="error-text" x-show="!!line.errors.unitPrice" x-text="line.errors.unitPrice"></div>
+                    </td>
+
+                    <td class="num">
+                      <label class="visually-hidden" :for="'quantity-'+line.row">수량 (행 <span x-text="line.row"></span>)</label>
+                      <input
+                        class="form-control form-control-sm input-num num"
+                        type="number" inputmode="decimal" step="1" min="0"
+                        :id="'quantity-'+line.row"
+                        :aria-label="'수량 (행 '+line.row+')'"
+                        x-model="line.quantity"
+                        @input.debounce.120ms="calculate()"
+                      />
+                      <div class="error-text" x-show="!!line.errors.quantity" x-text="line.errors.quantity"></div>
+                    </td>
+
+                    <td class="num result-cell">
+                      <span x-text="formatNumber(line.supply, { decimals: 0 })"></span>
+                    </td>
+
+                    <td class="num result-cell">
+                      <span x-text="formatNumber(line.vat, { decimals: 0 })"></span>
+                    </td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="px-3 py-2 hint">
+            ※ 입력이 비어있으면 0으로 처리됩니다. 음수는 허용되지 않습니다.
+          </div>
+        </section>
+
+        <!-- 합계/요약 -->
+        <section class="excel-like" aria-labelledby="sec-summary">
+          <div class="card-header px-3 py-2 d-flex justify-content-between align-items-center">
+            <h2 id="sec-summary" class="h6 mb-0">합계/요약 결과</h2>
+            <div class="text-muted small">(엑셀 하단 셀: C30 / J30 / P30)</div>
+          </div>
+
+          <div class="p-3">
+            <div class="row g-3">
+              <div class="col-12 col-md-4">
+                <div class="p-3 border rounded-3 h-100" style="background: var(--result-bg);">
+                  <div class="text-muted small">합계 (C30)</div>
+                  <div class="h5 mb-0 num" x-text="formatNumber(totals.C30, { decimals: 0 })"></div>
+                </div>
+              </div>
+              <div class="col-12 col-md-4">
+                <div class="p-3 border rounded-3 h-100" style="background: var(--result-bg);">
+                  <div class="text-muted small">합계 (J30)</div>
+                  <div class="h5 mb-0 num" x-text="formatNumber(totals.J30, { decimals: 0 })"></div>
+                </div>
+              </div>
+              <div class="col-12 col-md-4">
+                <div class="p-3 border rounded-3 h-100" style="background: var(--result-bg);">
+                  <div class="text-muted small">합계 (P30)</div>
+                  <div class="h5 mb-0 num" x-text="formatNumber(totals.P30, { decimals: 0 })"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="sr-live mt-2" aria-live="polite">
+              <div class="error-text" x-show="globalError" x-text="globalError"></div>
+              <div class="text-warning small" x-show="globalWarning" x-text="globalWarning"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 버튼 영역 -->
+        <section class="no-print d-flex flex-wrap gap-2">
+          <button type="button" class="btn btn-outline-secondary" @click="reset()">초기화</button>
+          <button type="button" class="btn btn-primary" @click="print()">A4 인쇄</button>
+          <button type="button" class="btn btn-outline-primary" @click="exportCSV()">CSV 내보내기</button>
+        </section>
+
+      </main>
     </div>
   </div>
 
-  <div class="container py-4" x-data="appData()" x-init="init()">
-
-    <!-- Screen UI -->
-    <section class="screen-area">
-      <div class="row g-3">
-        <div class="col-12 col-lg-8">
-          <div class="card sheet-like">
-            <div class="card-header bg-white">
-              <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-2">
-                <div>
-                  <div class="fw-semibold">항목 입력(단가·수량 등)</div>
-                  <div class="help">행별로 단가(M)와 수량(O)을 입력하면 금액(T)과 부가세(Z)가 자동 계산됩니다.</div>
-                </div>
-                <div class="help">VAT: <span class="fw-semibold">10%</span></div>
-              </div>
-            </div>
-            <div class="card-body p-0">
-              <div class="table-responsive">
-                <table class="table table-sm mb-0 table-sheet" aria-label="항목 입력 테이블">
-                  <thead>
-                    <tr>
-                      <th scope="col" style="width:70px;">행</th>
-                      <th scope="col">항목(AA)</th>
-                      <th scope="col" class="text-end" style="width:140px;">단가(M)</th>
-                      <th scope="col" class="text-end" style="width:140px;">수량(O)</th>
-                      <th scope="col" class="text-end" style="width:170px;">금액(T)</th>
-                      <th scope="col" class="text-end" style="width:170px;">부가세(Z)</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <template x-for="r in rows" :key="r.rowIndex">
-                      <tr>
-                        <th scope="row" x-text="r.rowIndex"></th>
-                        <td>
-                          <label class="visually-hidden" :for="'aa-'+r.rowIndex">항목명(AA행)</label>
-                          <input class="form-control form-control-sm" type="text" :id="'aa-'+r.rowIndex" x-model.trim="r.aa" placeholder="(선택) 항목명" />
-                        </td>
-                        <td>
-                          <label class="visually-hidden" :for="'m-'+r.rowIndex">단가(M행)</label>
-                          <input class="form-control form-control-sm num" type="number" inputmode="decimal" min="0" step="any" :id="'m-'+r.rowIndex" x-model="r.m" @input="recalculateAll()" aria-required="false" />
-                        </td>
-                        <td>
-                          <label class="visually-hidden" :for="'o-'+r.rowIndex">수량(O행)</label>
-                          <input class="form-control form-control-sm num" type="number" inputmode="decimal" min="0" step="any" :id="'o-'+r.rowIndex" x-model="r.o" @input="recalculateAll()" aria-required="false" />
-                        </td>
-                        <td class="num" aria-live="polite">
-                          <span x-text="formatNumberKRW(r.amountT, 'number')"></span>
-                          <span class="unit">원</span>
-                        </td>
-                        <td class="num" aria-live="polite">
-                          <span x-text="formatNumberKRW(r.vatZ, 'number')"></span>
-                          <span class="unit">원</span>
-                        </td>
-                      </tr>
-                    </template>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-
-          <div class="mt-3 card sheet-like">
-            <div class="card-header bg-white">
-              <div class="fw-semibold">인쇄용 문서(미리보기)</div>
-              <div class="help">인쇄 버튼을 누르면 아래 미리보기 형식으로 A4 인쇄됩니다. (인쇄 시에는 이 화면 대신 인쇄 전용 레이아웃만 출력)</div>
-            </div>
-            <div class="card-body">
-              <div class="border rounded p-3 bg-white">
-                <div class="d-flex justify-content-between align-items-end mb-2">
-                  <div>
-                    <div class="fw-bold">항목별 금액·세액 내역서</div>
-                    <div class="help">(화면 미리보기)</div>
-                  </div>
-                  <div class="text-end">
-                    <div class="help">작성일: <span x-text="printModel.generatedAt"></span></div>
-                  </div>
-                </div>
-
-                <div class="table-responsive">
-                  <table class="table table-sm table-sheet mb-0" aria-label="인쇄 미리보기 표">
-                    <thead>
-                      <tr>
-                        <th scope="col" style="width:70px;">행</th>
-                        <th scope="col">항목</th>
-                        <th scope="col" class="text-end" style="width:140px;">단가</th>
-                        <th scope="col" class="text-end" style="width:140px;">수량</th>
-                        <th scope="col" class="text-end" style="width:170px;">금액</th>
-                        <th scope="col" class="text-end" style="width:170px;">부가세</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <template x-for="r in printModel.rows" :key="r.rowIndex">
-                        <tr>
-                          <th scope="row" x-text="r.rowIndex"></th>
-                          <td x-text="r.aaText"></td>
-                          <td class="text-end" x-text="r.mText"></td>
-                          <td class="text-end" x-text="r.oText"></td>
-                          <td class="text-end" x-text="r.amountText"></td>
-                          <td class="text-end" x-text="r.vatText"></td>
-                        </tr>
-                      </template>
-                      <tr class="total-row">
-                        <td colspan="4">합계</td>
-                        <td class="text-end" x-text="printModel.totals.amountText"></td>
-                        <td class="text-end" x-text="printModel.totals.vatText"></td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-
-                <div class="mt-2 help">
-                  주의: 원본 엑셀의 C30/J30/P30 정확한 수식이 제공되지 않아, 본 앱의 합계는 <span class="fw-semibold">금액 합계 및 부가세 합계</span> 기준으로 구현되었습니다.
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="col-12 col-lg-4">
-          <div class="card sheet-like">
-            <div class="card-header bg-white">
-              <div class="fw-semibold">합계/요약</div>
-              <div class="help">아래 값은 실시간으로 갱신됩니다(aria-live).</div>
-            </div>
-            <div class="card-body">
-              <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
-                <div>
-                  <div class="fw-semibold">합계(금액)</div>
-                  <div class="help">(대응: total_p30 등)</div>
-                </div>
-                <div class="num" aria-live="polite">
-                  <span class="fw-bold" x-text="formatNumberKRW(totals.amountSum,'number')"></span>
-                  <span class="unit">원</span>
-                </div>
-              </div>
-              <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
-                <div>
-                  <div class="fw-semibold">합계(부가세)</div>
-                  <div class="help">(대응: total_j30 등)</div>
-                </div>
-                <div class="num" aria-live="polite">
-                  <span class="fw-bold" x-text="formatNumberKRW(totals.vatSum,'number')"></span>
-                  <span class="unit">원</span>
-                </div>
-              </div>
-              <div class="d-flex justify-content-between align-items-center py-2">
-                <div>
-                  <div class="fw-semibold">총합계(금액+부가세)</div>
-                  <div class="help">(대응: total_c30 등)</div>
-                </div>
-                <div class="num" aria-live="polite">
-                  <span class="fw-bold" x-text="formatNumberKRW(totals.grandSum,'number')"></span>
-                  <span class="unit">원</span>
-                </div>
-              </div>
-
-              <hr class="my-3" />
-
-              <div class="help">
-                <div class="fw-semibold mb-1">현재 제공된 엑셀 수식 범위</div>
-                <ul class="mb-0">
-                  <li>T행(금액): M행×O행</li>
-                  <li>Z행(부가세): T행×0.1</li>
-                  <li>합계(C30/J30/P30): 원본 수식 미제공 → 본 앱은 합산 로직으로 대체</li>
-                </ul>
-              </div>
-            </div>
-          </div>
-
-          <div class="card mt-3">
-            <div class="card-body">
-              <div class="fw-semibold mb-1">셀 매핑 참고</div>
-              <div class="help mb-2">요청서에 포함된 AA12~AA21은 “항목명/입력값”으로 정의되어 있으나, 계산 수식은 M/O 기반입니다. 따라서 본 앱은 <span class="fw-semibold">AA=항목명</span>, <span class="fw-semibold">M=단가</span>, <span class="fw-semibold">O=수량</span>으로 구현했습니다.</div>
-              <div class="help mb-0">원본 엑셀에서 AA가 금액 계산 입력값이라면(예: AA=M 또는 O), 입력 컬럼 정의를 재확인해 주세요.</div>
-            </div>
-          </div>
-        </div>
-
-      </div>
-    </section>
-
-    <!-- Print-only area -->
-    <section class="print-area" aria-label="인쇄 영역">
-      <div class="print-sheet">
-        <div class="mb-3">
-          <div style="font-weight:700; font-size:16pt;">항목별 금액·세액 내역서</div>
-          <div class="print-muted" style="font-size:10pt;">작성일: <span x-text="printModel.generatedAt"></span></div>
-        </div>
-
-        <table class="table table-sm print-table" style="width:100%; border-collapse:collapse;">
-          <thead>
-            <tr>
-              <th style="border:1px solid #000; padding:6px; width:12mm;">행</th>
-              <th style="border:1px solid #000; padding:6px;">항목</th>
-              <th style="border:1px solid #000; padding:6px; width:28mm; text-align:right;">단가</th>
-              <th style="border:1px solid #000; padding:6px; width:22mm; text-align:right;">수량</th>
-              <th style="border:1px solid #000; padding:6px; width:34mm; text-align:right;">금액</th>
-              <th style="border:1px solid #000; padding:6px; width:34mm; text-align:right;">부가세</th>
-            </tr>
-          </thead>
-          <tbody>
-            <template x-for="r in printModel.rows" :key="'p-'+r.rowIndex">
-              <tr>
-                <td style="border:1px solid #000; padding:6px;" x-text="r.rowIndex"></td>
-                <td style="border:1px solid #000; padding:6px;" x-text="r.aaText"></td>
-                <td style="border:1px solid #000; padding:6px; text-align:right;" x-text="r.mText"></td>
-                <td style="border:1px solid #000; padding:6px; text-align:right;" x-text="r.oText"></td>
-                <td style="border:1px solid #000; padding:6px; text-align:right;" x-text="r.amountText"></td>
-                <td style="border:1px solid #000; padding:6px; text-align:right;" x-text="r.vatText"></td>
-              </tr>
-            </template>
-            <tr>
-              <td colspan="4" style="border:1px solid #000; padding:6px; font-weight:700;">합계</td>
-              <td style="border:1px solid #000; padding:6px; text-align:right; font-weight:700;" x-text="printModel.totals.amountText"></td>
-              <td style="border:1px solid #000; padding:6px; text-align:right; font-weight:700;" x-text="printModel.totals.vatText"></td>
-            </tr>
-            <tr>
-              <td colspan="4" style="border:1px solid #000; padding:6px; font-weight:700;">총합계(금액+부가세)</td>
-              <td colspan="2" style="border:1px solid #000; padding:6px; text-align:right; font-weight:700;" x-text="printModel.totals.grandText"></td>
-            </tr>
-          </tbody>
-        </table>
-
-        <div style="margin-top:10mm; font-size:9.5pt;" class="print-muted">
-          비고: 본 인쇄물은 웹 앱에서 계산된 결과를 출력합니다.
-        </div>
-      </div>
-    </section>
-
-  </div>
-
   <script>
-    // Excel formula helper functions
+    // ===== Excel formula helper functions (from get_js_helpers) =====
     function _sum(...args) {
         return args.flat().reduce((a, b) => (parseFloat(a) || 0) + (parseFloat(b) || 0), 0);
     }
@@ -493,343 +353,243 @@
         }).format(num / 100);
     }
 
+    // ===== App logic =====
     function appData(){
       return {
         vatRate: 0.1,
-        // Rows represent Excel rows 12~21 (요청서 AA12:AA21 범위)
-        rows: [],
-        totals: {
-          amountSum: 0,
-          vatSum: 0,
-          grandSum: 0,
-          // Placeholder mapping to C30/J30/P30
-          total_c30: 0,
-          total_j30: 0,
-          total_p30: 0,
-        },
-        printModel: {
-          generatedAt: '',
-          rows: [],
-          totals: {
-            amountText: '0',
-            vatText: '0',
-            grandText: '0'
-          }
-        },
+        lines: [],
+        totals: { C30: 0, J30: 0, P30: 0 },
+        globalError: '',
+        globalWarning: '',
 
         init(){
-          this.rows = [];
-          for(let i=12;i<=21;i++){
-            this.rows.push({
-              rowIndex: i,
-              aa: '',   // AA행: 항목명(텍스트)
-              m: 0,     // M행: 단가
-              o: 0,     // O행: 수량
-              amountT: 0, // T행: 금액
-              vatZ: 0     // Z행: 부가세
-            });
+          // rows 12~21
+          this.lines = Array.from({length: 10}, (_, i) => {
+            const row = 12 + i;
+            return {
+              row,
+              unitPrice: '',
+              quantity: '',
+              supply: 0,
+              vat: 0,
+              errors: { unitPrice: '', quantity: '' }
+            };
+          });
+          this.calculate();
+        },
+
+        // 화면/인쇄용 포맷(요구사항: formatNumber(value, options))
+        formatNumber(value, options = {}){
+          const decimals = Number.isFinite(options.decimals) ? options.decimals : 0;
+          const n = (typeof value === 'number' && Number.isFinite(value)) ? value : 0;
+          return formatNumber(n, decimals);
+        },
+
+        // 입력값 정규화
+        toNumber(v){
+          if (v === null || v === undefined || v === '') return 0;
+          const n = Number(v);
+          return Number.isFinite(n) ? n : 0;
+        },
+
+        validateLine(line){
+          line.errors.unitPrice = '';
+          line.errors.quantity = '';
+
+          const up = this.toNumber(line.unitPrice);
+          const qty = this.toNumber(line.quantity);
+
+          if (up < 0) line.errors.unitPrice = '단가는 0 이상이어야 합니다.';
+          if (qty < 0) line.errors.quantity = '수량은 0 이상이어야 합니다.';
+
+          // 매우 큰 값 경고(요구사항)
+          const absMax = 1e12;
+          if (Math.abs(up) > absMax || Math.abs(qty) > absMax){
+            this.globalWarning = '입력값이 매우 큽니다(1e12 초과). 계산 결과를 확인하세요.';
           }
-          this.recalculateAll();
-          this.printModel = this.buildPrintModel();
         },
 
-        // --- Functions requested in plan ---
-        calculateLineAmount(mValue, oValue){
-          // Excel: Trow = Mrow * Orow  (converted from =M12*O12 => data['M12']*data['O12'])
-          const m = Number(mValue || 0);
-          const o = Number(oValue || 0);
-          return m * o;
+        // calculateLine(unitPrice, quantity, vatRate)
+        calculateLine(unitPrice, quantity, vatRate){
+          // Excel: T(row)=M(row)*O(row), Z(row)=T(row)*0.1
+          // convert_formula 결과를 코드에 반영(셀 참조 대신 매개변수 사용)
+          const supply = (unitPrice * quantity); // from =M12*O12
+          const vat = (supply * vatRate);        // from =T12*0.1
+          return { supply, vat };
         },
 
-        calculateVAT(amount){
-          // Excel: Zrow = Trow * 0.1 (converted from =T12*0.1 => data['T12']*0.1)
-          const a = Number(amount || 0);
-          // 정책: 원 단위 반올림(필요 시 변경)
-          return Math.round(a * this.vatRate);
-        },
+        // calculateTotals(lines)
+        calculateTotals(lines){
+          const sumSupply = lines.reduce((acc, l) => acc + (Number(l.supply) || 0), 0);
+          const sumVat = lines.reduce((acc, l) => acc + (Number(l.vat) || 0), 0);
+          const sumTotal = sumSupply + sumVat;
 
-        recalculateAll(){
-          // parse -> line calcs -> totals
-          for(const r of this.rows){
-            r.m = Number(r.m || 0);
-            r.o = Number(r.o || 0);
-            r.amountT = this.calculateLineAmount(r.m, r.o);
-            r.vatZ = this.calculateVAT(r.amountT);
-          }
-
-          const amountSum = this.rows.reduce((acc, r) => acc + (Number(r.amountT)||0), 0);
-          const vatSum = this.rows.reduce((acc, r) => acc + (Number(r.vatZ)||0), 0);
-          const grandSum = amountSum + vatSum;
-
-          this.totals.amountSum = amountSum;
-          this.totals.vatSum = vatSum;
-          this.totals.grandSum = grandSum;
-
-          // Map to requested summary cells (C30/J30/P30) as best-effort due to missing original formulas.
-          this.totals.total_p30 = amountSum; // 가정: P30 = 금액 합
-          this.totals.total_j30 = vatSum;    // 가정: J30 = 부가세 합
-          this.totals.total_c30 = grandSum;  // 가정: C30 = 총합
-
-          // keep preview in sync
-          this.printModel = this.buildPrintModel();
-        },
-
-        formatNumberKRW(value, mode='number'){
-          const v = Number(value || 0);
-          if(mode === 'currency') return formatCurrency(v);
-          // default: Excel-like comma formatting without currency symbol
-          return new Intl.NumberFormat('ko-KR', { maximumFractionDigits: 0 }).format(v);
-        },
-
-        buildPrintModel(){
-          const now = new Date();
-          const generatedAt = new Intl.DateTimeFormat('ko-KR', {
-            year:'numeric', month:'2-digit', day:'2-digit'
-          }).format(now);
-
-          const pmRows = this.rows.map(r => ({
-            rowIndex: r.rowIndex,
-            aaText: (r.aa && String(r.aa).trim().length) ? String(r.aa).trim() : '-',
-            mText: this.formatNumberKRW(r.m, 'number'),
-            oText: this.formatNumberKRW(r.o, 'number'),
-            amountText: this.formatNumberKRW(r.amountT, 'number'),
-            vatText: this.formatNumberKRW(r.vatZ, 'number'),
-          }));
-
-          const totals = {
-            amountText: this.formatNumberKRW(this.totals.amountSum, 'number'),
-            vatText: this.formatNumberKRW(this.totals.vatSum, 'number'),
-            grandText: this.formatNumberKRW(this.totals.grandSum, 'number')
+          // 엑셀의 C30/J30/P30 정확한 매핑이 미확정인 상태에서,
+          // 일반적인 요약(공급가액/부가세/합계)로 제공
+          return {
+            C30: sumSupply,
+            J30: sumVat,
+            P30: sumTotal
           };
-
-          return { generatedAt, rows: pmRows, totals };
         },
 
-        prepareAndPrint(){
-          // Ensure latest model
-          this.recalculateAll();
-          // Next tick for Alpine DOM update
-          this.$nextTick(() => window.print());
-        },
+        // calculate(state): 메인 계산 함수
+        calculate(){
+          this.globalError = '';
+          this.globalWarning = '';
 
-        resetAll(){
-          for(const r of this.rows){
-            r.aa = '';
-            r.m = 0;
-            r.o = 0;
-            r.amountT = 0;
-            r.vatZ = 0;
+          try{
+            for (const line of this.lines){
+              this.validateLine(line);
+
+              const unitPrice = this.toNumber(line.unitPrice);
+              const quantity  = this.toNumber(line.quantity);
+
+              // 검증 오류가 있어도 계산은 0 이상일 때만 반영(음수면 0 처리)
+              const safeUP = unitPrice < 0 ? 0 : unitPrice;
+              const safeQ  = quantity < 0 ? 0 : quantity;
+
+              const r = this.calculateLine(safeUP, safeQ, this.vatRate);
+
+              // VAT 원단위 반올림(기본: 0자리 반올림)
+              line.supply = _round(r.supply, 0);
+              line.vat = _round(r.vat, 0);
+            }
+
+            this.totals = this.calculateTotals(this.lines);
+            // 합계도 원단위
+            this.totals.C30 = _round(this.totals.C30, 0);
+            this.totals.J30 = _round(this.totals.J30, 0);
+            this.totals.P30 = _round(this.totals.P30, 0);
+
+          }catch(err){
+            console.error(err);
+            this.globalError = '계산 중 오류가 발생했습니다. 입력값을 확인해 주세요.';
           }
-          this.recalculateAll();
+        },
+
+        reset(){
+          for (const line of this.lines){
+            line.unitPrice = '';
+            line.quantity = '';
+            line.supply = 0;
+            line.vat = 0;
+            line.errors.unitPrice = '';
+            line.errors.quantity = '';
+          }
+          this.totals = { C30: 0, J30: 0, P30: 0 };
+          this.globalError = '';
+          this.globalWarning = '';
+        },
+
+        print(){
+          window.print();
+        },
+
+        exportCSV(){
+          // 현재 테이블 lines를 CSV 직렬화
+          const header = ['row','unitPrice','quantity','supply(T)','vat(Z)'];
+          const rows = this.lines.map(l => [
+            l.row,
+            this.toNumber(l.unitPrice),
+            this.toNumber(l.quantity),
+            Number(l.supply)||0,
+            Number(l.vat)||0
+          ]);
+
+          const csv = [header, ...rows]
+            .map(r => r.map(v => {
+              const s = String(v);
+              return (s.includes(',') || s.includes('"') || s.includes('\n'))
+                ? '"' + s.replaceAll('"','""') + '"'
+                : s;
+            }).join(','))
+            .join('\n');
+
+          const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = '항목별_금액_부가세_계산기.csv';
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          URL.revokeObjectURL(url);
         }
       };
     }
   </script>
 
-<!-- Agent Trace Viewer -->
-<style>
-.trace-toggle {
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    z-index: 9999;
-    background: #6366f1;
-    color: white;
-    border: none;
-    padding: 12px 20px;
-    border-radius: 25px;
-    cursor: pointer;
-    font-size: 14px;
-    box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-.trace-toggle:hover { background: #4f46e5; }
-.trace-panel {
+<!-- 해커톤 선정 정보 -->
+<div id="selection-banner" style="
     position: fixed;
     top: 0;
-    right: -450px;
-    width: 450px;
-    height: 100vh;
-    background: #1e1e2e;
-    color: #cdd6f4;
-    z-index: 9998;
-    transition: right 0.3s ease;
-    overflow-y: auto;
-    font-family: 'Monaco', 'Menlo', monospace;
-    font-size: 12px;
-}
-.trace-panel.open { right: 0; }
-.trace-header {
-    padding: 16px;
-    background: #313244;
-    border-bottom: 1px solid #45475a;
+    left: 0;
+    right: 0;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 12px 20px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 14px;
+    z-index: 10000;
     display: flex;
     justify-content: space-between;
     align-items: center;
-}
-.trace-header h3 { margin: 0; font-size: 14px; }
-.trace-close {
-    background: none;
-    border: none;
-    color: #cdd6f4;
-    cursor: pointer;
-    font-size: 18px;
-}
-.trace-content { padding: 16px; }
-.span-item {
-    margin-bottom: 12px;
-    padding: 12px;
-    background: #313244;
-    border-radius: 8px;
-    border-left: 3px solid #89b4fa;
-}
-.span-item.agent { border-left-color: #a6e3a1; }
-.span-item.generation { border-left-color: #f9e2af; }
-.span-item.function { border-left-color: #cba6f7; }
-.span-type {
-    font-size: 10px;
-    text-transform: uppercase;
-    color: #6c7086;
-    margin-bottom: 4px;
-}
-.span-name { font-weight: bold; color: #89dceb; }
-.span-data {
-    margin-top: 8px;
-    padding: 8px;
-    background: #1e1e2e;
-    border-radius: 4px;
-    overflow-x: auto;
-    white-space: pre-wrap;
-    word-break: break-all;
-}
-.span-time { color: #6c7086; font-size: 11px; }
-.trace-summary {
-    padding: 12px 16px;
-    background: #45475a;
-    margin: 0 16px 16px;
-    border-radius: 8px;
-}
-.trace-summary-item { display: flex; justify-content: space-between; margin: 4px 0; }
-
-    /* Navigation Header */
-    .demo-nav {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      padding: 10px 20px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      z-index: 9999;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-    }
-    .demo-nav a {
-      color: white;
-      text-decoration: none;
-      padding: 6px 12px;
-      border-radius: 6px;
-      font-size: 0.9rem;
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      transition: background 0.2s;
-    }
-    .demo-nav a:hover {
-      background: rgba(255,255,255,0.2);
-    }
-    .demo-nav .nav-title {
-      font-weight: 600;
-      font-size: 1rem;
-    }
-    .demo-nav .nav-links {
-      display: flex;
-      gap: 8px;
-    }
-    .demo-nav .btn-trace {
-      background: rgba(100, 255, 218, 0.2);
-      border: 1px solid #64ffda;
-    }
-    .demo-nav .btn-excel {
-      background: rgba(33, 115, 70, 0.8);
-    }
-    body {
-      padding-top: 50px !important;
-    }
-    @media print {
-      .demo-nav { display: none !important; }
-      body { padding-top: 0 !important; }
-    }
-
-  </style>
-
-<button class="trace-toggle" onclick="toggleTracePanel()">
-    <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-        <path d="M9.5 13a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm0-5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm0-5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/>
-    </svg>
-    Agent Trace
-</button>
-
-<div class="trace-panel" id="tracePanel">
-    <div class="trace-header">
-        <h3>Agent Trace Viewer</h3>
-        <button class="trace-close" onclick="toggleTracePanel()">&times;</button>
+    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+">
+    <div>
+        <strong>📊 거래명세표 (자동계산)</strong>
+        <span style="margin-left: 10px; opacity: 0.9;">| 자동화</span>
     </div>
-    <div class="trace-summary" id="traceSummary"></div>
-    <div class="trace-content" id="traceContent"></div>
+    <div style="display: flex; align-items: center; gap: 15px;">
+        <span style="background: rgba(255,255,255,0.2); padding: 4px 10px; border-radius: 12px; font-size: 12px;">
+            0개 수식
+        </span>
+        <button onclick="document.getElementById('selection-info').style.display='block'"
+                style="background: white; color: #667eea; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: 500;">
+            선정 이유 보기
+        </button>
+    </div>
 </div>
 
-<script>
-const TRACE_DATA = {"trace_id": "trace_7ada41b2f5214e2599bf1333687938f6", "workflow_name": "Excel-to-WebApp: 3.xlsx", "group_id": null, "metadata": null, "started_at": "2025-12-28T11:38:07.205004", "ended_at": "2025-12-28T11:41:03.485818", "spans": [{"span_id": "span_d5829863c6424e74a2ad59ed", "parent_id": "span_d0adad75a14e42ce962e3e9d", "started_at": "2025-12-28T02:38:07.236562+00:00", "ended_at": "2025-12-28T02:38:09.276874+00:00", "error": null, "type": "response", "data": {"type": "response", "response_id": "resp_075bad3745ea3da8006950980fc60c8194ac74bc2de08e9f8b"}}, {"span_id": "span_015f45a1ac484317b0882df8", "parent_id": "span_d0adad75a14e42ce962e3e9d", "started_at": "2025-12-28T02:38:09.278424+00:00", "ended_at": "2025-12-28T02:38:09.407622+00:00", "error": null, "type": "function", "data": {"type": "function", "name": "analyze_excel", "input": "{\"file_path\":\"excel_files/엑셀서식(20160517)/거래명세표(자동계산)/3.xlsx\"}", "output": "{'filename': '3.xlsx', 'file_type': 'xlsx', 'sheets': [{'name': 'Sheet1', 'row_count': 32, 'col_count': 32, 'used_range': 'A1:AF32', 'input_cells': ['AA12', 'AA13', 'AA14', 'AA15', 'AA16', 'AA17', 'AA18', 'AA19', 'AA20', 'AA21', 'AA22', 'AA23', 'AA24', 'AA25', 'AA26', 'AA27', 'AA28', 'AA29', 'AB12', 'AB13', 'AB14', 'AB15', 'AB16', 'AB17', 'AB18', 'AB19', 'AB20', 'AB21', 'AB22', 'AB23', 'AB24', 'AB25', 'AB26', 'AB27', 'AB28', 'AB29', 'AC12', 'AC13', 'AC14', 'AC15', 'AC16', 'AC17', 'AC18', 'AC19', 'AC20', 'AC21', 'AC22', 'AC23', 'AC24', 'AC25', 'AC26', 'AC27', 'AC28', 'AC29', 'AD12', 'AD13', 'AD14', 'AD15', 'AD16', 'AD17', 'AD18', 'AD19', 'AD20', 'AD21', 'AD22', 'AD23', 'AD24', 'AD25', 'AD26', 'AD27', 'AD28', 'AD29', 'M12', 'M13', 'M14', 'M15', 'M16', 'M17', 'M18', 'M19', 'M20', 'M21', 'M22', 'M23', 'M24', 'M25', 'M26', 'M27', 'M28', 'M29', 'O12', 'O13', 'O14', 'O15', 'O16', 'O17', 'O18', 'O19', 'O20', 'O21', 'O22', 'O23', 'O24', 'O25', 'O26', 'O27', 'O28', 'O29', 'U12', 'U13', 'U14', 'U15', 'U16', 'U17', 'U18', 'U19', 'U20', 'U21', 'U22', 'U23', 'U24', 'U25', 'U26', 'U27', 'U28', 'U29', 'V12', 'V13', 'V14', 'V15', 'V16', 'V17', 'V18', 'V19', 'V20', 'V21', 'V22', 'V23', 'V24', 'V25', 'V26', 'V27', 'V28', 'V29', 'W12', 'W13', 'W14', 'W15', 'W16', 'W17', 'W18', 'W19', 'W20', 'W21', 'W22', 'W23', 'W24', 'W25', 'W26', 'W27', 'W28', 'W29', 'X12', 'X13', 'X14', 'X15', 'X16', 'X17', 'X18', 'X19', 'X20', 'X21', 'X22', 'X23', 'X24', 'X25', 'X26', 'X27', 'X28', 'X29', 'Y12', 'Y13', 'Y14', 'Y15', 'Y16', 'Y17', 'Y18', 'Y19', 'Y20', 'Y21', 'Y22', 'Y23', 'Y24', 'Y25', 'Y26', 'Y27', 'Y28', 'Y29'], 'output_cells': ['C30', 'J30', 'P30', 'T12', 'T13', 'T14', 'T15', 'T16', 'T17', 'T18', 'T19', 'T20', 'T21', 'T22', 'T23', 'T24', 'T25', 'T26', 'T27', 'T28', 'T29', 'Z12', 'Z13', 'Z14', 'Z15', 'Z16', 'Z17', 'Z18', 'Z19', 'Z20', 'Z21', 'Z22', 'Z23', 'Z24', 'Z25', 'Z26', 'Z27', 'Z28', 'Z29'], 'formulas': [{'cell': 'T12', 'formula': '=M12*O12', 'dependencies': ['M12', 'O12'], 'result_type': 'number'}, {'cell': 'Z12', 'formula': '=T12*0.1', 'dependencies': ['T12'], 'result_type': 'number'}, {'cell': 'T13', 'formula': '=M13*O13', 'dependencies': ['O13', 'M13'], 'result_type': 'number'}, {'cell': 'Z13', 'formula': '=T13*0.1', 'dependencies': ['T13'], 'result_type': 'number'}, {'cell': 'T14', 'formula': '=M14*O14', 'dependencies': ['O14', 'M14'], 'result_type': 'number'}, {'cell': 'Z14', 'formula': '=T14*0.1', 'dependencies': ['T14'], 'result_type': 'number'}, {'cell': 'T15', 'formula': '=M15*O15', 'dependencies': ['O15', 'M15'], 'result_type': 'number'}, {'cell': 'Z15', 'formula': '=T15*0.1', 'dependencies': ['T15'], 'result_type': 'number'}, {'cell': 'T16', 'formula': '=M16*O16', 'dependencies': ['M16', 'O16'], 'result_type': 'number'}, {'cell': 'Z16', 'formula': '=T16*0.1', 'dependencies': ['T16'], 'result_type': 'number'}, {'cell': 'T17', 'formula': '=M17*O17', 'dependencies': ['M17', 'O17'], 'result_type': 'number'}, {'cell': 'Z17', 'formula': '=T17*0.1', 'dependencies': ['T17'], 'result_type': 'number'}, {'cell': 'T18', 'formula': '=M18*O18', 'dependencies': ['M18', 'O18'], 'result_type': 'number'}, {'cell': 'Z18', 'formula': '=T18*0.1', 'dependencies': ['T18'], 'result_type': 'number'}, {'cell': 'T19', 'formula': '=M19*O19', 'dependencies': ['O19', 'M19'], 'result_type': 'number'}, {'cell': 'Z19', 'formula': '=T19*0.1', 'dependencies': ['T19'], 'result_type': 'number'}, {'cell': 'T20', 'formula': '=M20*O20', 'dependencies': ['M20', 'O20'], 'result_type': 'number'}, {'cell': 'Z20', 'formula': '=T20*0.1', 'dependencies': ['T20'], 'result_type': 'number'}, {'cell': 'T21', 'formula': '=M21*O21', 'dependencies': ['M21', 'O21'], 'result_type': 'number'}, {'cell': 'Z21', 'formula': '=T21*0.1', 'dependencies': ['T21'], 'result_type': 'number'}, {'cell': 'T22', 'formula': '=M22*O22', 'dependencies': ['O22', 'M22'], 'result_type': 'number'}, {'cell': 'Z22', 'formula': '=T22*0.1', 'dependencies': ['T22'], 'result_type': 'number'}, {'cell': 'T23', 'formula': '=M23*O23', 'dependencies': ['M23', 'O23'], 'result_type': 'number'}, {'cell': 'Z23', 'formula': '=T23*0.1', 'dependencies': ['T23'], 'result_type': 'number'}, {'cell': 'T24', 'formula': '=M24*O24', 'dependencies': ['M24', 'O24'], 'result_type': 'number'}, {'cell': 'Z24', 'formula': '=T24*0.1', 'dependencies': ['T24'], 'result_type': 'number'}, {'cell': 'T25', 'formula': '=M25*O25', 'dependencies': ['O25', 'M25'], 'result_type': 'number'}, {'cell': 'Z25', 'formula': '=T25*0.1', 'dependencies': ['T25'], 'result_type': 'number'}, {'cell': 'T26', 'formula': '=M26*O26', 'dependencies': ['O26', 'M26'], 'result_type': 'number'}, {'cell': 'Z26', 'formula': '=T26*0.1', 'dependencies': ['T26'], 'result_type': 'number'}, {'cell': 'T27', 'formula': '=M27*O27', 'dependencies': ['O27', 'M27'], 'result_type': 'number'}, {'cell': 'Z27', 'formula': '=T27*0.1', 'dependencies': ['T27'], 'result_type': 'number'}, {'cell': 'T28', 'formula': '=M28*O28', 'dependencies': ['M28', 'O28'], 'result_type': 'number'}, {'cell': 'Z28', 'formula': '=T28*0.1', 'dependencies': ['T28'], 'result_type': 'number'}, {'cell': 'T29', 'formula': '=M29*O29', 'dependencies': ['M29', 'O29'], 'result_type': 'number'}, {'cell': 'Z29', 'formula': '=T29*0.1', 'dependencies': ['T29'], 'result_type': 'number'}, {'cell': 'C30', 'formula': '=SUM(T12:Y29)', 'dependencies': ['W26', 'Y23', 'T25', 'T16', 'X20', 'U28', 'X26', 'X12', 'W23', 'U25', 'W21', 'T23', 'Y16', 'U29', 'T22', 'X16', 'U15', 'U19', 'Y14', 'V23', 'T14', 'U22', 'V12', 'V25', 'X17', 'X14', 'Y22', 'Y19', 'V14', 'W16', 'U26', 'V15', 'X19', 'U17', 'V18', 'X22', 'T29', 'Y26', 'X27', 'X13', 'V21', 'Y20', 'X15', 'Y21', 'X23', 'W17', 'V20', 'X29', 'W27', 'Y12', 'W14', 'T15', 'V17', 'U14', 'X28', 'T13', 'V22', 'U21', 'T21', 'T18', 'W13', 'V26', 'T19', 'U18', 'W12', 'T27', 'Y15', 'W18', 'U27', 'T20', 'U13', 'T26', 'W28', 'Y28', 'V28', 'Y25', 'Y29', 'Y13', 'W22', 'X18', 'T28', 'V27', 'Y27', 'T12', 'Y18', 'Y24', 'V13', 'T24', 'V19', 'W20', 'U23', 'X21', 'Y17', 'W24', 'T17', 'W29', 'W15', 'X24', 'V29', 'V16', 'U24', 'X25', 'U12', 'U16', 'W19', 'V24', 'U20', 'W25'], 'result_type': 'number'}, {'cell': 'J30', 'formula': '=SUM(Z12:AD29)', 'dependencies': ['AD19', 'Z17', 'AA13', 'AB26', 'AB27', 'Z24', 'AC25', 'AA29', 'AD27', 'AC27', 'AD17', 'AA26', 'Z29', 'Z22', 'AA15', 'AC22', 'AB22', 'AB23', 'AC15', 'AA14', 'AD26', 'AA25', 'AA21', 'AD23', 'AC20', 'AC21', 'Z19', 'Z14', 'AD16', 'AB29', 'AC18', 'AA27', 'AC28', 'AC14', 'AC13', 'AC19', 'AD24', 'AC29', 'Z12', 'AC16', 'AB13', 'AA28', 'AB21', 'AD12', 'AD29', 'Z23', 'AD14', 'AC26', 'AD25', 'AC24', 'AD13', 'AA17', 'Z27', 'AA24', 'AD15', 'AD20', 'AA16', 'Z15', 'AB16', 'AA23', 'AA19', 'AB20', 'AC17', 'Z13', 'Z20', 'AB15', 'AB28', 'AB14', 'AC12', 'AB18', 'AA18', 'Z18', 'AB12', 'AD22', 'AB25', 'AB24', 'Z25', 'AD21', 'AA22', 'AD28', 'AA20', 'AB17', 'Z26', 'AB19', 'AD18', 'Z28', 'AC23', 'Z16', 'Z21', 'AA12'], 'result_type': 'number'}, {'cell': 'P30', 'formula': '=C30+J30', 'dependencies': ['J30', 'C30'], 'result_type': 'number'}], 'has_print_area': False, 'print_area': None}, {'name': 'Sheet2', 'row_count': 1, 'col_count': 1, 'used_range': 'A1:A1', 'input_cells': [], 'output_cells': [], 'formulas': [], 'has_print_area': False, 'print_area': None}, {'name': 'Sheet3', 'row_count': 1, 'col_count': 1, 'used_range': 'A1:A1', 'input_cells': [], 'output_cells': [], 'formulas': [], 'has_print_area': False, 'print_area': None}, {'name': 'Sheet4', 'row_count': 1, 'col_count': 1, 'used_range': 'A1:A1', 'input_cells': [], 'output_cells': [], 'formulas': [], 'has_print_area': False, 'print_area': None}, {'name': 'Sheet5', 'row_count': 1, 'col_count': 1, 'used_range': 'A1:A1', 'input_cells': [], 'output_cells': [], 'formulas': [], 'has_print_area': False, 'print_area': None}, {'name': 'Sheet6', 'row_count': 1, 'col_count': 1, 'used_range': 'A1:A1', 'input_cells': [], 'output_cells': [], 'formulas': [], 'has_print_area': False, 'print_area': None}, {'name': 'Sheet7', 'row_count': 1, 'col_count': 1, 'used_range': 'A1:A1', 'input_cells': [], 'output_cells': [], 'formulas': [], 'has_print_area': False, 'print_area': None}, {'name': 'Sheet8', 'row_count': 1, 'col_count': 1, 'used_range': 'A1:A1', 'input_cells': [], 'output_cells': [], 'formulas': [], 'has_print_area': False, 'print_area': None}, {'name': 'Sheet9', 'row_count': 1, 'col_count': 1, 'used_range': 'A1:A1', 'input_cells': [], 'output_cells': [], 'formulas': [], 'has_print_area': False, 'print_area': None}, {'name': 'Sheet10', 'row_count': 1, 'col_count': 1, 'used_range': 'A1:A1', 'input_cells': [], 'output_cells': [], 'formulas': [], 'has_print_area': False, 'print_area': None}], 'vba_modules': [], 'has_vba': False, 'print_settings': {'orientation': 'portrait', 'paper_size': 'A4', 'margins': {'top': 0.984027777777778, 'bottom': 0.984027777777778, 'left': 0.747916666666667, 'right': 0.747916666666667}, 'header': None, 'footer': None, 'fit_to_page': False, 'scale': 100}, 'total_formulas': 39, 'total_input_cells': 198, 'total_output_cells': 39, 'complexity_score': 'medium'}", "mcp_data": null}}, {"span_id": "span_f4cff781e296495d9ff77755", "parent_id": "span_d0adad75a14e42ce962e3e9d", "started_at": "2025-12-28T02:38:09.410788+00:00", "ended_at": "2025-12-28T02:39:36.355760+00:00", "error": null, "type": "response", "data": {"type": "response", "response_id": "resp_075bad3745ea3da800695098119b288194b8f8c0e3cac9c782"}}, {"span_id": "span_d0adad75a14e42ce962e3e9d", "parent_id": null, "started_at": "2025-12-28T02:38:07.209744+00:00", "ended_at": "2025-12-28T02:39:36.356142+00:00", "error": null, "type": "agent", "data": {"type": "agent", "name": "Excel Analyzer", "handoffs": [], "tools": ["analyze_excel", "get_sheet_cells"], "output_type": "str"}}, {"span_id": "span_c141222ef38b4108b3fed8b4", "parent_id": "span_8610da4469a24890a911737a", "started_at": "2025-12-28T02:39:36.356636+00:00", "ended_at": "2025-12-28T02:40:06.473728+00:00", "error": null, "type": "response", "data": {"type": "response", "response_id": "resp_06188caaa004869b0069509868926c819484a47b546fcf0eca"}}, {"span_id": "span_8610da4469a24890a911737a", "parent_id": null, "started_at": "2025-12-28T02:39:36.356382+00:00", "ended_at": "2025-12-28T02:40:06.474222+00:00", "error": null, "type": "agent", "data": {"type": "agent", "name": "WebApp Planner", "handoffs": [], "tools": [], "output_type": "WebAppPlan"}}, {"span_id": "span_97fa6f93cbe7436e8d8039a6", "parent_id": "span_3f4b743a904f4c0abbc290ad", "started_at": "2025-12-28T02:40:06.474701+00:00", "ended_at": "2025-12-28T02:40:07.775503+00:00", "error": null, "type": "response", "data": {"type": "response", "response_id": "resp_007851bfb736567e0069509886ad7c819590a86a7c9829588d"}}, {"span_id": "span_5b361915074d4475b58d31a6", "parent_id": "span_3f4b743a904f4c0abbc290ad", "started_at": "2025-12-28T02:40:07.775698+00:00", "ended_at": "2025-12-28T02:40:07.775920+00:00", "error": null, "type": "function", "data": {"type": "function", "name": "check_formula_complexity", "input": "{\"formula\":\"=M12*O12\"}", "output": "formula='=M12*O12' is_simple=True conversion_method='direct'", "mcp_data": null}}, {"span_id": "span_f4ea0753d5a64170898804fe", "parent_id": "span_3f4b743a904f4c0abbc290ad", "started_at": "2025-12-28T02:40:07.775729+00:00", "ended_at": "2025-12-28T02:40:07.775940+00:00", "error": null, "type": "function", "data": {"type": "function", "name": "check_formula_complexity", "input": "{\"formula\":\"=T12*0.1\"}", "output": "formula='=T12*0.1' is_simple=True conversion_method='direct'", "mcp_data": null}}, {"span_id": "span_3d54ade8375f4a29b6e579ca", "parent_id": "span_3f4b743a904f4c0abbc290ad", "started_at": "2025-12-28T02:40:07.775742+00:00", "ended_at": "2025-12-28T02:40:07.775949+00:00", "error": null, "type": "function", "data": {"type": "function", "name": "get_js_helpers", "input": "{}", "output": "\n// Excel formula helper functions\nfunction _sum(...args) {\n    return args.flat().reduce((a, b) => (parseFloat(a) || 0) + (parseFloat(b) || 0), 0);\n}\n\nfunction _sumRange(rangeData) {\n    if (Array.isArray(rangeData)) {\n        return rangeData.flat().reduce((a, b) => (parseFloat(a) || 0) + (parseFloat(b) || 0), 0);\n    }\n    return parseFloat(rangeData) || 0;\n}\n\nfunction _average(...args) {\n    const flat = args.flat().filter(x => x !== null && x !== '' && !isNaN(x));\n    return flat.length ? _sum(...flat) / flat.length : 0;\n}\n\nfunction _averageRange(rangeData) {\n    if (Array.isArray(rangeData)) {\n        const flat = rangeData.flat().filter(x => x !== null && x !== '' && !isNaN(x));\n        return flat.length ? _sumRange(flat) / flat.length : 0;\n    }\n    return parseFloat(rangeData) || 0;\n}\n\nfunction _count(...args) {\n    return args.flat().filter(x => typeof x === 'number' && !isNaN(x)).length;\n}\n\nfunction _counta(...args) {\n    return args.flat().filter(x => x !== null && x !== '' && x !== undefined).length;\n}\n\nfunction _and(...args) {\n    return args.every(x => Boolean(x));\n}\n\nfunction _or(...args) {\n    return args.some(x => Boolean(x));\n}\n\nfunction _round(num, digits = 0) {\n    const factor = Math.pow(10, digits);\n    return Math.round(num * factor) / factor;\n}\n\nfunction _roundUp(num, digits = 0) {\n    const factor = Math.pow(10, digits);\n    return Math.ceil(num * factor) / factor;\n}\n\nfunction _roundDown(num, digits = 0) {\n    const factor = Math.pow(10, digits);\n    return Math.floor(num * factor) / factor;\n}\n\nfunction _len(text) {\n    return String(text).length;\n}\n\nfunction _left(text, numChars = 1) {\n    return String(text).substring(0, numChars);\n}\n\nfunction _right(text, numChars = 1) {\n    const str = String(text);\n    return str.substring(str.length - numChars);\n}\n\nfunction _mid(text, startNum, numChars) {\n    return String(text).substring(startNum - 1, startNum - 1 + numChars);\n}\n\nfunction _trim(text) {\n    return String(text).trim();\n}\n\nfunction _upper(text) {\n    return String(text).toUpperCase();\n}\n\nfunction _lower(text) {\n    return String(text).toLowerCase();\n}\n\nfunction _concat(...args) {\n    return args.join('');\n}\n\n// Number formatting\nfunction formatNumber(num, decimals = 0) {\n    return new Intl.NumberFormat('ko-KR', {\n        minimumFractionDigits: decimals,\n        maximumFractionDigits: decimals\n    }).format(num);\n}\n\nfunction formatCurrency(num) {\n    return new Intl.NumberFormat('ko-KR', {\n        style: 'currency',\n        currency: 'KRW',\n        maximumFractionDigits: 0\n    }).format(num);\n}\n\nfunction formatPercent(num, decimals = 1) {\n    return new Intl.NumberFormat('ko-KR', {\n        style: 'percent',\n        minimumFractionDigits: decimals,\n        maximumFractionDigits: decimals\n    }).format(num / 100);\n}\n", "mcp_data": null}}, {"span_id": "span_62a823d5d9a24d82b585f4e5", "parent_id": "span_3f4b743a904f4c0abbc290ad", "started_at": "2025-12-28T02:40:07.776293+00:00", "ended_at": "2025-12-28T02:40:09.157596+00:00", "error": null, "type": "response", "data": {"type": "response", "response_id": "resp_007851bfb736567e00695098880610819586340138a8fcbab6"}}, {"span_id": "span_db768577918645959d72a1ae", "parent_id": "span_3f4b743a904f4c0abbc290ad", "started_at": "2025-12-28T02:40:09.157842+00:00", "ended_at": "2025-12-28T02:40:09.158781+00:00", "error": null, "type": "function", "data": {"type": "function", "name": "convert_formula", "input": "{\"formula\":\"=M12*O12\"}", "output": "success=True js_code=\"data['M12']*data['O12']\" requires_llm=False error=None", "mcp_data": null}}, {"span_id": "span_c38c410f3c364d53aa21ae86", "parent_id": "span_3f4b743a904f4c0abbc290ad", "started_at": "2025-12-28T02:40:09.157886+00:00", "ended_at": "2025-12-28T02:40:09.158816+00:00", "error": null, "type": "function", "data": {"type": "function", "name": "convert_formula", "input": "{\"formula\":\"=T12*0.1\"}", "output": "success=True js_code=\"data['T12']*0.1\" requires_llm=False error=None", "mcp_data": null}}, {"span_id": "span_611b98ec840c420fb643f9e0", "parent_id": "span_3f4b743a904f4c0abbc290ad", "started_at": "2025-12-28T02:40:09.159237+00:00", "ended_at": "2025-12-28T02:41:03.485135+00:00", "error": null, "type": "response", "data": {"type": "response", "response_id": "resp_007851bfb736567e0069509889620c81959928572cdad556ee"}}, {"span_id": "span_3f4b743a904f4c0abbc290ad", "parent_id": null, "started_at": "2025-12-28T02:40:06.474467+00:00", "ended_at": "2025-12-28T02:41:03.485511+00:00", "error": null, "type": "agent", "data": {"type": "agent", "name": "WebApp Generator", "handoffs": [], "tools": ["convert_formula", "check_formula_complexity", "get_js_helpers"], "output_type": "GeneratedWebApp"}}]};
+<div id="selection-info" style="
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 10001;
+    display: none;
+    justify-content: center;
+    align-items: center;
+" onclick="this.style.display='none'">
+    <div style="
+        background: white;
+        padding: 30px;
+        border-radius: 16px;
+        max-width: 500px;
+        margin: 20px;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    " onclick="event.stopPropagation()">
+        <h2 style="margin: 0 0 15px; color: #333;">🏆 해커톤 선정 이유</h2>
+        <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+            <strong style="color: #667eea;">자동화</strong>
+            <p style="margin: 10px 0 0; color: #555; line-height: 1.6;">동적 계산 로직 포함 - 자동화 기능 시연</p>
+        </div>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <span style="background: #e3e8ff; color: #4c5fd5; padding: 4px 10px; border-radius: 12px; font-size: 12px;">자동계산</span>
+        </div>
+        <button onclick="document.getElementById('selection-info').style.display='none'"
+                style="margin-top: 20px; width: 100%; padding: 12px; background: #667eea; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px;">
+            닫기
+        </button>
+    </div>
+</div>
 
-function toggleTracePanel() {
-    document.getElementById('tracePanel').classList.toggle('open');
-}
-
-function renderTrace() {
-    const summary = document.getElementById('traceSummary');
-    const content = document.getElementById('traceContent');
-
-    if (!TRACE_DATA) {
-        content.innerHTML = '<p>No trace data available</p>';
-        return;
-    }
-
-    // Summary
-    const spans = TRACE_DATA.spans || [];
-    const agentSpans = spans.filter(s => s.type === 'agent').length;
-    const genSpans = spans.filter(s => s.type === 'generation').length;
-    const funcSpans = spans.filter(s => s.type === 'function').length;
-
-    summary.innerHTML = `
-        <div class="trace-summary-item"><span>Workflow</span><span>${TRACE_DATA.workflow_name || '-'}</span></div>
-        <div class="trace-summary-item"><span>Agent Spans</span><span>${agentSpans}</span></div>
-        <div class="trace-summary-item"><span>LLM Generations</span><span>${genSpans}</span></div>
-        <div class="trace-summary-item"><span>Function Calls</span><span>${funcSpans}</span></div>
-    `;
-
-    // Spans
-    let html = '';
-    spans.forEach(span => {
-        const typeClass = span.type || 'custom';
-        const data = span.data || {};
-        html += `
-            <div class="span-item ${typeClass}">
-                <div class="span-type">${span.type || 'span'}</div>
-                <div class="span-name">${data.name || data.model || span.span_id?.slice(0, 8) || '-'}</div>
-                ${data.input ? `<div class="span-data">${typeof data.input === 'string' ? data.input.slice(0, 200) : JSON.stringify(data.input).slice(0, 200)}...</div>` : ''}
-                ${data.output ? `<div class="span-data">${typeof data.output === 'string' ? data.output.slice(0, 200) : JSON.stringify(data.output).slice(0, 200)}...</div>` : ''}
-                ${data.usage ? `<div class="span-time">Tokens: ${data.usage.total_tokens || '-'}</div>` : ''}
-            </div>
-        `;
-    });
-    content.innerHTML = html || '<p>No spans recorded</p>';
-}
-
-document.addEventListener('DOMContentLoaded', renderTrace);
-</script>
+<style>
+body { padding-top: 56px !important; }
+</style>
 </body>
 </html>

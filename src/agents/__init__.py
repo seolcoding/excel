@@ -7,7 +7,14 @@ Agent Pipeline (LLM-as-a-Judge pattern):
 4. Tester Agent: Evaluate code and provide feedback (LLM-as-a-Judge)
 """
 
-from .analyzer_agent import create_analyzer_agent, create_analyze_prompt
+from .analyzer_agent import (
+    create_analyzer_agent,
+    create_analyze_prompt,
+    analyze_layout_structure,
+    analyze_io_mapping,
+    build_formula_dependency_graph,
+    analyze_vba_cell_mapping,
+)
 from .planner_agent import create_planner_agent, create_plan_prompt
 from .generator_agent import (
     create_generator_agent,
@@ -19,11 +26,21 @@ from .tester_agent import (
     create_test_prompt,
     TestEvaluation,
 )
+from .test_generator_agent import (
+    create_test_generator_agent,
+    create_test_generation_prompt,
+    GeneratedTestSuite,
+    convert_to_static_test_suite,
+)
 
 __all__ = [
     # Analyzer
     "create_analyzer_agent",
     "create_analyze_prompt",
+    "analyze_layout_structure",
+    "analyze_io_mapping",
+    "build_formula_dependency_graph",
+    "analyze_vba_cell_mapping",
     # Planner
     "create_planner_agent",
     "create_plan_prompt",
@@ -35,4 +52,9 @@ __all__ = [
     "create_tester_agent",
     "create_test_prompt",
     "TestEvaluation",
+    # Test Generator
+    "create_test_generator_agent",
+    "create_test_generation_prompt",
+    "GeneratedTestSuite",
+    "convert_to_static_test_suite",
 ]

@@ -26,6 +26,15 @@ from .output import (
     ImprovementFeedback,
     ConversionResult,
 )
+from .test_case import (
+    CellValue,
+    FormulaTestCase,
+    InputOutputMapping,
+    TestScenario,
+    StaticTestSuite,
+    TestExecutionResult,
+    StaticTestResult,
+)
 
 __all__ = [
     # Analysis models
@@ -51,4 +60,12 @@ __all__ = [
     "GeneratedWebApp",
     "ImprovementFeedback",
     "ConversionResult",
+    # Test case models
+    "CellValue",
+    "FormulaTestCase",
+    "InputOutputMapping",
+    "TestScenario",
+    "StaticTestSuite",
+    "TestExecutionResult",
+    "StaticTestResult",
 ]
