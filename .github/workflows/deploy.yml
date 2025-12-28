@@ -29,8 +29,10 @@ jobs:
           mkdir -p _site
           # Copy static files
           cp -r index.html _site/
+          cp -r trace-viewer.html _site/
           cp -r demos _site/
           cp -r excel_files _site/
+          cp -r traces _site/
           cp CNAME _site/
           # Create 404 page
           cp index.html _site/404.html
