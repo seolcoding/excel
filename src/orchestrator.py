@@ -1,4 +1,10 @@
-"""Orchestrator - Coordinates the Excel to WebApp conversion pipeline."""
+"""Orchestrator - Coordinates the Excel to WebApp conversion pipeline.
+
+Implements LLM-as-a-Judge pattern for iterative improvement:
+1. Generator Agent produces code
+2. Tester Agent evaluates and provides feedback
+3. Loop continues until pass or max iterations reached
+"""
 
 import asyncio
 import json
@@ -16,6 +22,7 @@ from src.models import (
     TestSuite,
     TestResult,
     TestStatus,
+    TestEvaluation,
 )
 from src.agents import (
     create_analyzer_agent,
@@ -24,8 +31,15 @@ from src.agents import (
     create_plan_prompt,
     create_generator_agent,
     create_generation_prompt,
+    create_tester_agent,
+    create_test_prompt,
 )
-from src.tracing import ConversationCaptureHooks, ConversationTrace
+from src.tracing import (
+    ConversationCaptureHooks,
+    ConversationTrace,
+    StreamingMonitorHooks,
+    Colors,
+)
 
 
 @dataclass
@@ -44,18 +58,20 @@ class ExcelToWebAppOrchestrator:
     """
     Orchestrates the conversion of Excel files to web applications.
 
-    Pipeline:
+    Pipeline (LLM-as-a-Judge pattern):
     1. Analyzer Agent: Extract structure from Excel file
     2. Planner Agent: Design web app based on analysis
     3. Generator Agent: Produce HTML/CSS/JS code
-    4. (Optional) Test and iterate
+    4. Tester Agent: Evaluate code and provide feedback
+    5. Loop: If tests fail, feed feedback to Generator and retry (max 3 iterations)
     """
 
     def __init__(
         self,
         max_iterations: int = 3,
-        min_pass_rate: float = 0.9,
+        min_pass_rate: float = 0.8,
         progress_callback: Optional[ProgressCallback] = None,
+        verbose: bool = False,
     ):
         """
         Initialize the orchestrator.
@@ -64,15 +80,18 @@ class ExcelToWebAppOrchestrator:
             max_iterations: Maximum generation iterations for improvement
             min_pass_rate: Minimum test pass rate to accept (0.0 to 1.0)
             progress_callback: Optional callback for progress updates
+            verbose: Whether to print detailed monitoring output
         """
         self.max_iterations = max_iterations
         self.min_pass_rate = min_pass_rate
         self.progress_callback = progress_callback
+        self.verbose = verbose
 
         # Create all agents (all use OpenAI Agents SDK)
         self.analyzer = create_analyzer_agent()
         self.planner = create_planner_agent()
         self.generator = create_generator_agent()
+        self.tester = create_tester_agent()  # LLM-as-a-Judge
 
     def _report_progress(self, stage: str, message: str, progress: float):
         """Report progress via callback if available."""
@@ -251,13 +270,32 @@ class ExcelToWebAppOrchestrator:
         hooks: ConversationCaptureHooks,
     ) -> tuple[Optional[GeneratedWebApp], int, float]:
         """
-        Generate web app with test-driven iterations.
+        Generate web app with LLM-as-a-Judge test-driven iterations.
+
+        Pattern:
+        1. Generator produces code
+        2. Tester evaluates and provides structured feedback
+        3. If not passed, feedback is appended to input for next iteration
+        4. Loop continues until pass or max iterations
 
         Returns:
             Tuple of (webapp, iterations_used, final_pass_rate)
         """
         webapp = None
         pass_rate = 0.0
+        evaluation: Optional[TestEvaluation] = None
+
+        # Build input items list for conversation continuity
+        input_items = []
+
+        # Extract formulas for testing
+        formulas = []
+        for sheet in analysis.sheets:
+            for formula in sheet.formulas[:20]:  # Limit to 20 formulas
+                formulas.append({
+                    "cell": formula.cell,
+                    "formula": formula.formula,
+                })
 
         for iteration in range(1, self.max_iterations + 1):
             progress = 0.5 + (0.4 * iteration / self.max_iterations)
@@ -267,33 +305,171 @@ class ExcelToWebAppOrchestrator:
                 progress,
             )
 
-            # Generate code
-            webapp = await self._generate(plan, analysis, iteration, hooks)
+            if self.verbose:
+                print(f"\n{Colors.BOLD}{'='*60}{Colors.RESET}")
+                print(f"{Colors.BOLD}🔄 Iteration {iteration}/{self.max_iterations}{Colors.RESET}")
+                print(f"{'='*60}\n")
+
+            # Step 1: Generate code
+            webapp = await self._generate(
+                plan, analysis, iteration, hooks,
+                previous_feedback=evaluation.feedback if evaluation else None,
+                suggested_fixes=evaluation.suggested_fixes if evaluation else None,
+            )
 
             if webapp is None:
+                if self.verbose:
+                    print(f"{Colors.ERROR}❌ Generation failed{Colors.RESET}")
                 continue
 
-            # Run tests
-            test_results = await self._run_tests(webapp, analysis)
-            webapp.test_results = test_results
-            pass_rate = test_results.pass_rate
+            if self.verbose:
+                print(f"{Colors.OUTPUT}✅ Code generated ({len(webapp.html)} chars HTML){Colors.RESET}")
 
-            # Check if good enough
-            if pass_rate >= self.min_pass_rate:
+            # Step 2: Evaluate with Tester Agent (LLM-as-a-Judge)
+            self._report_progress(
+                "test",
+                f"코드 평가 중... (시도 {iteration}/{self.max_iterations})",
+                progress + 0.05,
+            )
+
+            evaluation = await self._evaluate_with_tester(
+                webapp, formulas, iteration, hooks
+            )
+
+            if evaluation is None:
+                # Fallback to static tests if tester fails
+                if self.verbose:
+                    print(f"{Colors.ERROR}⚠️ Tester agent failed, using static tests{Colors.RESET}")
+                test_results = await self._run_tests(webapp, analysis)
+                webapp.test_results = test_results
+                pass_rate = test_results.pass_rate
+            else:
+                # Convert evaluation to test results
+                pass_rate = evaluation.pass_rate
+                webapp.test_results = self._evaluation_to_test_suite(evaluation)
+
+                if self.verbose:
+                    score_color = (
+                        Colors.OUTPUT if evaluation.score == "pass"
+                        else Colors.THINKING if evaluation.score == "needs_improvement"
+                        else Colors.ERROR
+                    )
+                    print(f"\n{score_color}📊 Evaluation: {evaluation.score.upper()}{Colors.RESET}")
+                    print(f"   Pass rate: {pass_rate:.1%}")
+                    if evaluation.issues:
+                        print(f"   Issues: {len(evaluation.issues)}")
+                        for issue in evaluation.issues[:3]:
+                            print(f"   - {issue[:80]}...")
+
+            # Step 3: Check if good enough
+            if evaluation and evaluation.score == "pass":
+                if self.verbose:
+                    print(f"\n{Colors.OUTPUT}🎉 Tests passed!{Colors.RESET}")
                 break
 
-            # If not last iteration, prepare feedback for next round
-            if iteration < self.max_iterations:
-                # Add feedback info to webapp for next iteration
-                failed_tests = [
-                    r for r in test_results.results
-                    if r.status == TestStatus.FAILED
-                ]
+            if pass_rate >= self.min_pass_rate:
+                if self.verbose:
+                    print(f"\n{Colors.OUTPUT}✅ Pass rate {pass_rate:.1%} >= {self.min_pass_rate:.1%}{Colors.RESET}")
+                break
+
+            # Step 4: If not last iteration, prepare feedback for next round
+            if iteration < self.max_iterations and evaluation:
                 webapp.feedback_applied.append(
-                    f"Iteration {iteration}: {len(failed_tests)} tests failed"
+                    f"Iteration {iteration}: {evaluation.score} - {len(evaluation.issues)} issues"
                 )
 
+                if self.verbose:
+                    print(f"\n{Colors.THINKING}📝 Feedback for next iteration:{Colors.RESET}")
+                    print(f"   {evaluation.feedback[:200]}...")
+
         return webapp, iteration, pass_rate
+
+    async def _evaluate_with_tester(
+        self,
+        webapp: GeneratedWebApp,
+        formulas: list[dict],
+        iteration: int,
+        hooks: ConversationCaptureHooks,
+    ) -> Optional[TestEvaluation]:
+        """
+        Evaluate generated code using the Tester Agent (LLM-as-a-Judge).
+
+        Args:
+            webapp: Generated web application
+            formulas: List of Excel formulas to verify
+            iteration: Current iteration number
+            hooks: Conversation hooks for tracing
+
+        Returns:
+            TestEvaluation with structured feedback, or None if failed
+        """
+        try:
+            prompt = create_test_prompt(
+                html=webapp.html,
+                css=webapp.css,
+                js=webapp.js,
+                formulas=formulas,
+                iteration=iteration,
+            )
+
+            result = await Runner.run(
+                self.tester,
+                prompt,
+                hooks=hooks,
+            )
+
+            if result.final_output:
+                if isinstance(result.final_output, TestEvaluation):
+                    return result.final_output
+                elif isinstance(result.final_output, dict):
+                    return TestEvaluation(**result.final_output)
+
+            return None
+
+        except Exception as e:
+            if self.verbose:
+                print(f"{Colors.ERROR}Tester error: {e}{Colors.RESET}")
+            return None
+
+    def _evaluation_to_test_suite(self, evaluation: TestEvaluation) -> TestSuite:
+        """Convert TestEvaluation to TestSuite for compatibility."""
+        results = []
+
+        # Add passed tests
+        for test_name in evaluation.passed_tests:
+            results.append(TestResult(
+                test_name=test_name,
+                test_type="evaluation",
+                status=TestStatus.PASSED,
+                message="Passed",
+            ))
+
+        # Add failed tests
+        for test_name in evaluation.failed_tests:
+            # Find related issue
+            related_issue = next(
+                (issue for issue in evaluation.issues if test_name.lower() in issue.lower()),
+                None
+            )
+            results.append(TestResult(
+                test_name=test_name,
+                test_type="evaluation",
+                status=TestStatus.FAILED,
+                message=related_issue or "Failed",
+            ))
+
+        total = len(results)
+        passed = len(evaluation.passed_tests)
+        failed = len(evaluation.failed_tests)
+
+        return TestSuite(
+            total=total,
+            passed=passed,
+            failed=failed,
+            skipped=0,
+            pass_rate=evaluation.pass_rate,
+            results=results,
+        )
 
     async def _generate(
         self,
@@ -301,15 +477,48 @@ class ExcelToWebAppOrchestrator:
         analysis: ExcelAnalysis,
         iteration: int,
         hooks: ConversationCaptureHooks,
+        previous_feedback: Optional[str] = None,
+        suggested_fixes: Optional[list[str]] = None,
     ) -> Optional[GeneratedWebApp]:
-        """Run the Generator agent to produce code."""
+        """
+        Run the Generator agent to produce code.
+
+        Args:
+            plan: Web app plan
+            analysis: Excel analysis
+            iteration: Current iteration number
+            hooks: Conversation hooks
+            previous_feedback: Feedback from previous iteration's evaluation
+            suggested_fixes: Specific fixes suggested by tester
+
+        Returns:
+            GeneratedWebApp or None if failed
+        """
         try:
             plan_dict = plan.model_dump()
             analysis_dict = analysis.model_dump()
             prompt = create_generation_prompt(plan_dict, analysis_dict)
 
+            # Add iteration-specific instructions with feedback
             if iteration > 1:
-                prompt += f"\n\nThis is iteration {iteration}. Please fix any issues from previous attempts."
+                prompt += f"\n\n## Iteration {iteration} - Improvement Required\n\n"
+
+                if previous_feedback:
+                    prompt += f"### Previous Evaluation Feedback\n{previous_feedback}\n\n"
+
+                if suggested_fixes:
+                    prompt += "### Specific Fixes to Apply\n"
+                    for i, fix in enumerate(suggested_fixes, 1):
+                        prompt += f"{i}. {fix}\n"
+                    prompt += "\n"
+
+                prompt += """Please address ALL the issues mentioned above.
+Focus on:
+1. Fixing any syntax errors first
+2. Implementing missing functionality
+3. Ensuring all validations pass
+4. Maintaining Korean UI labels
+"""
 
             result = await Runner.run(
                 self.generator,
@@ -331,7 +540,8 @@ class ExcelToWebAppOrchestrator:
             return None
 
         except Exception as e:
-            print(f"Generation error: {e}")
+            if self.verbose:
+                print(f"{Colors.ERROR}Generation error: {e}{Colors.RESET}")
             return None
 
     async def _run_tests(
@@ -482,19 +692,30 @@ class ExcelToWebAppOrchestrator:
 async def convert_excel_to_webapp(
     excel_path: str,
     progress_callback: Optional[ProgressCallback] = None,
+    verbose: bool = False,
+    max_iterations: int = 3,
 ) -> ConversionResult:
     """
     Convenience function to convert an Excel file to a web app.
 
+    Uses LLM-as-a-Judge pattern for iterative improvement:
+    1. Generator produces code
+    2. Tester evaluates and provides feedback
+    3. Loop until pass or max iterations
+
     Args:
         excel_path: Path to the Excel file
         progress_callback: Optional callback for progress updates
+        verbose: Whether to print detailed monitoring output
+        max_iterations: Maximum iterations for improvement (default: 3)
 
     Returns:
         ConversionResult with the generated web app
     """
     orchestrator = ExcelToWebAppOrchestrator(
         progress_callback=progress_callback,
+        verbose=verbose,
+        max_iterations=max_iterations,
     )
     return await orchestrator.convert(excel_path)
 
@@ -502,6 +723,8 @@ async def convert_excel_to_webapp(
 def convert_excel_to_webapp_sync(
     excel_path: str,
     progress_callback: Optional[ProgressCallback] = None,
+    verbose: bool = False,
+    max_iterations: int = 3,
 ) -> ConversionResult:
     """
     Synchronous wrapper for convert_excel_to_webapp.
@@ -509,8 +732,12 @@ def convert_excel_to_webapp_sync(
     Args:
         excel_path: Path to the Excel file
         progress_callback: Optional callback for progress updates
+        verbose: Whether to print detailed monitoring output
+        max_iterations: Maximum iterations for improvement (default: 3)
 
     Returns:
         ConversionResult with the generated web app
     """
-    return asyncio.run(convert_excel_to_webapp(excel_path, progress_callback))
+    return asyncio.run(convert_excel_to_webapp(
+        excel_path, progress_callback, verbose, max_iterations
+    ))

@@ -114,7 +114,7 @@ def create_planner_agent() -> Agent:
         name="WebApp Planner",
         instructions=PLANNER_INSTRUCTIONS,
         tools=[],  # No tools - pure LLM reasoning
-        model="gpt-5.2",  # SOTA model for complex reasoning & architecture
+        model="gpt-4o",  # SOTA model for complex reasoning & architecture
         output_type=AgentOutputSchema(WebAppPlan, strict_json_schema=False),  # Structured output
     )
 

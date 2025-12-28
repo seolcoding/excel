@@ -15,7 +15,13 @@ def run_api(host: str = "0.0.0.0", port: int = 8000):
     uvicorn.run(app, host=host, port=port)
 
 
-async def convert_file(excel_path: str, output_path: str = None, with_trace: bool = True):
+async def convert_file(
+    excel_path: str,
+    output_path: str = None,
+    with_trace: bool = True,
+    verbose: bool = False,
+    max_iterations: int = 3,
+):
     """Convert a single Excel file to a web app."""
     from src.orchestrator import convert_excel_to_webapp, ConversionProgress
     from src.tracing import add_json_tracing, get_processor
@@ -41,12 +47,18 @@ async def convert_file(excel_path: str, output_path: str = None, with_trace: boo
         trace_processor = add_json_tracing("traces")
 
     def progress_callback(progress: ConversionProgress):
-        print(f"[{progress.progress:.0%}] {progress.message}")
+        if not verbose:  # Only print simple progress if not verbose
+            print(f"[{progress.progress:.0%}] {progress.message}")
 
     print(f"Converting: {excel_path}")
     print("-" * 40)
 
-    result = await convert_excel_to_webapp(excel_path, progress_callback)
+    result = await convert_excel_to_webapp(
+        excel_path,
+        progress_callback,
+        verbose=verbose,
+        max_iterations=max_iterations,
+    )
 
     if result.success:
         html = result.app.html
@@ -287,13 +299,31 @@ Examples:
         "--output",
         help="Output HTML file path (default: same as input with .html extension)",
     )
+    convert_parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="Enable verbose monitoring output (shows LLM calls, thinking, feedback loop)",
+    )
+    convert_parser.add_argument(
+        "-i",
+        "--iterations",
+        type=int,
+        default=3,
+        help="Maximum iterations for improvement loop (default: 3)",
+    )
 
     args = parser.parse_args()
 
     if args.command == "serve":
         run_api(host=args.host, port=args.port)
     elif args.command == "convert":
-        asyncio.run(convert_file(args.file, args.output))
+        asyncio.run(convert_file(
+            args.file,
+            args.output,
+            verbose=args.verbose,
+            max_iterations=args.iterations,
+        ))
     else:
         parser.print_help()
 
