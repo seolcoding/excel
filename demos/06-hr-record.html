@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>엑셀 시트 뷰어/인쇄 도구</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <!-- SheetJS (XLSX) for client-side parsing -->
+  <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+  <style>
+    :root{
+      --excel-border:#d9d9d9;
+      --excel-header:#f3f4f6;
+      --excel-text:#111827;
+      --excel-muted:#6b7280;
+      --cell-minw:80px;
+      --cell-pad-y:6px;
+      --cell-pad-x:8px;
+      --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", Arial, sans-serif;
+    }
+
+    body{ font-family: var(--font-sans); color:var(--excel-text); }
+
+    .appbar{
+      position: sticky;
+      top: 0;
+      z-index: 1020;
+      background: rgba(255,255,255,0.95);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid #e5e7eb;
+    }
+
+    .sheet-area{
+      height: calc(100vh - 120px);
+      min-height: 320px;
+    }
+
+    .table-wrap{
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      overflow: hidden;
+      background: #fff;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .table-scroll{
+      overflow: auto;
+      height: 100%;
+    }
+
+    table.excel{
+      width: max-content;
+      min-width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+
+    table.excel caption{
+      caption-side: top;
+      text-align: left;
+      padding: 10px 12px;
+      font-weight: 700;
+      color: var(--excel-text);
+      background: #fff;
+      border-bottom: 1px solid #e5e7eb;
+    }
+
+    table.excel td{
+      border: 1px solid var(--excel-border);
+      min-width: var(--cell-minw);
+      padding: var(--cell-pad-y) var(--cell-pad-x);
+      vertical-align: middle;
+      white-space: normal; /* 화면 기본: 줄바꿈 */
+      word-break: break-word;
+      font-size: 14px;
+      line-height: 1.25;
+      background: #fff;
+    }
+
+    td.cell-num{ text-align: right; font-variant-numeric: tabular-nums; }
+    td.cell-text{ text-align: left; }
+
+    /* Sticky top row / left col like Excel headers (not data headers) */
+    td.sticky-top{ position: sticky; top: 0; z-index: 3; background: var(--excel-header); }
+    td.sticky-left{ position: sticky; left: 0; z-index: 2; background: var(--excel-header); }
+    td.sticky-corner{ position: sticky; top: 0; left: 0; z-index: 4; background: var(--excel-header); }
+
+    .meta-note{ color: var(--excel-muted); font-size: 0.875rem; }
+
+    .sheet-pill{ font-size: 0.875rem; }
+
+    /* Print */
+    @page {
+      size: A4 landscape;
+      /* top right bottom left */
+      margin: 0.4in 0.4597in 0.2097in 0.4597in;
+    }
+
+    @media print{
+      .no-print{ display:none !important; }
+      body{ background:#fff; }
+      #print-root{ display:block !important; }
+      #screen-root{ display:none !important; }
+
+      .print-sheet{
+        width: 100%;
+      }
+
+      table.excel{
+        width: 100%;
+        min-width: 100%;
+      }
+
+      table.excel caption{
+        border: none;
+        padding: 0 0 8px 0;
+        background: transparent;
+      }
+
+      table.excel td{
+        font-size: 10.5pt;
+        padding: 4px 6px;
+        white-space: normal; /* 인쇄: 줄바꿈 권장 */
+      }
+
+      tr{ break-inside: avoid; page-break-inside: avoid; }
+      .table-scroll{ overflow: visible !important; height: auto !important; }
+
+      /* Avoid sticky artifacts in print */
+      td.sticky-top, td.sticky-left, td.sticky-corner{
+        position: static !important;
+        background: #fff !important;
+      }
+    }
+
+    /* Print root hidden on screen */
+    #print-root{ display:none; }
+  </style>
+</head>
+<body>
+  <div class="container-fluid px-3 px-lg-4 py-3" x-data="appData()" x-init="init()">
+
+    <!-- Screen UI -->
+    <div id="screen-root">
+      <header class="appbar no-print py-3">
+        <div class="container-fluid px-0">
+          <div class="row g-2 align-items-end">
+            <div class="col-12 col-lg-4">
+              <h1 class="h4 mb-1">엑셀 시트 뷰어/인쇄 도구</h1>
+              <div class="meta-note">업로드한 xlsx 파일을 시트별로 조회하고 A4 가로 인쇄에 최적화하여 출력합니다.</div>
+            </div>
+
+            <div class="col-12 col-lg-4">
+              <label class="form-label" for="fileInput">엑셀 파일 업로드(.xlsx)</label>
+              <input class="form-control" id="fileInput" type="file" accept=".xlsx" @change="onFileChange($event)" aria-describedby="fileHelp" />
+              <div id="fileHelp" class="form-text">로컬에서만 처리됩니다(서버 업로드 없음).</div>
+            </div>
+
+            <div class="col-12 col-lg-2">
+              <label class="form-label" for="sheetSelect">시트 선택</label>
+              <select class="form-select" id="sheetSelect" x-model="selectedSheet" @change="renderSelected()" :disabled="sheetNames.length===0">
+                <template x-for="name in sheetNames" :key="name">
+                  <option :value="name" x-text="name"></option>
+                </template>
+              </select>
+            </div>
+
+            <div class="col-12 col-lg-2 d-grid">
+              <button type="button" class="btn btn-primary" @click="exportPrintView(selectedSheet)" :disabled="!workbookLoaded" aria-label="선택한 시트 인쇄">
+                인쇄
+              </button>
+            </div>
+          </div>
+
+          <!-- Tabs (accessible) -->
+          <div class="mt-3 no-print" role="tablist" aria-label="시트 탭">
+            <div class="d-flex flex-wrap gap-2">
+              <template x-for="name in sheetNames" :key="name">
+                <button
+                  type="button"
+                  class="btn btn-outline-secondary sheet-pill"
+                  role="tab"
+                  :aria-selected="selectedSheet===name"
+                  :class="selectedSheet===name ? 'btn-secondary text-white' : 'btn-outline-secondary'"
+                  @click="selectedSheet=name; renderSelected();"
+                  x-text="name"
+                ></button>
+              </template>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <main class="mt-3 sheet-area" role="tabpanel" :aria-label="selectedSheet + ' 패널'">
+        <div class="table-wrap">
+          <div class="table-scroll" id="sheetRenderRoot" aria-live="polite" aria-busy="false"></div>
+        </div>
+      </main>
+
+      <footer class="mt-3 no-print">
+        <div class="meta-note">
+          <div><strong>인쇄 팁:</strong> 브라우저 인쇄 설정에서 “머리글/바닥글”을 꺼두면 Excel과 더 유사하게 출력됩니다.</div>
+        </div>
+      </footer>
+    </div>
+
+    <!-- Print-only DOM -->
+    <div id="print-root" aria-hidden="true"></div>
+
+  </div>
+
+  <script>
+    // === Excel formula helper functions (requested to include) ===
+    function _sum(...args) {
+        return args.flat().reduce((a, b) => (parseFloat(a) || 0) + (parseFloat(b) || 0), 0);
+    }
+
+    function _sumRange(rangeData) {
+        if (Array.isArray(rangeData)) {
+            return rangeData.flat().reduce((a, b) => (parseFloat(a) || 0) + (parseFloat(b) || 0), 0);
+        }
+        return parseFloat(rangeData) || 0;
+    }
+
+    function _average(...args) {
+        const flat = args.flat().filter(x => x !== null && x !== '' && !isNaN(x));
+        return flat.length ? _sum(...flat) / flat.length : 0;
+    }
+
+    function _averageRange(rangeData) {
+        if (Array.isArray(rangeData)) {
+            const flat = rangeData.flat().filter(x => x !== null && x !== '' && !isNaN(x));
+            return flat.length ? _sumRange(flat) / flat.length : 0;
+        }
+        return parseFloat(rangeData) || 0;
+    }
+
+    function _count(...args) {
+        return args.flat().filter(x => typeof x === 'number' && !isNaN(x)).length;
+    }
+
+    function _counta(...args) {
+        return args.flat().filter(x => x !== null && x !== '' && x !== undefined).length;
+    }
+
+    function _and(...args) {
+        return args.every(x => Boolean(x));
+    }
+
+    function _or(...args) {
+        return args.some(x => Boolean(x));
+    }
+
+    function _round(num, digits = 0) {
+        const factor = Math.pow(10, digits);
+        return Math.round(num * factor) / factor;
+    }
+
+    function _roundUp(num, digits = 0) {
+        const factor = Math.pow(10, digits);
+        return Math.ceil(num * factor) / factor;
+    }
+
+    function _roundDown(num, digits = 0) {
+        const factor = Math.pow(10, digits);
+        return Math.floor(num * factor) / factor;
+    }
+
+    function _len(text) {
+        return String(text).length;
+    }
+
+    function _left(text, numChars = 1) {
+        return String(text).substring(0, numChars);
+    }
+
+    function _right(text, numChars = 1) {
+        const str = String(text);
+        return str.substring(str.length - numChars);
+    }
+
+    function _mid(text, startNum, numChars) {
+        return String(text).substring(startNum - 1, startNum - 1 + numChars);
+    }
+
+    function _trim(text) {
+        return String(text).trim();
+    }
+
+    function _upper(text) {
+        return String(text).toUpperCase();
+    }
+
+    function _lower(text) {
+        return String(text).toLowerCase();
+    }
+
+    function _concat(...args) {
+        return args.join('');
+    }
+
+    function formatNumber(num, decimals = 0) {
+        return new Intl.NumberFormat('ko-KR', {
+            minimumFractionDigits: decimals,
+            maximumFractionDigits: decimals
+        }).format(num);
+    }
+
+    function formatCurrency(num) {
+        return new Intl.NumberFormat('ko-KR', {
+            style: 'currency',
+            currency: 'KRW',
+            maximumFractionDigits: 0
+        }).format(num);
+    }
+
+    function formatPercent(num, decimals = 1) {
+        return new Intl.NumberFormat('ko-KR', {
+            style: 'percent',
+            minimumFractionDigits: decimals,
+            maximumFractionDigits: decimals
+        }).format(num / 100);
+    }
+
+    // === App ===
+    function appData(){
+      return {
+        workbook: null,
+        workbookLoaded: false,
+        sheetNames: [],
+        selectedSheet: '',
+
+        // Prefer provided analysis ranges (fixed) when present
+        declaredRanges: {
+          'Sheet1': 'A1:R102',
+          'Sheet2': 'A1:A1',
+          'Sheet3': 'A1:A1'
+        },
+
+        // cached parsed 2D arrays by sheet name
+        sheetData: {},
+
+        init(){
+          // No-op; keep for Alpine init
+        },
+
+        async onFileChange(evt){
+          const file = evt?.target?.files?.[0];
+          if(!file) return;
+          await this.loadWorkbook(file);
+        },
+
+        async loadWorkbook(file){
+          try{
+            if(!window.XLSX){
+              alert('XLSX 파서 로딩에 실패했습니다. 네트워크 상태를 확인해주세요.');
+              return;
+            }
+
+            const arrayBuffer = await file.arrayBuffer();
+            const wb = XLSX.read(arrayBuffer, { type: 'array', cellText: true, cellDates: true });
+            this.workbook = wb;
+            this.sheetNames = wb.SheetNames || [];
+            this.workbookLoaded = this.sheetNames.length > 0;
+
+            // Default selected sheet
+            if(this.workbookLoaded){
+              this.selectedSheet = this.sheetNames.includes('Sheet1') ? 'Sheet1' : this.sheetNames[0];
+            } else {
+              this.selectedSheet = '';
+            }
+
+            // Preload only known sheets if exist
+            this.sheetData = {};
+            for(const name of this.sheetNames){
+              // Only parse on demand; but we can prime known ones quickly
+              // keep lazy to avoid heavy memory; parse on render
+            }
+
+            this.renderSelected();
+          } catch(err){
+            console.error(err);
+            alert('파일을 읽는 중 오류가 발생했습니다. 다른 파일이거나 손상되었을 수 있습니다.');
+          }
+        },
+
+        renderSelected(){
+          if(!this.workbookLoaded || !this.selectedSheet) return;
+          this.renderSheetTable(this.selectedSheet);
+        },
+
+        _getRangeForSheet(sheetName){
+          // If declared range exists and sheet exists, use it; else use !ref
+          const ws = this.workbook?.Sheets?.[sheetName];
+          if(!ws) return null;
+          const declared = this.declaredRanges[sheetName];
+          if(declared) return declared;
+          if(ws['!ref']) return ws['!ref'];
+          return null;
+        },
+
+        _parseSheetTo2D(sheetName){
+          const ws = this.workbook?.Sheets?.[sheetName];
+          if(!ws) return { data: [["(시트를 찾을 수 없습니다)"]], range: 'A1:A1' };
+
+          const rangeStr = this._getRangeForSheet(sheetName) || 'A1:A1';
+          const range = XLSX.utils.decode_range(rangeStr);
+
+          const rows = range.e.r - range.s.r + 1;
+          const cols = range.e.c - range.s.c + 1;
+
+          const data = Array.from({length: rows}, () => Array.from({length: cols}, () => ({ v: '', t: 'z' })));
+
+          for(let r=0; r<rows; r++){
+            for(let c=0; c<cols; c++){
+              const addr = XLSX.utils.encode_cell({ r: range.s.r + r, c: range.s.c + c });
+              const cell = ws[addr];
+              if(cell){
+                // Prefer formatted text if provided, else raw value
+                let v = (cell.w !== undefined) ? cell.w : (cell.v !== undefined ? cell.v : '');
+                let t = cell.t || (typeof cell.v === 'number' ? 'n' : 's');
+                data[r][c] = { v, t, raw: cell.v };
+              }
+            }
+          }
+
+          return { data, range: rangeStr };
+        },
+
+        renderSheetTable(sheetName){
+          const root = document.getElementById('sheetRenderRoot');
+          if(!root) return;
+
+          root.setAttribute('aria-busy', 'true');
+          root.innerHTML = '';
+
+          const parsed = this._parseSheetTo2D(sheetName);
+          this.sheetData[sheetName] = parsed;
+
+          const { data, range } = parsed;
+
+          const table = document.createElement('table');
+          table.className = 'excel';
+          table.setAttribute('role', 'table');
+
+          const caption = document.createElement('caption');
+          caption.textContent = `${sheetName} (${range})`;
+          table.appendChild(caption);
+
+          const tbody = document.createElement('tbody');
+
+          // Add Excel-like row/col headers (not data headers)
+          const rows = data.length;
+          const cols = data[0]?.length || 0;
+
+          // Top header row: corner + column letters
+          const trHead = document.createElement('tr');
+          const corner = document.createElement('td');
+          corner.className = 'sticky-corner';
+          corner.textContent = '';
+          trHead.appendChild(corner);
+
+          // Determine starting col index from range
+          const rangeObj = XLSX.utils.decode_range(range);
+          for(let c=0; c<cols; c++){
+            const td = document.createElement('td');
+            td.className = 'sticky-top';
+            td.textContent = XLSX.utils.encode_col(rangeObj.s.c + c);
+            trHead.appendChild(td);
+          }
+          tbody.appendChild(trHead);
+
+          for(let r=0; r<rows; r++){
+            const tr = document.createElement('tr');
+
+            const rowHdr = document.createElement('td');
+            rowHdr.className = 'sticky-left';
+            rowHdr.textContent = String(rangeObj.s.r + r + 1);
+            tr.appendChild(rowHdr);
+
+            for(let c=0; c<cols; c++){
+              const cell = data[r][c];
+              const td = document.createElement('td');
+
+              const isNum = (cell && (cell.t === 'n' || typeof cell.raw === 'number'));
+              td.className = isNum ? 'cell-num' : 'cell-text';
+
+              // Render empty as blank (not "undefined")
+              td.textContent = (cell && cell.v !== null && cell.v !== undefined) ? String(cell.v) : '';
+
+              tr.appendChild(td);
+            }
+            tbody.appendChild(tr);
+          }
+
+          table.appendChild(tbody);
+          root.appendChild(table);
+          root.setAttribute('aria-busy', 'false');
+        },
+
+        exportPrintView(sheetName){
+          if(!this.workbookLoaded || !sheetName){
+            alert('먼저 엑셀 파일을 업로드하고 시트를 선택해주세요.');
+            return;
+          }
+
+          // Ensure current sheet is rendered & cached
+          if(!this.sheetData[sheetName]){
+            this.sheetData[sheetName] = this._parseSheetTo2D(sheetName);
+          }
+
+          const printRoot = document.getElementById('print-root');
+          if(!printRoot) return;
+
+          // Build print DOM fresh
+          printRoot.innerHTML = '';
+
+          const wrapper = document.createElement('div');
+          wrapper.className = 'print-sheet';
+
+          // Title (optional)
+          const title = document.createElement('div');
+          title.style.marginBottom = '8px';
+          title.style.fontWeight = '700';
+          title.textContent = `시트: ${sheetName}`;
+          wrapper.appendChild(title);
+
+          // Render a non-scroll table from cached data
+          const { data, range } = this.sheetData[sheetName];
+          const table = document.createElement('table');
+          table.className = 'excel';
+          const caption = document.createElement('caption');
+          caption.textContent = `${sheetName} (${range})`;
+          table.appendChild(caption);
+
+          const tbody = document.createElement('tbody');
+          const rows = data.length;
+          const cols = data[0]?.length || 0;
+          const rangeObj = XLSX.utils.decode_range(range);
+
+          // Include row/col headers also in print (as normal cells)
+          const trHead = document.createElement('tr');
+          const corner = document.createElement('td');
+          corner.textContent = '';
+          trHead.appendChild(corner);
+          for(let c=0; c<cols; c++){
+            const td = document.createElement('td');
+            td.textContent = XLSX.utils.encode_col(rangeObj.s.c + c);
+            trHead.appendChild(td);
+          }
+          tbody.appendChild(trHead);
+
+          for(let r=0; r<rows; r++){
+            const tr = document.createElement('tr');
+            const rowHdr = document.createElement('td');
+            rowHdr.textContent = String(rangeObj.s.r + r + 1);
+            tr.appendChild(rowHdr);
+
+            for(let c=0; c<cols; c++){
+              const cell = data[r][c];
+              const td = document.createElement('td');
+              const isNum = (cell && (cell.t === 'n' || typeof cell.raw === 'number'));
+              td.className = isNum ? 'cell-num' : 'cell-text';
+              td.textContent = (cell && cell.v !== null && cell.v !== undefined) ? String(cell.v) : '';
+              tr.appendChild(td);
+            }
+            tbody.appendChild(tr);
+          }
+
+          table.appendChild(tbody);
+          wrapper.appendChild(table);
+          printRoot.appendChild(wrapper);
+
+          // Print
+          window.print();
+        }
+      };
+    }
+  </script>
+
+<!-- Agent Trace Viewer -->
+<style>
+.trace-toggle {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 9999;
+    background: #6366f1;
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 25px;
+    cursor: pointer;
+    font-size: 14px;
+    box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.trace-toggle:hover { background: #4f46e5; }
+.trace-panel {
+    position: fixed;
+    top: 0;
+    right: -450px;
+    width: 450px;
+    height: 100vh;
+    background: #1e1e2e;
+    color: #cdd6f4;
+    z-index: 9998;
+    transition: right 0.3s ease;
+    overflow-y: auto;
+    font-family: 'Monaco', 'Menlo', monospace;
+    font-size: 12px;
+}
+.trace-panel.open { right: 0; }
+.trace-header {
+    padding: 16px;
+    background: #313244;
+    border-bottom: 1px solid #45475a;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.trace-header h3 { margin: 0; font-size: 14px; }
+.trace-close {
+    background: none;
+    border: none;
+    color: #cdd6f4;
+    cursor: pointer;
+    font-size: 18px;
+}
+.trace-content { padding: 16px; }
+.span-item {
+    margin-bottom: 12px;
+    padding: 12px;
+    background: #313244;
+    border-radius: 8px;
+    border-left: 3px solid #89b4fa;
+}
+.span-item.agent { border-left-color: #a6e3a1; }
+.span-item.generation { border-left-color: #f9e2af; }
+.span-item.function { border-left-color: #cba6f7; }
+.span-type {
+    font-size: 10px;
+    text-transform: uppercase;
+    color: #6c7086;
+    margin-bottom: 4px;
+}
+.span-name { font-weight: bold; color: #89dceb; }
+.span-data {
+    margin-top: 8px;
+    padding: 8px;
+    background: #1e1e2e;
+    border-radius: 4px;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+.span-time { color: #6c7086; font-size: 11px; }
+.trace-summary {
+    padding: 12px 16px;
+    background: #45475a;
+    margin: 0 16px 16px;
+    border-radius: 8px;
+}
+.trace-summary-item { display: flex; justify-content: space-between; margin: 4px 0; }
+</style>
+
+<button class="trace-toggle" onclick="toggleTracePanel()">
+    <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+        <path d="M9.5 13a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm0-5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm0-5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/>
+    </svg>
+    Agent Trace
+</button>
+
+<div class="trace-panel" id="tracePanel">
+    <div class="trace-header">
+        <h3>Agent Trace Viewer</h3>
+        <button class="trace-close" onclick="toggleTracePanel()">&times;</button>
+    </div>
+    <div class="trace-summary" id="traceSummary"></div>
+    <div class="trace-content" id="traceContent"></div>
+</div>
+
+<script>
+const TRACE_DATA = {"trace_id": "trace_c8727c55199c4dcd81edd8d92e12455f", "workflow_name": "Excel-to-WebApp: 3.xlsx", "group_id": null, "metadata": null, "started_at": "2025-12-28T11:41:22.057323", "ended_at": "2025-12-28T11:55:35.815914", "spans": [{"span_id": "span_f4748272c0ca4032a7e4f3d6", "parent_id": "span_dc9e1fc861994ed299bd55e7", "started_at": "2025-12-28T02:41:22.068393+00:00", "ended_at": "2025-12-28T02:41:24.905647+00:00", "error": null, "type": "response", "data": {"type": "response", "response_id": "resp_0776e29e456c253000695098d263448190ab953ae3e43f4802"}}, {"span_id": "span_f47a2b88292a4103b8138938", "parent_id": "span_dc9e1fc861994ed299bd55e7", "started_at": "2025-12-28T02:41:24.906090+00:00", "ended_at": "2025-12-28T02:41:24.936734+00:00", "error": null, "type": "function", "data": {"type": "function", "name": "analyze_excel", "input": "{\"file_path\":\"excel_files/엑셀서식(20160517)/인사기록카드(외국인근로자관리)/3.xlsx\"}", "output": "{'filename': '3.xlsx', 'file_type': 'xlsx', 'sheets': [{'name': 'Sheet1', 'row_count': 102, 'col_count': 18, 'used_range': 'A1:R102', 'input_cells': [], 'output_cells': [], 'formulas': [], 'has_print_area': False, 'print_area': None}, {'name': 'Sheet2', 'row_count': 1, 'col_count': 1, 'used_range': 'A1:A1', 'input_cells': [], 'output_cells': [], 'formulas': [], 'has_print_area': False, 'print_area': None}, {'name': 'Sheet3', 'row_count': 1, 'col_count': 1, 'used_range': 'A1:A1', 'input_cells': [], 'output_cells': [], 'formulas': [], 'has_print_area': False, 'print_area': None}], 'vba_modules': [], 'has_vba': False, 'print_settings': {'orientation': 'landscape', 'paper_size': 'A4', 'margins': {'top': 0.4, 'bottom': 0.209722222222222, 'left': 0.459722222222222, 'right': 0.459722222222222}, 'header': None, 'footer': None, 'fit_to_page': False, 'scale': 100}, 'total_formulas': 0, 'total_input_cells': 0, 'total_output_cells': 0, 'complexity_score': 'low'}", "mcp_data": null}}, {"span_id": "span_9d59f73d449a492ab69bb435", "parent_id": "span_dc9e1fc861994ed299bd55e7", "started_at": "2025-12-28T02:41:24.937855+00:00", "ended_at": "2025-12-28T02:42:03.616377+00:00", "error": null, "type": "response", "data": {"type": "response", "response_id": "resp_0776e29e456c253000695098d5261c8190a2e76e4b1022e7af"}}, {"span_id": "span_dc9e1fc861994ed299bd55e7", "parent_id": null, "started_at": "2025-12-28T02:41:22.057749+00:00", "ended_at": "2025-12-28T02:42:03.616680+00:00", "error": null, "type": "agent", "data": {"type": "agent", "name": "Excel Analyzer", "handoffs": [], "tools": ["analyze_excel", "get_sheet_cells"], "output_type": "str"}}, {"span_id": "span_51656e946b6d45dea358d12d", "parent_id": "span_a94cc6603b9641cea375dae4", "started_at": "2025-12-28T02:42:03.617111+00:00", "ended_at": "2025-12-28T02:42:22.279576+00:00", "error": null, "type": "response", "data": {"type": "response", "response_id": "resp_017552bfcfd297c300695098fbd3408194b0cf40d0df6a5103"}}, {"span_id": "span_a94cc6603b9641cea375dae4", "parent_id": null, "started_at": "2025-12-28T02:42:03.616863+00:00", "ended_at": "2025-12-28T02:42:22.279998+00:00", "error": null, "type": "agent", "data": {"type": "agent", "name": "WebApp Planner", "handoffs": [], "tools": [], "output_type": "WebAppPlan"}}, {"span_id": "span_22ca8d2eef204bfea9b5f131", "parent_id": "span_5d99fdee3065470bbc6a7239", "started_at": "2025-12-28T02:42:22.280413+00:00", "ended_at": "2025-12-28T02:42:23.306276+00:00", "error": null, "type": "response", "data": {"type": "response", "response_id": "resp_0c95744cf3025194006950990e7c54819590c3d5c751b384a7"}}, {"span_id": "span_1349f2e09d5c452ba5adda9e", "parent_id": "span_5d99fdee3065470bbc6a7239", "started_at": "2025-12-28T02:42:23.306527+00:00", "ended_at": "2025-12-28T02:42:23.306712+00:00", "error": null, "type": "function", "data": {"type": "function", "name": "get_js_helpers", "input": "{}", "output": "\n// Excel formula helper functions\nfunction _sum(...args) {\n    return args.flat().reduce((a, b) => (parseFloat(a) || 0) + (parseFloat(b) || 0), 0);\n}\n\nfunction _sumRange(rangeData) {\n    if (Array.isArray(rangeData)) {\n        return rangeData.flat().reduce((a, b) => (parseFloat(a) || 0) + (parseFloat(b) || 0), 0);\n    }\n    return parseFloat(rangeData) || 0;\n}\n\nfunction _average(...args) {\n    const flat = args.flat().filter(x => x !== null && x !== '' && !isNaN(x));\n    return flat.length ? _sum(...flat) / flat.length : 0;\n}\n\nfunction _averageRange(rangeData) {\n    if (Array.isArray(rangeData)) {\n        const flat = rangeData.flat().filter(x => x !== null && x !== '' && !isNaN(x));\n        return flat.length ? _sumRange(flat) / flat.length : 0;\n    }\n    return parseFloat(rangeData) || 0;\n}\n\nfunction _count(...args) {\n    return args.flat().filter(x => typeof x === 'number' && !isNaN(x)).length;\n}\n\nfunction _counta(...args) {\n    return args.flat().filter(x => x !== null && x !== '' && x !== undefined).length;\n}\n\nfunction _and(...args) {\n    return args.every(x => Boolean(x));\n}\n\nfunction _or(...args) {\n    return args.some(x => Boolean(x));\n}\n\nfunction _round(num, digits = 0) {\n    const factor = Math.pow(10, digits);\n    return Math.round(num * factor) / factor;\n}\n\nfunction _roundUp(num, digits = 0) {\n    const factor = Math.pow(10, digits);\n    return Math.ceil(num * factor) / factor;\n}\n\nfunction _roundDown(num, digits = 0) {\n    const factor = Math.pow(10, digits);\n    return Math.floor(num * factor) / factor;\n}\n\nfunction _len(text) {\n    return String(text).length;\n}\n\nfunction _left(text, numChars = 1) {\n    return String(text).substring(0, numChars);\n}\n\nfunction _right(text, numChars = 1) {\n    const str = String(text);\n    return str.substring(str.length - numChars);\n}\n\nfunction _mid(text, startNum, numChars) {\n    return String(text).substring(startNum - 1, startNum - 1 + numChars);\n}\n\nfunction _trim(text) {\n    return String(text).trim();\n}\n\nfunction _upper(text) {\n    return String(text).toUpperCase();\n}\n\nfunction _lower(text) {\n    return String(text).toLowerCase();\n}\n\nfunction _concat(...args) {\n    return args.join('');\n}\n\n// Number formatting\nfunction formatNumber(num, decimals = 0) {\n    return new Intl.NumberFormat('ko-KR', {\n        minimumFractionDigits: decimals,\n        maximumFractionDigits: decimals\n    }).format(num);\n}\n\nfunction formatCurrency(num) {\n    return new Intl.NumberFormat('ko-KR', {\n        style: 'currency',\n        currency: 'KRW',\n        maximumFractionDigits: 0\n    }).format(num);\n}\n\nfunction formatPercent(num, decimals = 1) {\n    return new Intl.NumberFormat('ko-KR', {\n        style: 'percent',\n        minimumFractionDigits: decimals,\n        maximumFractionDigits: decimals\n    }).format(num / 100);\n}\n", "mcp_data": null}}, {"span_id": "span_a355657673fe4459ab9dcccb", "parent_id": "span_5d99fdee3065470bbc6a7239", "started_at": "2025-12-28T02:42:23.307283+00:00", "ended_at": "2025-12-28T02:53:29.174262+00:00", "error": null, "type": "response", "data": {"type": "response", "response_id": "resp_0c95744cf30251940069509b67f64881958f5014fdd0668fae"}}, {"span_id": "span_5d99fdee3065470bbc6a7239", "parent_id": null, "started_at": "2025-12-28T02:42:22.280178+00:00", "ended_at": "2025-12-28T02:53:29.174622+00:00", "error": null, "type": "agent", "data": {"type": "agent", "name": "WebApp Generator", "handoffs": [], "tools": ["convert_formula", "check_formula_complexity", "get_js_helpers"], "output_type": "GeneratedWebApp"}}, {"span_id": "span_7d423a0ed9034da391602476", "parent_id": "span_3fc5de6238814ebba5f80142", "started_at": "2025-12-28T02:53:29.175259+00:00", "ended_at": "2025-12-28T02:53:30.205435+00:00", "error": null, "type": "response", "data": {"type": "response", "response_id": "resp_097381919bc7a9740069509ba962508196abd17f5b769ce322"}}, {"span_id": "span_fd741e7173f341c6a208f83c", "parent_id": "span_3fc5de6238814ebba5f80142", "started_at": "2025-12-28T02:53:30.205617+00:00", "ended_at": "2025-12-28T02:53:30.205898+00:00", "error": null, "type": "function", "data": {"type": "function", "name": "get_js_helpers", "input": "{}", "output": "\n// Excel formula helper functions\nfunction _sum(...args) {\n    return args.flat().reduce((a, b) => (parseFloat(a) || 0) + (parseFloat(b) || 0), 0);\n}\n\nfunction _sumRange(rangeData) {\n    if (Array.isArray(rangeData)) {\n        return rangeData.flat().reduce((a, b) => (parseFloat(a) || 0) + (parseFloat(b) || 0), 0);\n    }\n    return parseFloat(rangeData) || 0;\n}\n\nfunction _average(...args) {\n    const flat = args.flat().filter(x => x !== null && x !== '' && !isNaN(x));\n    return flat.length ? _sum(...flat) / flat.length : 0;\n}\n\nfunction _averageRange(rangeData) {\n    if (Array.isArray(rangeData)) {\n        const flat = rangeData.flat().filter(x => x !== null && x !== '' && !isNaN(x));\n        return flat.length ? _sumRange(flat) / flat.length : 0;\n    }\n    return parseFloat(rangeData) || 0;\n}\n\nfunction _count(...args) {\n    return args.flat().filter(x => typeof x === 'number' && !isNaN(x)).length;\n}\n\nfunction _counta(...args) {\n    return args.flat().filter(x => x !== null && x !== '' && x !== undefined).length;\n}\n\nfunction _and(...args) {\n    return args.every(x => Boolean(x));\n}\n\nfunction _or(...args) {\n    return args.some(x => Boolean(x));\n}\n\nfunction _round(num, digits = 0) {\n    const factor = Math.pow(10, digits);\n    return Math.round(num * factor) / factor;\n}\n\nfunction _roundUp(num, digits = 0) {\n    const factor = Math.pow(10, digits);\n    return Math.ceil(num * factor) / factor;\n}\n\nfunction _roundDown(num, digits = 0) {\n    const factor = Math.pow(10, digits);\n    return Math.floor(num * factor) / factor;\n}\n\nfunction _len(text) {\n    return String(text).length;\n}\n\nfunction _left(text, numChars = 1) {\n    return String(text).substring(0, numChars);\n}\n\nfunction _right(text, numChars = 1) {\n    const str = String(text);\n    return str.substring(str.length - numChars);\n}\n\nfunction _mid(text, startNum, numChars) {\n    return String(text).substring(startNum - 1, startNum - 1 + numChars);\n}\n\nfunction _trim(text) {\n    return String(text).trim();\n}\n\nfunction _upper(text) {\n    return String(text).toUpperCase();\n}\n\nfunction _lower(text) {\n    return String(text).toLowerCase();\n}\n\nfunction _concat(...args) {\n    return args.join('');\n}\n\n// Number formatting\nfunction formatNumber(num, decimals = 0) {\n    return new Intl.NumberFormat('ko-KR', {\n        minimumFractionDigits: decimals,\n        maximumFractionDigits: decimals\n    }).format(num);\n}\n\nfunction formatCurrency(num) {\n    return new Intl.NumberFormat('ko-KR', {\n        style: 'currency',\n        currency: 'KRW',\n        maximumFractionDigits: 0\n    }).format(num);\n}\n\nfunction formatPercent(num, decimals = 1) {\n    return new Intl.NumberFormat('ko-KR', {\n        style: 'percent',\n        minimumFractionDigits: decimals,\n        maximumFractionDigits: decimals\n    }).format(num / 100);\n}\n", "mcp_data": null}}, {"span_id": "span_d509354a53b342539f947552", "parent_id": "span_3fc5de6238814ebba5f80142", "started_at": "2025-12-28T02:53:30.206206+00:00", "ended_at": "2025-12-28T02:54:33.740902+00:00", "error": null, "type": "response", "data": {"type": "response", "response_id": "resp_097381919bc7a9740069509baa6a64819687590e9b586d6e18"}}, {"span_id": "span_3fc5de6238814ebba5f80142", "parent_id": null, "started_at": "2025-12-28T02:53:29.175030+00:00", "ended_at": "2025-12-28T02:54:33.741239+00:00", "error": null, "type": "agent", "data": {"type": "agent", "name": "WebApp Generator", "handoffs": [], "tools": ["convert_formula", "check_formula_complexity", "get_js_helpers"], "output_type": "GeneratedWebApp"}}, {"span_id": "span_0de8b40c4e8746e7b29553b9", "parent_id": "span_5d969840853546bc96e9f3a2", "started_at": "2025-12-28T02:54:33.741884+00:00", "ended_at": "2025-12-28T02:54:34.868951+00:00", "error": null, "type": "response", "data": {"type": "response", "response_id": "resp_07274a9797f42e4b0069509be9f6408190aa4e2fdc41633cd4"}}, {"span_id": "span_22efd54f13fe4a5a94e24338", "parent_id": "span_5d969840853546bc96e9f3a2", "started_at": "2025-12-28T02:54:34.869137+00:00", "ended_at": "2025-12-28T02:54:34.869260+00:00", "error": null, "type": "function", "data": {"type": "function", "name": "get_js_helpers", "input": "{}", "output": "\n// Excel formula helper functions\nfunction _sum(...args) {\n    return args.flat().reduce((a, b) => (parseFloat(a) || 0) + (parseFloat(b) || 0), 0);\n}\n\nfunction _sumRange(rangeData) {\n    if (Array.isArray(rangeData)) {\n        return rangeData.flat().reduce((a, b) => (parseFloat(a) || 0) + (parseFloat(b) || 0), 0);\n    }\n    return parseFloat(rangeData) || 0;\n}\n\nfunction _average(...args) {\n    const flat = args.flat().filter(x => x !== null && x !== '' && !isNaN(x));\n    return flat.length ? _sum(...flat) / flat.length : 0;\n}\n\nfunction _averageRange(rangeData) {\n    if (Array.isArray(rangeData)) {\n        const flat = rangeData.flat().filter(x => x !== null && x !== '' && !isNaN(x));\n        return flat.length ? _sumRange(flat) / flat.length : 0;\n    }\n    return parseFloat(rangeData) || 0;\n}\n\nfunction _count(...args) {\n    return args.flat().filter(x => typeof x === 'number' && !isNaN(x)).length;\n}\n\nfunction _counta(...args) {\n    return args.flat().filter(x => x !== null && x !== '' && x !== undefined).length;\n}\n\nfunction _and(...args) {\n    return args.every(x => Boolean(x));\n}\n\nfunction _or(...args) {\n    return args.some(x => Boolean(x));\n}\n\nfunction _round(num, digits = 0) {\n    const factor = Math.pow(10, digits);\n    return Math.round(num * factor) / factor;\n}\n\nfunction _roundUp(num, digits = 0) {\n    const factor = Math.pow(10, digits);\n    return Math.ceil(num * factor) / factor;\n}\n\nfunction _roundDown(num, digits = 0) {\n    const factor = Math.pow(10, digits);\n    return Math.floor(num * factor) / factor;\n}\n\nfunction _len(text) {\n    return String(text).length;\n}\n\nfunction _left(text, numChars = 1) {\n    return String(text).substring(0, numChars);\n}\n\nfunction _right(text, numChars = 1) {\n    const str = String(text);\n    return str.substring(str.length - numChars);\n}\n\nfunction _mid(text, startNum, numChars) {\n    return String(text).substring(startNum - 1, startNum - 1 + numChars);\n}\n\nfunction _trim(text) {\n    return String(text).trim();\n}\n\nfunction _upper(text) {\n    return String(text).toUpperCase();\n}\n\nfunction _lower(text) {\n    return String(text).toLowerCase();\n}\n\nfunction _concat(...args) {\n    return args.join('');\n}\n\n// Number formatting\nfunction formatNumber(num, decimals = 0) {\n    return new Intl.NumberFormat('ko-KR', {\n        minimumFractionDigits: decimals,\n        maximumFractionDigits: decimals\n    }).format(num);\n}\n\nfunction formatCurrency(num) {\n    return new Intl.NumberFormat('ko-KR', {\n        style: 'currency',\n        currency: 'KRW',\n        maximumFractionDigits: 0\n    }).format(num);\n}\n\nfunction formatPercent(num, decimals = 1) {\n    return new Intl.NumberFormat('ko-KR', {\n        style: 'percent',\n        minimumFractionDigits: decimals,\n        maximumFractionDigits: decimals\n    }).format(num / 100);\n}\n", "mcp_data": null}}, {"span_id": "span_8fbd808a778749168fbe03a8", "parent_id": "span_5d969840853546bc96e9f3a2", "started_at": "2025-12-28T02:54:34.869569+00:00", "ended_at": "2025-12-28T02:55:35.815262+00:00", "error": null, "type": "response", "data": {"type": "response", "response_id": "resp_07274a9797f42e4b0069509beb1acc8190b3a77d30dc585199"}}, {"span_id": "span_5d969840853546bc96e9f3a2", "parent_id": null, "started_at": "2025-12-28T02:54:33.741646+00:00", "ended_at": "2025-12-28T02:55:35.815649+00:00", "error": null, "type": "agent", "data": {"type": "agent", "name": "WebApp Generator", "handoffs": [], "tools": ["convert_formula", "check_formula_complexity", "get_js_helpers"], "output_type": "GeneratedWebApp"}}]};
+
+function toggleTracePanel() {
+    document.getElementById('tracePanel').classList.toggle('open');
+}
+
+function renderTrace() {
+    const summary = document.getElementById('traceSummary');
+    const content = document.getElementById('traceContent');
+
+    if (!TRACE_DATA) {
+        content.innerHTML = '<p>No trace data available</p>';
+        return;
+    }
+
+    // Summary
+    const spans = TRACE_DATA.spans || [];
+    const agentSpans = spans.filter(s => s.type === 'agent').length;
+    const genSpans = spans.filter(s => s.type === 'generation').length;
+    const funcSpans = spans.filter(s => s.type === 'function').length;
+
+    summary.innerHTML = `
+        <div class="trace-summary-item"><span>Workflow</span><span>${TRACE_DATA.workflow_name || '-'}</span></div>
+        <div class="trace-summary-item"><span>Agent Spans</span><span>${agentSpans}</span></div>
+        <div class="trace-summary-item"><span>LLM Generations</span><span>${genSpans}</span></div>
+        <div class="trace-summary-item"><span>Function Calls</span><span>${funcSpans}</span></div>
+    `;
+
+    // Spans
+    let html = '';
+    spans.forEach(span => {
+        const typeClass = span.type || 'custom';
+        const data = span.data || {};
+        html += `
+            <div class="span-item ${typeClass}">
+                <div class="span-type">${span.type || 'span'}</div>
+                <div class="span-name">${data.name || data.model || span.span_id?.slice(0, 8) || '-'}</div>
+                ${data.input ? `<div class="span-data">${typeof data.input === 'string' ? data.input.slice(0, 200) : JSON.stringify(data.input).slice(0, 200)}...</div>` : ''}
+                ${data.output ? `<div class="span-data">${typeof data.output === 'string' ? data.output.slice(0, 200) : JSON.stringify(data.output).slice(0, 200)}...</div>` : ''}
+                ${data.usage ? `<div class="span-time">Tokens: ${data.usage.total_tokens || '-'}</div>` : ''}
+            </div>
+        `;
+    });
+    content.innerHTML = html || '<p>No spans recorded</p>';
+}
+
+document.addEventListener('DOMContentLoaded', renderTrace);
+</script>
+</body>
+</html>

@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>4대보험 자동계산기</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <style>
+    :root{
+      --app-max-width: 860px;
+      --card-radius: 12px;
+      --border-color: #d9dee7;
+      --muted: #6b7280;
+      --bg-soft: #f7f8fb;
+      --focus: #0d6efd;
+    }
+
+    /* Korean typography */
+    body{
+      font-family: "Noto Sans KR", system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+      color: #111827;
+      background: #ffffff;
+    }
+
+    .app-wrap{
+      max-width: var(--app-max-width);
+      margin: 0 auto;
+    }
+
+    .excel-card{
+      border: 1px solid var(--border-color);
+      border-radius: var(--card-radius);
+      background: #fff;
+      box-shadow: 0 1px 0 rgba(17,24,39,0.03);
+    }
+
+    .excel-card .card-header{
+      background: var(--bg-soft);
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .help-text{ color: var(--muted); }
+
+    .money-input{
+      max-width: 320px;
+    }
+
+    .suffix{
+      min-width: 52px;
+      justify-content: center;
+      font-variant-numeric: tabular-nums;
+    }
+
+    table.result-table{
+      width: 100%;
+      border-collapse: collapse;
+      font-variant-numeric: tabular-nums;
+    }
+
+    table.result-table th,
+    table.result-table td{
+      border-bottom: 1px solid var(--border-color);
+      padding: 12px 10px;
+      vertical-align: middle;
+    }
+
+    table.result-table thead th{
+      background: #fff;
+      color: #111827;
+      font-weight: 700;
+      border-bottom: 2px solid var(--border-color);
+    }
+
+    .item-col{ width: 55%; }
+    .amt-col{ width: 45%; text-align: right; }
+
+    .amt{
+      font-variant-numeric: tabular-nums;
+      text-align: right;
+      display: inline-block;
+      min-width: 160px;
+    }
+
+    .total-row th,
+    .total-row td{
+      font-weight: 800;
+      background: #fbfdff;
+    }
+
+    .net-row th,
+    .net-row td{
+      font-weight: 800;
+    }
+
+    .status-msg{
+      min-height: 1.5rem;
+    }
+
+    /* Focus visibility */
+    .form-control:focus{
+      border-color: var(--focus);
+      box-shadow: 0 0 0 .2rem rgba(13,110,253,.15);
+    }
+
+    /* Print */
+    @page{
+      size: A4 portrait;
+      margin: 25.4mm 19.05mm 25.4mm 19.05mm;
+    }
+
+    @media print{
+      body{ background: #fff; }
+      .container{ max-width: none !important; }
+      .controls, .no-print{ display:none !important; }
+      .excel-card{ box-shadow: none; }
+      a[href]:after{ content: ""; }
+      .card-header{ background: #fff !important; }
+      table.result-table th, table.result-table td{ padding: 8px 8px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container py-4" x-data="appData()" x-init="init()">
+    <div class="app-wrap">
+      <header class="mb-3">
+        <h1 class="h3 mb-1">4대보험 자동계산기</h1>
+        <p class="text-secondary mb-0">월 급여(보수월액)를 입력하면 4대보험 항목별 공제액과 합계를 자동 계산합니다.</p>
+      </header>
+
+      <main>
+        <section class="excel-card mb-3" aria-labelledby="inputSectionTitle">
+          <div class="card-header px-3 py-3">
+            <h2 class="h5 mb-0" id="inputSectionTitle">입력</h2>
+          </div>
+
+          <div class="p-3">
+            <form aria-label="4대보험 입력" class="controls" @submit.prevent="onCalculateClick()" novalidate>
+              <div class="row g-3 align-items-end">
+                <div class="col-12 col-md-7">
+                  <label for="monthlySalary" class="form-label">월 급여(보수월액)</label>
+                  <div class="input-group money-input">
+                    <input
+                      id="monthlySalary"
+                      class="form-control"
+                      type="text"
+                      inputmode="numeric"
+                      autocomplete="off"
+                      aria-describedby="salaryHelp salaryError"
+                      placeholder="예: 3,000,000"
+                      :aria-invalid="hasError ? 'true' : 'false'"
+                      x-model="ui.monthlySalaryText"
+                      @input="onSalaryInput($event)"
+                      @blur="normalizeSalaryText()"
+                    />
+                    <span class="input-group-text suffix">원</span>
+                  </div>
+                  <div id="salaryHelp" class="form-text help-text">숫자만 입력해도 됩니다. (쉼표 자동 처리)</div>
+                  <div id="salaryError" class="text-danger small mt-1" x-show="hasError" x-text="errorMsg"></div>
+                </div>
+
+                <div class="col-12 col-md-5">
+                  <div class="d-flex gap-2 justify-content-md-end">
+                    <button type="submit" class="btn btn-primary" aria-label="계산하기">계산하기</button>
+                    <button type="button" class="btn btn-outline-secondary" @click="reset()" aria-label="초기화">초기화</button>
+                    <button type="button" class="btn btn-outline-dark" @click="print()" aria-label="인쇄하기">인쇄</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="status-msg mt-3" role="status" aria-live="polite">
+                <span class="text-secondary" x-show="!hasError">입력값 변경 시 자동으로 결과가 갱신됩니다.</span>
+              </div>
+            </form>
+
+            <!-- Print-only note (optional) -->
+            <div class="no-print mt-3 small text-secondary">
+              ※ 본 계산기는 고정 요율(템플릿 기준)로 단순 산술 계산을 수행합니다.
+            </div>
+          </div>
+        </section>
+
+        <section id="printArea" class="excel-card" aria-labelledby="resultSectionTitle">
+          <div class="card-header px-3 py-3 d-flex align-items-center justify-content-between">
+            <h2 class="h5 mb-0" id="resultSectionTitle">계산 결과</h2>
+            <div class="text-secondary small">표시 단위: 원 (반올림)</div>
+          </div>
+
+          <div class="p-3">
+            <table class="result-table" aria-label="4대보험 계산 결과">
+              <thead>
+                <tr>
+                  <th scope="col" class="item-col">항목</th>
+                  <th scope="col" class="amt-col">금액</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <th scope="row">국민연금</th>
+                  <td class="amt-col"><output class="amt" x-text="formatKRW(out.nationalPension, 0)"></output></td>
+                </tr>
+                <tr>
+                  <th scope="row">건강보험</th>
+                  <td class="amt-col"><output class="amt" x-text="formatKRW(out.healthInsurance, 0)"></output></td>
+                </tr>
+                <tr>
+                  <th scope="row">장기요양보험</th>
+                  <td class="amt-col"><output class="amt" x-text="formatKRW(out.longTermCare, 0)"></output></td>
+                </tr>
+                <tr>
+                  <th scope="row">고용보험</th>
+                  <td class="amt-col"><output class="amt" x-text="formatKRW(out.employmentInsurance, 0)"></output></td>
+                </tr>
+                <tr class="total-row">
+                  <th scope="row">4대보험 합계</th>
+                  <td class="amt-col"><output class="amt" x-text="formatKRW(out.total, 0)"></output></td>
+                </tr>
+                <tr class="net-row">
+                  <th scope="row">보험 공제 후 금액</th>
+                  <td class="amt-col"><output class="amt" x-text="formatKRW(out.net, 0)"></output></td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div class="mt-3 small text-secondary">
+              <div>수식(엑셀 템플릿): C4=C3*0.045, C5=C3*0.03545, C6=C5*0.1281, C7=C3*0.009, C8=합계, C9=C3-C8</div>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <footer class="mt-3 text-secondary small">
+        <div>© 계산 결과는 참고용이며 실제 고지/정산과 차이가 있을 수 있습니다.</div>
+      </footer>
+    </div>
+  </div>
+
+  <script>
+    /* ===== Excel formula helper functions (from tool) ===== */
+    function _sum(...args) {
+        return args.flat().reduce((a, b) => (parseFloat(a) || 0) + (parseFloat(b) || 0), 0);
+    }
+
+    function _sumRange(rangeData) {
+        if (Array.isArray(rangeData)) {
+            return rangeData.flat().reduce((a, b) => (parseFloat(a) || 0) + (parseFloat(b) || 0), 0);
+        }
+        return parseFloat(rangeData) || 0;
+    }
+
+    function _average(...args) {
+        const flat = args.flat().filter(x => x !== null && x !== '' && !isNaN(x));
+        return flat.length ? _sum(...flat) / flat.length : 0;
+    }
+
+    function _averageRange(rangeData) {
+        if (Array.isArray(rangeData)) {
+            const flat = rangeData.flat().filter(x => x !== null && x !== '' && !isNaN(x));
+            return flat.length ? _sumRange(flat) / flat.length : 0;
+        }
+        return parseFloat(rangeData) || 0;
+    }
+
+    function _count(...args) {
+        return args.flat().filter(x => typeof x === 'number' && !isNaN(x)).length;
+    }
+
+    function _counta(...args) {
+        return args.flat().filter(x => x !== null && x !== '' && x !== undefined).length;
+    }
+
+    function _and(...args) {
+        return args.every(x => Boolean(x));
+    }
+
+    function _or(...args) {
+        return args.some(x => Boolean(x));
+    }
+
+    function _round(num, digits = 0) {
+        const factor = Math.pow(10, digits);
+        return Math.round(num * factor) / factor;
+    }
+
+    function _roundUp(num, digits = 0) {
+        const factor = Math.pow(10, digits);
+        return Math.ceil(num * factor) / factor;
+    }
+
+    function _roundDown(num, digits = 0) {
+        const factor = Math.pow(10, digits);
+        return Math.floor(num * factor) / factor;
+    }
+
+    function _len(text) {
+        return String(text).length;
+    }
+
+    function _left(text, numChars = 1) {
+        return String(text).substring(0, numChars);
+    }
+
+    function _right(text, numChars = 1) {
+        const str = String(text);
+        return str.substring(str.length - numChars);
+    }
+
+    function _mid(text, startNum, numChars) {
+        return String(text).substring(startNum - 1, startNum - 1 + numChars);
+    }
+
+    function _trim(text) {
+        return String(text).trim();
+    }
+
+    function _upper(text) {
+        return String(text).toUpperCase();
+    }
+
+    function _lower(text) {
+        return String(text).toLowerCase();
+    }
+
+    function _concat(...args) {
+        return args.join('');
+    }
+
+    // Number formatting
+    function formatNumber(num, decimals = 0) {
+        return new Intl.NumberFormat('ko-KR', {
+            minimumFractionDigits: decimals,
+            maximumFractionDigits: decimals
+        }).format(num);
+    }
+
+    function formatCurrency(num) {
+        return new Intl.NumberFormat('ko-KR', {
+            style: 'currency',
+            currency: 'KRW',
+            maximumFractionDigits: 0
+        }).format(num);
+    }
+
+    function formatPercent(num, decimals = 1) {
+        return new Intl.NumberFormat('ko-KR', {
+            style: 'percent',
+            minimumFractionDigits: decimals,
+            maximumFractionDigits: decimals
+        }).format(num / 100);
+    }
+
+    /* ===== App ===== */
+    function appData(){
+      return {
+        // raw cell-like data map (Excel cell mappings)
+        data: {
+          C3: 0, // monthly salary
+          C4: 0,
+          C5: 0,
+          C6: 0,
+          C7: 0,
+          C8: 0,
+          C9: 0,
+        },
+
+        ui: {
+          monthlySalaryText: ''
+        },
+
+        out: {
+          nationalPension: 0,
+          healthInsurance: 0,
+          longTermCare: 0,
+          employmentInsurance: 0,
+          total: 0,
+          net: 0,
+        },
+
+        hasError: false,
+        errorMsg: '',
+
+        init(){
+          // initial compute (shows zeros)
+          this.recalculate();
+        },
+
+        // Accept "3,000,000" or "3000000"; keep as text in input
+        parseSalary(text){
+          const cleaned = String(text ?? '').replace(/[^0-9]/g, '');
+          if(cleaned === '') return { ok: false, value: 0 };
+          const n = Number(cleaned);
+          if(!Number.isFinite(n)) return { ok: false, value: 0 };
+          return { ok: true, value: n };
+        },
+
+        normalizeSalaryText(){
+          const p = this.parseSalary(this.ui.monthlySalaryText);
+          if(p.ok){
+            this.ui.monthlySalaryText = new Intl.NumberFormat('ko-KR', { maximumFractionDigits: 0 }).format(p.value);
+          }
+        },
+
+        onSalaryInput(evt){
+          // allow live typing; compute on each input
+          this.recalculate();
+        },
+
+        onCalculateClick(){
+          this.recalculate(true);
+        },
+
+        reset(){
+          this.ui.monthlySalaryText = '';
+          this.hasError = false;
+          this.errorMsg = '';
+          this.data.C3 = 0;
+          this.recalculate();
+        },
+
+        print(){
+          window.print();
+        },
+
+        formatKRW(value, fractionDigits = 0){
+          const n = Number(value);
+          const safe = Number.isFinite(n) ? n : 0;
+          return new Intl.NumberFormat('ko-KR', {
+            minimumFractionDigits: fractionDigits,
+            maximumFractionDigits: fractionDigits
+          }).format(safe);
+        },
+
+        // Pure calc based on Excel formulas (converted)
+        calculateInsurance(monthlySalary){
+          const salary = Number(monthlySalary);
+          const safeSalary = Number.isFinite(salary) ? salary : 0;
+
+          // Use a local cell-map to mirror Excel dependencies
+          const data = {
+            C3: safeSalary,
+            C4: 0,
+            C5: 0,
+            C6: 0,
+            C7: 0,
+            C8: 0,
+            C9: 0,
+          };
+
+          // Converted from Excel (tool output)
+          data.C4 = (data['C3']*0.045); // =C3*0.045
+          data.C5 = (data['C3']*0.03545); // =C3*0.03545
+          data.C6 = (data['C5']*0.1281); // =C5*0.1281
+          data.C7 = (data['C3']*0.009); // =C3*0.009
+          data.C8 = (data['C4']+data['C5']+data['C6']+data['C7']); // =C4+C5+C6+C7
+          data.C9 = (data['C3']-data['C8']); // =C3-C8
+
+          // Display rounding (Excel had no ROUND; UI rounds to KRW unit)
+          const round0 = (x) => Math.round((Number.isFinite(x) ? x : 0));
+
+          return {
+            cells: data,
+            nationalPension: round0(data.C4),
+            healthInsurance: round0(data.C5),
+            longTermCare: round0(data.C6),
+            employmentInsurance: round0(data.C7),
+            total: round0(data.C8),
+            net: round0(data.C9),
+          };
+        },
+
+        recalculate(showErrorOnEmpty = false){
+          const parsed = this.parseSalary(this.ui.monthlySalaryText);
+
+          if(!parsed.ok){
+            // empty or invalid
+            this.data.C3 = 0;
+            const r = this.calculateInsurance(0);
+            this.applyResult(r);
+
+            if(showErrorOnEmpty && String(this.ui.monthlySalaryText ?? '').trim() !== ''){
+              this.hasError = true;
+              this.errorMsg = '월 급여(보수월액)는 숫자 형식으로 입력해 주세요.';
+            } else if(showErrorOnEmpty && String(this.ui.monthlySalaryText ?? '').trim() === ''){
+              this.hasError = true;
+              this.errorMsg = '월 급여(보수월액)를 입력해 주세요.';
+            } else {
+              this.hasError = false;
+              this.errorMsg = '';
+            }
+            return;
+          }
+
+          if(parsed.value < 0){
+            this.hasError = true;
+            this.errorMsg = '음수 금액은 입력할 수 없습니다.';
+            return;
+          }
+
+          this.hasError = false;
+          this.errorMsg = '';
+
+          this.data.C3 = parsed.value;
+          const result = this.calculateInsurance(parsed.value);
+          this.applyResult(result);
+        },
+
+        applyResult(result){
+          // sync cell map
+          this.data = { ...this.data, ...result.cells };
+
+          // sync outputs
+          this.out.nationalPension = result.nationalPension;
+          this.out.healthInsurance = result.healthInsurance;
+          this.out.longTermCare = result.longTermCare;
+          this.out.employmentInsurance = result.employmentInsurance;
+          this.out.total = result.total;
+          this.out.net = result.net;
+        }
+      };
+    }
+  </script>
+
+<!-- Agent Trace Viewer -->
+<style>
+.trace-toggle {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 9999;
+    background: #6366f1;
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 25px;
+    cursor: pointer;
+    font-size: 14px;
+    box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.trace-toggle:hover { background: #4f46e5; }
+.trace-panel {
+    position: fixed;
+    top: 0;
+    right: -450px;
+    width: 450px;
+    height: 100vh;
+    background: #1e1e2e;
+    color: #cdd6f4;
+    z-index: 9998;
+    transition: right 0.3s ease;
+    overflow-y: auto;
+    font-family: 'Monaco', 'Menlo', monospace;
+    font-size: 12px;
+}
+.trace-panel.open { right: 0; }
+.trace-header {
+    padding: 16px;
+    background: #313244;
+    border-bottom: 1px solid #45475a;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.trace-header h3 { margin: 0; font-size: 14px; }
+.trace-close {
+    background: none;
+    border: none;
+    color: #cdd6f4;
+    cursor: pointer;
+    font-size: 18px;
+}
+.trace-content { padding: 16px; }
+.span-item {
+    margin-bottom: 12px;
+    padding: 12px;
+    background: #313244;
+    border-radius: 8px;
+    border-left: 3px solid #89b4fa;
+}
+.span-item.agent { border-left-color: #a6e3a1; }
+.span-item.generation { border-left-color: #f9e2af; }
+.span-item.function { border-left-color: #cba6f7; }
+.span-type {
+    font-size: 10px;
+    text-transform: uppercase;
+    color: #6c7086;
+    margin-bottom: 4px;
+}
+.span-name { font-weight: bold; color: #89dceb; }
+.span-data {
+    margin-top: 8px;
+    padding: 8px;
+    background: #1e1e2e;
+    border-radius: 4px;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+.span-time { color: #6c7086; font-size: 11px; }
+.trace-summary {
+    padding: 12px 16px;
+    background: #45475a;
+    margin: 0 16px 16px;
+    border-radius: 8px;
+}
+.trace-summary-item { display: flex; justify-content: space-between; margin: 4px 0; }
+</style>
+
+<button class="trace-toggle" onclick="toggleTracePanel()">
+    <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+        <path d="M9.5 13a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm0-5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm0-5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/>
+    </svg>
+    Agent Trace
+</button>
+
+<div class="trace-panel" id="tracePanel">
+    <div class="trace-header">
+        <h3>Agent Trace Viewer</h3>
+        <button class="trace-close" onclick="toggleTracePanel()">&times;</button>
+    </div>
+    <div class="trace-summary" id="traceSummary"></div>
+    <div class="trace-content" id="traceContent"></div>
+</div>
+
+<script>
+const TRACE_DATA = {"trace_id": "trace_19ab9bc4458c4b7db749d49723791801", "workflow_name": "Excel-to-WebApp: 4대보험_자동계산기_엑셀템플릿.xlsx", "group_id": null, "metadata": null, "started_at": "2025-12-28T11:34:13.807979", "ended_at": "2025-12-28T11:36:13.433141", "spans": [{"span_id": "span_aff84ad1e4764a648507b38c", "parent_id": "span_14132a49bbd24571bdc083be", "started_at": "2025-12-28T02:34:13.818580+00:00", "ended_at": "2025-12-28T02:34:15.744806+00:00", "error": null, "type": "response", "data": {"type": "response", "response_id": "resp_0d04452dcef61eff006950972629588193b75a01ae1276470a"}}, {"span_id": "span_77c3d4b62eaa4307a27b957d", "parent_id": "span_14132a49bbd24571bdc083be", "started_at": "2025-12-28T02:34:15.745167+00:00", "ended_at": "2025-12-28T02:34:15.748118+00:00", "error": null, "type": "function", "data": {"type": "function", "name": "analyze_excel", "input": "{\"file_path\":\"excel_files/4대보험_자동계산기_엑셀템플릿.xlsx\"}", "output": "{'filename': '4대보험_자동계산기_엑셀템플릿.xlsx', 'file_type': 'xlsx', 'sheets': [{'name': '4대 보험 계산기', 'row_count': 9, 'col_count': 4, 'used_range': 'B2:D9', 'input_cells': ['C3'], 'output_cells': ['C4', 'C5', 'C6', 'C7', 'C8', 'C9'], 'formulas': [{'cell': 'C4', 'formula': '=C3*0.045', 'dependencies': ['C3'], 'result_type': 'number'}, {'cell': 'C5', 'formula': '=C3*0.03545', 'dependencies': ['C3'], 'result_type': 'number'}, {'cell': 'C6', 'formula': '=C5*0.1281', 'dependencies': ['C5'], 'result_type': 'number'}, {'cell': 'C7', 'formula': '=C3*0.009', 'dependencies': ['C3'], 'result_type': 'number'}, {'cell': 'C8', 'formula': '=C4+C5+C6+C7', 'dependencies': ['C4', 'C5', 'C7', 'C6'], 'result_type': 'number'}, {'cell': 'C9', 'formula': '=C3-C8', 'dependencies': ['C8', 'C3'], 'result_type': 'number'}], 'has_print_area': False, 'print_area': None}], 'vba_modules': [], 'has_vba': False, 'print_settings': {'orientation': 'portrait', 'paper_size': 'A4', 'margins': {'top': 1.0, 'bottom': 1.0, 'left': 0.75, 'right': 0.75}, 'header': None, 'footer': None, 'fit_to_page': False, 'scale': 100}, 'total_formulas': 6, 'total_input_cells': 1, 'total_output_cells': 6, 'complexity_score': 'low'}", "mcp_data": null}}, {"span_id": "span_ff63f2accda645a89c5f5960", "parent_id": "span_14132a49bbd24571bdc083be", "started_at": "2025-12-28T02:34:15.749218+00:00", "ended_at": "2025-12-28T02:35:01.206551+00:00", "error": null, "type": "response", "data": {"type": "response", "response_id": "resp_0d04452dcef61eff0069509727f37481939532461d100d9817"}}, {"span_id": "span_14132a49bbd24571bdc083be", "parent_id": null, "started_at": "2025-12-28T02:34:13.808350+00:00", "ended_at": "2025-12-28T02:35:01.206879+00:00", "error": null, "type": "agent", "data": {"type": "agent", "name": "Excel Analyzer", "handoffs": [], "tools": ["analyze_excel", "get_sheet_cells"], "output_type": "str"}}, {"span_id": "span_a518b253e6c84b0b8c83be21", "parent_id": "span_43c3e50359aa4493b46c2dd3", "started_at": "2025-12-28T02:35:01.207336+00:00", "ended_at": "2025-12-28T02:35:20.697631+00:00", "error": null, "type": "response", "data": {"type": "response", "response_id": "resp_0248aacf59772a8700695097556cb0819687c3826b7601e7c2"}}, {"span_id": "span_43c3e50359aa4493b46c2dd3", "parent_id": null, "started_at": "2025-12-28T02:35:01.207069+00:00", "ended_at": "2025-12-28T02:35:20.698742+00:00", "error": null, "type": "agent", "data": {"type": "agent", "name": "WebApp Planner", "handoffs": [], "tools": [], "output_type": "WebAppPlan"}}, {"span_id": "span_33f6ef30ca61454888d55fea", "parent_id": "span_2cee03b7de1544b8b0a066ee", "started_at": "2025-12-28T02:35:20.699658+00:00", "ended_at": "2025-12-28T02:35:23.342824+00:00", "error": null, "type": "response", "data": {"type": "response", "response_id": "resp_0918d0ba8ffb9eae0069509768ea988196aa6f5276ae8b1a98"}}, {"span_id": "span_624e86f8580046a1aa894b6d", "parent_id": "span_2cee03b7de1544b8b0a066ee", "started_at": "2025-12-28T02:35:23.343035+00:00", "ended_at": "2025-12-28T02:35:23.343461+00:00", "error": null, "type": "function", "data": {"type": "function", "name": "check_formula_complexity", "input": "{\"formula\":\"=C3*0.045\"}", "output": "formula='=C3*0.045' is_simple=True conversion_method='direct'", "mcp_data": null}}, {"span_id": "span_56f2085bbb69435da1e32b9c", "parent_id": "span_2cee03b7de1544b8b0a066ee", "started_at": "2025-12-28T02:35:23.343191+00:00", "ended_at": "2025-12-28T02:35:23.343483+00:00", "error": null, "type": "function", "data": {"type": "function", "name": "check_formula_complexity", "input": "{\"formula\":\"=C3*0.03545\"}", "output": "formula='=C3*0.03545' is_simple=True conversion_method='direct'", "mcp_data": null}}, {"span_id": "span_4790a900e7b74e0886634fce", "parent_id": "span_2cee03b7de1544b8b0a066ee", "started_at": "2025-12-28T02:35:23.343205+00:00", "ended_at": "2025-12-28T02:35:23.343492+00:00", "error": null, "type": "function", "data": {"type": "function", "name": "check_formula_complexity", "input": "{\"formula\":\"=C5*0.1281\"}", "output": "formula='=C5*0.1281' is_simple=True conversion_method='direct'", "mcp_data": null}}, {"span_id": "span_22bc191bc34b4794818295bf", "parent_id": "span_2cee03b7de1544b8b0a066ee", "started_at": "2025-12-28T02:35:23.343216+00:00", "ended_at": "2025-12-28T02:35:23.343499+00:00", "error": null, "type": "function", "data": {"type": "function", "name": "check_formula_complexity", "input": "{\"formula\":\"=C3*0.009\"}", "output": "formula='=C3*0.009' is_simple=True conversion_method='direct'", "mcp_data": null}}, {"span_id": "span_d06043a88b394482b7f3817c", "parent_id": "span_2cee03b7de1544b8b0a066ee", "started_at": "2025-12-28T02:35:23.343227+00:00", "ended_at": "2025-12-28T02:35:23.343506+00:00", "error": null, "type": "function", "data": {"type": "function", "name": "check_formula_complexity", "input": "{\"formula\":\"=C4+C5+C6+C7\"}", "output": "formula='=C4+C5+C6+C7' is_simple=True conversion_method='direct'", "mcp_data": null}}, {"span_id": "span_4978e91507f5427c9c34401c", "parent_id": "span_2cee03b7de1544b8b0a066ee", "started_at": "2025-12-28T02:35:23.343237+00:00", "ended_at": "2025-12-28T02:35:23.343511+00:00", "error": null, "type": "function", "data": {"type": "function", "name": "check_formula_complexity", "input": "{\"formula\":\"=C3-C8\"}", "output": "formula='=C3-C8' is_simple=True conversion_method='direct'", "mcp_data": null}}, {"span_id": "span_1f1268e8dbd24c96a0986931", "parent_id": "span_2cee03b7de1544b8b0a066ee", "started_at": "2025-12-28T02:35:23.343247+00:00", "ended_at": "2025-12-28T02:35:23.343517+00:00", "error": null, "type": "function", "data": {"type": "function", "name": "get_js_helpers", "input": "{}", "output": "\n// Excel formula helper functions\nfunction _sum(...args) {\n    return args.flat().reduce((a, b) => (parseFloat(a) || 0) + (parseFloat(b) || 0), 0);\n}\n\nfunction _sumRange(rangeData) {\n    if (Array.isArray(rangeData)) {\n        return rangeData.flat().reduce((a, b) => (parseFloat(a) || 0) + (parseFloat(b) || 0), 0);\n    }\n    return parseFloat(rangeData) || 0;\n}\n\nfunction _average(...args) {\n    const flat = args.flat().filter(x => x !== null && x !== '' && !isNaN(x));\n    return flat.length ? _sum(...flat) / flat.length : 0;\n}\n\nfunction _averageRange(rangeData) {\n    if (Array.isArray(rangeData)) {\n        const flat = rangeData.flat().filter(x => x !== null && x !== '' && !isNaN(x));\n        return flat.length ? _sumRange(flat) / flat.length : 0;\n    }\n    return parseFloat(rangeData) || 0;\n}\n\nfunction _count(...args) {\n    return args.flat().filter(x => typeof x === 'number' && !isNaN(x)).length;\n}\n\nfunction _counta(...args) {\n    return args.flat().filter(x => x !== null && x !== '' && x !== undefined).length;\n}\n\nfunction _and(...args) {\n    return args.every(x => Boolean(x));\n}\n\nfunction _or(...args) {\n    return args.some(x => Boolean(x));\n}\n\nfunction _round(num, digits = 0) {\n    const factor = Math.pow(10, digits);\n    return Math.round(num * factor) / factor;\n}\n\nfunction _roundUp(num, digits = 0) {\n    const factor = Math.pow(10, digits);\n    return Math.ceil(num * factor) / factor;\n}\n\nfunction _roundDown(num, digits = 0) {\n    const factor = Math.pow(10, digits);\n    return Math.floor(num * factor) / factor;\n}\n\nfunction _len(text) {\n    return String(text).length;\n}\n\nfunction _left(text, numChars = 1) {\n    return String(text).substring(0, numChars);\n}\n\nfunction _right(text, numChars = 1) {\n    const str = String(text);\n    return str.substring(str.length - numChars);\n}\n\nfunction _mid(text, startNum, numChars) {\n    return String(text).substring(startNum - 1, startNum - 1 + numChars);\n}\n\nfunction _trim(text) {\n    return String(text).trim();\n}\n\nfunction _upper(text) {\n    return String(text).toUpperCase();\n}\n\nfunction _lower(text) {\n    return String(text).toLowerCase();\n}\n\nfunction _concat(...args) {\n    return args.join('');\n}\n\n// Number formatting\nfunction formatNumber(num, decimals = 0) {\n    return new Intl.NumberFormat('ko-KR', {\n        minimumFractionDigits: decimals,\n        maximumFractionDigits: decimals\n    }).format(num);\n}\n\nfunction formatCurrency(num) {\n    return new Intl.NumberFormat('ko-KR', {\n        style: 'currency',\n        currency: 'KRW',\n        maximumFractionDigits: 0\n    }).format(num);\n}\n\nfunction formatPercent(num, decimals = 1) {\n    return new Intl.NumberFormat('ko-KR', {\n        style: 'percent',\n        minimumFractionDigits: decimals,\n        maximumFractionDigits: decimals\n    }).format(num / 100);\n}\n", "mcp_data": null}}, {"span_id": "span_08ef2b7d4d564b87b6412c08", "parent_id": "span_2cee03b7de1544b8b0a066ee", "started_at": "2025-12-28T02:35:23.343861+00:00", "ended_at": "2025-12-28T02:35:25.026111+00:00", "error": null, "type": "response", "data": {"type": "response", "response_id": "resp_0918d0ba8ffb9eae006950976b8db081968f6902740ac0ea33"}}, {"span_id": "span_18239b9712b746d2a7c0977c", "parent_id": "span_2cee03b7de1544b8b0a066ee", "started_at": "2025-12-28T02:35:25.026409+00:00", "ended_at": "2025-12-28T02:35:25.027426+00:00", "error": null, "type": "function", "data": {"type": "function", "name": "convert_formula", "input": "{\"formula\":\"=C3*0.045\"}", "output": "success=True js_code=\"data['C3']*0.045\" requires_llm=False error=None", "mcp_data": null}}, {"span_id": "span_f5af177b83ee48a0815391ce", "parent_id": "span_2cee03b7de1544b8b0a066ee", "started_at": "2025-12-28T02:35:25.026443+00:00", "ended_at": "2025-12-28T02:35:25.027444+00:00", "error": null, "type": "function", "data": {"type": "function", "name": "convert_formula", "input": "{\"formula\":\"=C3*0.03545\"}", "output": "success=True js_code=\"data['C3']*0.03545\" requires_llm=False error=None", "mcp_data": null}}, {"span_id": "span_2980474847e14553a65f2ec5", "parent_id": "span_2cee03b7de1544b8b0a066ee", "started_at": "2025-12-28T02:35:25.026457+00:00", "ended_at": "2025-12-28T02:35:25.027452+00:00", "error": null, "type": "function", "data": {"type": "function", "name": "convert_formula", "input": "{\"formula\":\"=C5*0.1281\"}", "output": "success=True js_code=\"data['C5']*0.1281\" requires_llm=False error=None", "mcp_data": null}}, {"span_id": "span_c91ad822151745d28e9b3499", "parent_id": "span_2cee03b7de1544b8b0a066ee", "started_at": "2025-12-28T02:35:25.026469+00:00", "ended_at": "2025-12-28T02:35:25.027458+00:00", "error": null, "type": "function", "data": {"type": "function", "name": "convert_formula", "input": "{\"formula\":\"=C3*0.009\"}", "output": "success=True js_code=\"data['C3']*0.009\" requires_llm=False error=None", "mcp_data": null}}, {"span_id": "span_b0fac37cab4a42b5a15249a9", "parent_id": "span_2cee03b7de1544b8b0a066ee", "started_at": "2025-12-28T02:35:25.026481+00:00", "ended_at": "2025-12-28T02:35:25.027463+00:00", "error": null, "type": "function", "data": {"type": "function", "name": "convert_formula", "input": "{\"formula\":\"=C4+C5+C6+C7\"}", "output": "success=True js_code=\"data['C4']+data['C5']+data['C6']+data['C7']\" requires_llm=False error=None", "mcp_data": null}}, {"span_id": "span_3a8f6f6c0d934da2a157a497", "parent_id": "span_2cee03b7de1544b8b0a066ee", "started_at": "2025-12-28T02:35:25.026491+00:00", "ended_at": "2025-12-28T02:35:25.027468+00:00", "error": null, "type": "function", "data": {"type": "function", "name": "convert_formula", "input": "{\"formula\":\"=C3-C8\"}", "output": "success=True js_code=\"data['C3']-data['C8']\" requires_llm=False error=None", "mcp_data": null}}, {"span_id": "span_7981b75ba2394f03a83325bb", "parent_id": "span_2cee03b7de1544b8b0a066ee", "started_at": "2025-12-28T02:35:25.027905+00:00", "ended_at": "2025-12-28T02:36:13.432510+00:00", "error": null, "type": "response", "data": {"type": "response", "response_id": "resp_0918d0ba8ffb9eae006950976d3e9481969fc39e6463d9f25c"}}, {"span_id": "span_2cee03b7de1544b8b0a066ee", "parent_id": null, "started_at": "2025-12-28T02:35:20.699258+00:00", "ended_at": "2025-12-28T02:36:13.432878+00:00", "error": null, "type": "agent", "data": {"type": "agent", "name": "WebApp Generator", "handoffs": [], "tools": ["convert_formula", "check_formula_complexity", "get_js_helpers"], "output_type": "GeneratedWebApp"}}]};
+
+function toggleTracePanel() {
+    document.getElementById('tracePanel').classList.toggle('open');
+}
+
+function renderTrace() {
+    const summary = document.getElementById('traceSummary');
+    const content = document.getElementById('traceContent');
+
+    if (!TRACE_DATA) {
+        content.innerHTML = '<p>No trace data available</p>';
+        return;
+    }
+
+    // Summary
+    const spans = TRACE_DATA.spans || [];
+    const agentSpans = spans.filter(s => s.type === 'agent').length;
+    const genSpans = spans.filter(s => s.type === 'generation').length;
+    const funcSpans = spans.filter(s => s.type === 'function').length;
+
+    summary.innerHTML = `
+        <div class="trace-summary-item"><span>Workflow</span><span>${TRACE_DATA.workflow_name || '-'}</span></div>
+        <div class="trace-summary-item"><span>Agent Spans</span><span>${agentSpans}</span></div>
+        <div class="trace-summary-item"><span>LLM Generations</span><span>${genSpans}</span></div>
+        <div class="trace-summary-item"><span>Function Calls</span><span>${funcSpans}</span></div>
+    `;
+
+    // Spans
+    let html = '';
+    spans.forEach(span => {
+        const typeClass = span.type || 'custom';
+        const data = span.data || {};
+        html += `
+            <div class="span-item ${typeClass}">
+                <div class="span-type">${span.type || 'span'}</div>
+                <div class="span-name">${data.name || data.model || span.span_id?.slice(0, 8) || '-'}</div>
+                ${data.input ? `<div class="span-data">${typeof data.input === 'string' ? data.input.slice(0, 200) : JSON.stringify(data.input).slice(0, 200)}...</div>` : ''}
+                ${data.output ? `<div class="span-data">${typeof data.output === 'string' ? data.output.slice(0, 200) : JSON.stringify(data.output).slice(0, 200)}...</div>` : ''}
+                ${data.usage ? `<div class="span-time">Tokens: ${data.usage.total_tokens || '-'}</div>` : ''}
+            </div>
+        `;
+    });
+    content.innerHTML = html || '<p>No spans recorded</p>';
+}
+
+document.addEventListener('DOMContentLoaded', renderTrace);
+</script>
+</body>
+</html>

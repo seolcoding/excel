@@ -1,0 +1,123 @@
+{
+  "selected_count": 10,
+  "selection_criteria": [
+    "1. 수식 풍부성: VLOOKUP, IF, SUMIF 등 다양한 함수 포함",
+    "2. 비즈니스 다양성: 세무, 급여, 견적, 재무 등 다양한 도메인",
+    "3. 자동화 기능: 자동계산, 자동입력 등 동적 로직",
+    "4. 기획 적합성: 실제 비즈니스에서 활용되는 양식",
+    "5. 기술적 데모: 변환 기술력을 효과적으로 시연 가능"
+  ],
+  "top10": [
+    {
+      "rank": 1,
+      "category": "수식풍부 (XLSX)",
+      "name": "엑셀 간이영수증 표준 양식 v2.0",
+      "formulas": 233,
+      "functions": [
+        "IF",
+        "SUM",
+        "TEXT",
+        "TODAY",
+        "VLOOKUP"
+      ],
+      "complexity": 571,
+      "path": "/Users/sdh/Dev/01_active_projects/xls_agent/excel_files/엑셀 간이영수증 표준 양식 v2.0.xlsx",
+      "reason": "다양한 수식 함수 (VLOOKUP, IF, SUM 등) 포함 - 변환 기술력 시연에 최적"
+    },
+    {
+      "rank": 2,
+      "category": "수식풍부 (XLSX)",
+      "name": "종합소득세 엑셀 간이 계산기 v2.1",
+      "formulas": 24,
+      "functions": [
+        "IFERROR",
+        "MAX",
+        "SUM",
+        "VLOOKUP"
+      ],
+      "complexity": 124.76,
+      "path": "/Users/sdh/Dev/01_active_projects/xls_agent/excel_files/종합소득세 엑셀 간이 계산기 v2.1.xlsx",
+      "reason": "다양한 수식 함수 (VLOOKUP, IF, SUM 등) 포함 - 변환 기술력 시연에 최적"
+    },
+    {
+      "rank": 3,
+      "category": "수식풍부 (XLSX)",
+      "name": "4대보험_자동계산기_엑셀템플릿",
+      "formulas": 6,
+      "functions": [],
+      "complexity": 17.36,
+      "path": "/Users/sdh/Dev/01_active_projects/xls_agent/excel_files/4대보험_자동계산기_엑셀템플릿.xlsx",
+      "reason": "다양한 수식 함수 (VLOOKUP, IF, SUM 등) 포함 - 변환 기술력 시연에 최적"
+    },
+    {
+      "rank": 4,
+      "category": "자동화",
+      "name": "거래명세표(자동계산)",
+      "formulas": 0,
+      "functions": [],
+      "complexity": 62.64,
+      "path": "/Users/sdh/Dev/01_active_projects/xls_agent/excel_files/엑셀서식(20160517)/거래명세표(자동계산)/3.xls",
+      "reason": "자동 계산 로직 포함 - 동적 계산 변환 시연"
+    },
+    {
+      "rank": 5,
+      "category": "세금/계산서",
+      "name": "계산서",
+      "formulas": 0,
+      "functions": [],
+      "complexity": 70.58,
+      "path": "/Users/sdh/Dev/01_active_projects/xls_agent/excel_files/엑셀서식(20160517)/계산서/계산서.xls",
+      "reason": "세무/회계 수식 - 비즈니스 실용성 시연"
+    },
+    {
+      "rank": 6,
+      "category": "급여/인사",
+      "name": "인사기록카드(외국인근로자관리)",
+      "formulas": 0,
+      "functions": [],
+      "complexity": 35.86,
+      "path": "/Users/sdh/Dev/01_active_projects/xls_agent/excel_files/엑셀서식(20160517)/인사기록카드(외국인근로자관리)/3.xls",
+      "reason": "급여 계산 로직 - HR 도메인 활용성 시연"
+    },
+    {
+      "rank": 7,
+      "category": "견적/거래",
+      "name": "거래명세표1",
+      "formulas": 0,
+      "functions": [],
+      "complexity": 67.0,
+      "path": "/Users/sdh/Dev/01_active_projects/xls_agent/excel_files/엑셀서식(20160517)/거래명세표1/거래명세표1.xls",
+      "reason": "거래 문서 양식 - 일반 비즈니스 활용성"
+    },
+    {
+      "rank": 8,
+      "category": "자금/재무",
+      "name": "자금집행품의서외",
+      "formulas": 0,
+      "functions": [],
+      "complexity": 70.15,
+      "path": "/Users/sdh/Dev/01_active_projects/xls_agent/excel_files/엑셀서식(20160517)/자금집행품의서외/3.xls",
+      "reason": "재무 분석 수식 - 금융 계산 변환 능력"
+    },
+    {
+      "rank": 9,
+      "category": "건설/공사",
+      "name": "시공계획서(흙막이공사)",
+      "formulas": 0,
+      "functions": [],
+      "complexity": 122.85,
+      "path": "/Users/sdh/Dev/01_active_projects/xls_agent/excel_files/엑셀서식(20160517)/시공계획서(흙막이공사)/3.xls",
+      "reason": "공사 관리 양식 - 산업별 다양성 시연"
+    },
+    {
+      "rank": 10,
+      "category": "가계부",
+      "name": "가계부(자동화엑셀)",
+      "formulas": 0,
+      "functions": [],
+      "complexity": 22.18,
+      "path": "/Users/sdh/Dev/01_active_projects/xls_agent/excel_files/엑셀서식(20160517)/가계부(자동화엑셀)/3.xls",
+      "reason": "가계부 자동화 - 개인 사용자 타겟 시연"
+    }
+  ]
+}

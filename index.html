@@ -3,434 +3,408 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Excel to WebApp Converter - Demo Gallery</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+    <title>Excel → WebApp 변환기 | 해커톤 데모</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         :root {
-            --primary: #6366f1;
-            --secondary: #8b5cf6;
+            --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --card-shadow: 0 10px 40px rgba(0,0,0,0.1);
         }
+
         body {
-            font-family: 'Noto Sans KR', sans-serif;
-            background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4c1d95 100%);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
             min-height: 100vh;
-            color: #fff;
         }
+
         .hero {
-            padding: 4rem 0;
-            text-align: center;
+            background: var(--primary-gradient);
+            color: white;
+            padding: 60px 0;
+            margin-bottom: 40px;
         }
+
         .hero h1 {
-            font-size: 3rem;
-            font-weight: 700;
-            background: linear-gradient(90deg, #60a5fa, #a78bfa, #f472b6);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            margin-bottom: 1rem;
-        }
-        .hero p {
-            font-size: 1.25rem;
-            opacity: 0.8;
-            max-width: 600px;
-            margin: 0 auto;
-        }
-        .demo-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-            gap: 1.5rem;
-            padding: 2rem;
-            max-width: 1400px;
-            margin: 0 auto;
-        }
-        .demo-card {
-            background: rgba(255,255,255,0.1);
-            backdrop-filter: blur(10px);
-            border-radius: 16px;
-            overflow: hidden;
-            transition: transform 0.3s, box-shadow 0.3s;
-            border: 1px solid rgba(255,255,255,0.1);
-        }
-        .demo-card:hover {
-            transform: translateY(-8px);
-            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
-        }
-        .demo-preview {
-            height: 200px;
-            background: #fff;
-            position: relative;
-            overflow: hidden;
-        }
-        .demo-preview iframe {
-            width: 200%;
-            height: 200%;
-            transform: scale(0.5);
-            transform-origin: top left;
-            border: none;
-            pointer-events: none;
-        }
-        .demo-preview-overlay {
-            position: absolute;
-            inset: 0;
-            background: linear-gradient(to bottom, transparent 60%, rgba(0,0,0,0.7));
-        }
-        .demo-info {
-            padding: 1.25rem;
-        }
-        .demo-title {
-            font-size: 1.25rem;
-            font-weight: 600;
-            margin-bottom: 0.5rem;
-        }
-        .demo-desc {
-            font-size: 0.9rem;
-            opacity: 0.7;
-            margin-bottom: 1rem;
-        }
-        .demo-excel {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            font-size: 0.85rem;
-            color: #a5b4fc;
-            margin-bottom: 1rem;
-        }
-        .demo-excel svg {
-            width: 20px;
-            height: 20px;
-        }
-        .demo-actions {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.5rem;
-        }
-        .btn-demo {
-            flex: 1 1 calc(33% - 0.5rem);
-            min-width: 90px;
-            padding: 0.5rem 0.5rem;
-            border-radius: 8px;
-            font-weight: 500;
-            font-size: 0.8rem;
-            text-align: center;
-            text-decoration: none;
-            transition: all 0.2s;
-        }
-        .btn-primary-demo {
-            background: var(--primary);
-            color: white;
-        }
-        .btn-primary-demo:hover {
-            background: var(--secondary);
-            color: white;
-        }
-        .btn-secondary-demo {
-            background: rgba(139, 92, 246, 0.3);
-            border: 1px solid rgba(139, 92, 246, 0.5);
-            color: white;
-        }
-        .btn-secondary-demo:hover {
-            background: rgba(139, 92, 246, 0.5);
-            color: white;
-        }
-        .btn-outline-demo {
-            background: transparent;
-            border: 1px solid rgba(255,255,255,0.3);
-            color: white;
-        }
-        .btn-outline-demo:hover {
-            background: rgba(255,255,255,0.1);
-            color: white;
-        }
-        .stats {
-            display: flex;
-            justify-content: center;
-            gap: 3rem;
-            padding: 2rem;
-            margin-bottom: 2rem;
-        }
-        .stat-item {
-            text-align: center;
-        }
-        .stat-value {
             font-size: 2.5rem;
             font-weight: 700;
-            color: #a78bfa;
+            margin-bottom: 15px;
         }
+
+        .hero p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+
+        .stats-bar {
+            display: flex;
+            gap: 30px;
+            margin-top: 30px;
+            flex-wrap: wrap;
+        }
+
+        .stat-item {
+            background: rgba(255,255,255,0.2);
+            padding: 15px 25px;
+            border-radius: 12px;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+        }
+
         .stat-label {
             font-size: 0.9rem;
-            opacity: 0.7;
+            opacity: 0.8;
         }
-        .tech-badges {
+
+        .demo-card {
+            background: white;
+            border-radius: 16px;
+            box-shadow: var(--card-shadow);
+            overflow: hidden;
+            transition: transform 0.3s, box-shadow 0.3s;
+            height: 100%;
+        }
+
+        .demo-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+        }
+
+        .demo-card .card-header {
+            background: var(--primary-gradient);
+            color: white;
+            padding: 20px;
+            border: none;
+        }
+
+        .demo-card .card-header h5 {
+            margin: 0;
+            font-weight: 600;
+        }
+
+        .demo-card .badge-category {
+            background: rgba(255,255,255,0.2);
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            margin-top: 8px;
+            display: inline-block;
+        }
+
+        .demo-card .card-body {
+            padding: 20px;
+        }
+
+        .demo-card .reason {
+            color: #555;
+            font-size: 0.95rem;
+            line-height: 1.6;
+            margin-bottom: 15px;
+        }
+
+        .demo-card .functions {
             display: flex;
-            justify-content: center;
-            gap: 1rem;
             flex-wrap: wrap;
-            padding: 1rem;
-            margin-bottom: 2rem;
+            gap: 6px;
+            margin-bottom: 15px;
         }
-        .tech-badge {
-            background: rgba(255,255,255,0.1);
-            padding: 0.5rem 1rem;
-            border-radius: 20px;
+
+        .demo-card .function-tag {
+            background: #e3e8ff;
+            color: #4c5fd5;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+        }
+
+        .demo-card .formula-count {
+            color: #888;
             font-size: 0.85rem;
         }
-        footer {
-            text-align: center;
-            padding: 3rem;
-            opacity: 0.6;
+
+        .demo-card .btn-demo {
+            background: var(--primary-gradient);
+            color: white;
+            border: none;
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            font-weight: 600;
+            transition: opacity 0.3s;
         }
+
+        .demo-card .btn-demo:hover {
+            opacity: 0.9;
+            color: white;
+        }
+
+        .section-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 30px;
+        }
+
+        .criteria-card {
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            box-shadow: var(--card-shadow);
+            margin-bottom: 40px;
+        }
+
+        .criteria-item {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 15px;
+        }
+
+        .criteria-icon {
+            width: 32px;
+            height: 32px;
+            background: var(--primary-gradient);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            margin-right: 15px;
+            flex-shrink: 0;
+        }
+
+        .criteria-text h6 {
+            margin: 0;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .criteria-text p {
+            margin: 5px 0 0;
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        footer {
+            background: #333;
+            color: white;
+            padding: 30px 0;
+            margin-top: 60px;
+        }
+
         footer a {
             color: #a5b4fc;
         }
     </style>
 </head>
 <body>
-    <div class="hero">
-        <h1>Excel → WebApp</h1>
-        <p>AI가 Excel 파일을 분석하여 완전한 웹 애플리케이션으로 자동 변환합니다. VBA 매크로도 JavaScript로 완벽 변환!</p>
-    </div>
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="container">
+            <h1>Excel → WebApp 변환기</h1>
+            <p>OpenAI Agents SDK를 활용한 엑셀 파일 자동 웹앱 변환 솔루션</p>
+            <p>470개 엑셀 파일 분석 → 해커톤용 Top 10 선정 → AI Agent 기반 변환</p>
 
-    <div class="stats">
-        <div class="stat-item">
-            <div class="stat-value">10+</div>
-            <div class="stat-label">데모 예시</div>
-        </div>
-        <div class="stat-item">
-            <div class="stat-value">GPT-5.2</div>
-            <div class="stat-label">SOTA AI 모델</div>
-        </div>
-        <div class="stat-item">
-            <div class="stat-value">100%</div>
-            <div class="stat-label">VBA 변환 지원</div>
-        </div>
-    </div>
-
-    <div class="tech-badges">
-        <span class="tech-badge">🐍 Python</span>
-        <span class="tech-badge">🤖 OpenAI Agents SDK</span>
-        <span class="tech-badge">📊 openpyxl</span>
-        <span class="tech-badge">⚡ Bootstrap 5</span>
-        <span class="tech-badge">🏔️ Alpine.js</span>
-    </div>
-
-    <div class="demo-grid">
-        <!-- 4대보험 계산기 -->
-        <div class="demo-card">
-            <div class="demo-preview">
-                <iframe src="demos/insurance-calculator.html" loading="lazy"></iframe>
-                <div class="demo-preview-overlay"></div>
-            </div>
-            <div class="demo-info">
-                <div class="demo-title">4대보험 자동 계산기</div>
-                <div class="demo-desc">월급여 입력 시 국민연금, 건강보험, 장기요양, 고용보험 자동 계산</div>
-                <div class="demo-excel">
-                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20M10,19L12,15H9V10H15V15L13,19H10Z"/></svg>
-                    4대보험_자동계산기_엑셀템플릿.xlsx
+            <div class="stats-bar">
+                <div class="stat-item">
+                    <div class="stat-value">470</div>
+                    <div class="stat-label">분석된 엑셀 파일</div>
                 </div>
-                <div class="demo-actions">
-                    <a href="demos/insurance-calculator.html" class="btn-demo btn-primary-demo">웹앱 보기</a>
-                    <a href="trace-viewer.html?demo=insurance-calculator" class="btn-demo btn-secondary-demo">빌드과정</a>
-                    <a href="excel_files/4대보험_자동계산기_엑셀템플릿.xlsx" class="btn-demo btn-outline-demo">다운로드</a>
+                <div class="stat-item">
+                    <div class="stat-value">10</div>
+                    <div class="stat-label">선정된 데모</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">263+</div>
+                    <div class="stat-label">변환된 수식</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">3</div>
+                    <div class="stat-label">AI Agent</div>
                 </div>
             </div>
         </div>
+    </section>
 
-        <!-- 종합소득세 계산기 -->
-        <div class="demo-card">
-            <div class="demo-preview">
-                <iframe src="demos/tax-calculator.html" loading="lazy"></iframe>
-                <div class="demo-preview-overlay"></div>
-            </div>
-            <div class="demo-info">
-                <div class="demo-title">종합소득세 간이 계산기</div>
-                <div class="demo-desc">연소득 기반 누진세율 적용, 지방소득세 포함 총 납부세액 계산</div>
-                <div class="demo-excel">
-                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20M10,19L12,15H9V10H15V15L13,19H10Z"/></svg>
-                    종합소득세 엑셀 간이 계산기 v2.1.xlsx
+    <div class="container">
+        <!-- Selection Criteria -->
+        <div class="criteria-card">
+            <h3 class="section-title">Top 10 선정 기준</h3>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="criteria-item">
+                        <div class="criteria-icon">1</div>
+                        <div class="criteria-text">
+                            <h6>수식 풍부성</h6>
+                            <p>VLOOKUP, IF, SUMIF 등 다양한 함수 포함 여부</p>
+                        </div>
+                    </div>
+                    <div class="criteria-item">
+                        <div class="criteria-icon">2</div>
+                        <div class="criteria-text">
+                            <h6>비즈니스 다양성</h6>
+                            <p>세무, 급여, 견적, 재무, 건설 등 다양한 도메인 커버</p>
+                        </div>
+                    </div>
+                    <div class="criteria-item">
+                        <div class="criteria-icon">3</div>
+                        <div class="criteria-text">
+                            <h6>자동화 기능</h6>
+                            <p>자동계산, 자동입력 등 동적 로직 포함</p>
+                        </div>
+                    </div>
                 </div>
-                <div class="demo-actions">
-                    <a href="demos/tax-calculator.html" class="btn-demo btn-primary-demo">웹앱 보기</a>
-                    <a href="trace-viewer.html?demo=tax-calculator" class="btn-demo btn-secondary-demo">빌드과정</a>
-                    <a href="excel_files/종합소득세 엑셀 간이 계산기 v2.1.xlsx" class="btn-demo btn-outline-demo">다운로드</a>
-                </div>
-            </div>
-        </div>
-
-        <!-- 자동화 견적서 -->
-        <div class="demo-card">
-            <div class="demo-preview">
-                <iframe src="demos/quote-form.html" loading="lazy"></iframe>
-                <div class="demo-preview-overlay"></div>
-            </div>
-            <div class="demo-info">
-                <div class="demo-title">자동화 견적서</div>
-                <div class="demo-desc">품목 추가/삭제, 자동 합계, 부가세 계산, PDF 인쇄 지원</div>
-                <div class="demo-excel">
-                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20M10,19L12,15H9V10H15V15L13,19H10Z"/></svg>
-                    엑셀 자동화 견적서 v1.0.xlsm (VBA)
-                </div>
-                <div class="demo-actions">
-                    <a href="demos/quote-form.html" class="btn-demo btn-primary-demo">웹앱 보기</a>
-                    <a href="trace-viewer.html?demo=quote-form" class="btn-demo btn-secondary-demo">빌드과정</a>
-                    <a href="excel_files/엑셀 자동화 견적서 v1.0.xlsm" class="btn-demo btn-outline-demo">다운로드</a>
+                <div class="col-md-6">
+                    <div class="criteria-item">
+                        <div class="criteria-icon">4</div>
+                        <div class="criteria-text">
+                            <h6>기획 적합성</h6>
+                            <p>실제 비즈니스에서 널리 활용되는 양식</p>
+                        </div>
+                    </div>
+                    <div class="criteria-item">
+                        <div class="criteria-icon">5</div>
+                        <div class="criteria-text">
+                            <h6>기술 데모</h6>
+                            <p>변환 기술력을 효과적으로 시연 가능</p>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- 간이영수증 -->
-        <div class="demo-card">
-            <div class="demo-preview">
-                <iframe src="demos/receipt.html" loading="lazy"></iframe>
-                <div class="demo-preview-overlay"></div>
-            </div>
-            <div class="demo-info">
-                <div class="demo-title">간이영수증</div>
-                <div class="demo-desc">항목별 금액 입력, 자동 합계, 인쇄 최적화 레이아웃</div>
-                <div class="demo-excel">
-                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20M10,19L12,15H9V10H15V15L13,19H10Z"/></svg>
-                    엑셀 간이영수증 표준 양식 v2.0.xlsx
-                </div>
-                <div class="demo-actions">
-                    <a href="demos/receipt.html" class="btn-demo btn-primary-demo">웹앱 보기</a>
-                    <a href="trace-viewer.html?demo=receipt" class="btn-demo btn-secondary-demo">빌드과정</a>
-                    <a href="excel_files/엑셀 간이영수증 표준 양식 v2.0.xlsx" class="btn-demo btn-outline-demo">다운로드</a>
-                </div>
-            </div>
-        </div>
-
-        <!-- 교육일지 -->
-        <div class="demo-card">
-            <div class="demo-preview">
-                <iframe src="demos/training-log.html" loading="lazy"></iframe>
-                <div class="demo-preview-overlay"></div>
-            </div>
-            <div class="demo-info">
-                <div class="demo-title">교육일지</div>
-                <div class="demo-desc">교육 정보 입력, 내용 기록, 결재란 포함 인쇄 양식</div>
-                <div class="demo-excel">
-                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20M10,19L12,15H9V10H15V15L13,19H10Z"/></svg>
-                    교육일지 양식 01.xlsx
-                </div>
-                <div class="demo-actions">
-                    <a href="demos/training-log.html" class="btn-demo btn-primary-demo">웹앱 보기</a>
-                    <a href="trace-viewer.html?demo=training-log" class="btn-demo btn-secondary-demo">빌드과정</a>
-                    <a href="excel_files/교육일지 양식 01.xlsx" class="btn-demo btn-outline-demo">다운로드</a>
-                </div>
-            </div>
-        </div>
-
-        <!-- 주간업무보고 -->
-        <div class="demo-card">
-            <div class="demo-preview">
-                <iframe src="demos/weekly-report.html" loading="lazy"></iframe>
-                <div class="demo-preview-overlay"></div>
-            </div>
-            <div class="demo-info">
-                <div class="demo-title">주간업무보고</div>
-                <div class="demo-desc">금주 실적, 차주 계획, 진행률 관리, 특이사항 기록</div>
-                <div class="demo-excel">
-                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20M10,19L12,15H9V10H15V15L13,19H10Z"/></svg>
-                    주간업무보고 표준양식.xlsx
-                </div>
-                <div class="demo-actions">
-                    <a href="demos/weekly-report.html" class="btn-demo btn-primary-demo">웹앱 보기</a>
-                    <a href="trace-viewer.html?demo=weekly-report" class="btn-demo btn-secondary-demo">빌드과정</a>
-                    <a href="excel_files/주간업무보고 표준양식.xlsx" class="btn-demo btn-outline-demo">다운로드</a>
-                </div>
-            </div>
-        </div>
-
-        <!-- 근로계약서 -->
-        <div class="demo-card">
-            <div class="demo-preview">
-                <iframe src="demos/employment-contract.html" loading="lazy"></iframe>
-                <div class="demo-preview-overlay"></div>
-            </div>
-            <div class="demo-info">
-                <div class="demo-title">표준 근로계약서</div>
-                <div class="demo-desc">근로조건 입력, 계약 내용 자동 생성, 법적 양식 준수</div>
-                <div class="demo-excel">
-                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20M10,19L12,15H9V10H15V15L13,19H10Z"/></svg>
-                    엑셀 표준 근로계약서 양식 v2.0.xlsx
-                </div>
-                <div class="demo-actions">
-                    <a href="demos/employment-contract.html" class="btn-demo btn-primary-demo">웹앱 보기</a>
-                    <a href="trace-viewer.html?demo=employment-contract" class="btn-demo btn-secondary-demo">빌드과정</a>
-                    <a href="excel_files/엑셀 표준 근로계약서 양식 v2.0.xlsx" class="btn-demo btn-outline-demo">다운로드</a>
-                </div>
-            </div>
-        </div>
-
-        <!-- 재고관리 -->
-        <div class="demo-card">
-            <div class="demo-preview">
-                <iframe src="demos/inventory-manager.html" loading="lazy"></iframe>
-                <div class="demo-preview-overlay"></div>
-            </div>
-            <div class="demo-info">
-                <div class="demo-title">재고관리 프로그램</div>
-                <div class="demo-desc">품목 관리, 입출고, 안전재고 알림, 재고가치 계산 (VBA 변환)</div>
-                <div class="demo-excel">
-                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20M10,19L12,15H9V10H15V15L13,19H10Z"/></svg>
-                    VBA프로젝트-엑셀-재고관리-프로그램
-                </div>
-                <div class="demo-actions">
-                    <a href="demos/inventory-manager.html" class="btn-demo btn-primary-demo">웹앱 보기</a>
-                    <a href="trace-viewer.html?demo=inventory-manager" class="btn-demo btn-secondary-demo">빌드과정</a>
-                    <a href="#" class="btn-demo btn-outline-demo" onclick="alert('폴더 형태의 VBA 프로젝트입니다')">VBA</a>
-                </div>
-            </div>
-        </div>
-
-        <!-- 매출분석 대시보드 -->
-        <div class="demo-card">
-            <div class="demo-preview">
-                <iframe src="demos/sales-dashboard.html" loading="lazy"></iframe>
-                <div class="demo-preview-overlay"></div>
-            </div>
-            <div class="demo-info">
-                <div class="demo-title">매출분석 대시보드</div>
-                <div class="demo-desc">매출 추이 차트, 카테고리별 분석, TOP 상품, 지역별 현황</div>
-                <div class="demo-excel">
-                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20M10,19L12,15H9V10H15V15L13,19H10Z"/></svg>
-                    엑셀 매출분석 대시보드 양식 v1.0.xlsx
-                </div>
-                <div class="demo-actions">
-                    <a href="demos/sales-dashboard.html" class="btn-demo btn-primary-demo">웹앱 보기</a>
-                    <a href="trace-viewer.html?demo=sales-dashboard" class="btn-demo btn-secondary-demo">빌드과정</a>
-                    <a href="excel_files/엑셀 매출분석 대시보드 양식 v1.0.xlsx" class="btn-demo btn-outline-demo">다운로드</a>
-                </div>
-            </div>
-        </div>
-
-        <!-- 쿠폰 생성기 -->
-        <div class="demo-card">
-            <div class="demo-preview">
-                <iframe src="demos/coupon.html" loading="lazy"></iframe>
-                <div class="demo-preview-overlay"></div>
-            </div>
-            <div class="demo-info">
-                <div class="demo-title">쿠폰/할인권 생성기</div>
-                <div class="demo-desc">할인 쿠폰 디자인, 코드 자동생성, 일괄 생성, 인쇄 지원</div>
-                <div class="demo-excel">
-                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20M10,19L12,15H9V10H15V15L13,19H10Z"/></svg>
-                    워드VIP 쿠폰 양식 v1.0
-                </div>
-                <div class="demo-actions">
-                    <a href="demos/coupon.html" class="btn-demo btn-primary-demo">웹앱 보기</a>
-                    <a href="trace-viewer.html?demo=coupon" class="btn-demo btn-secondary-demo">빌드과정</a>
-                    <a href="excel_files/워드VIP 쿠폰 양식 v1.0.zip" class="btn-demo btn-outline-demo">다운로드</a>
-                </div>
-            </div>
+        <!-- Demo Cards -->
+        <h3 class="section-title">변환 결과 데모</h3>
+        <div class="row g-4" id="demo-grid">
+            <!-- Cards will be generated by JS -->
         </div>
     </div>
 
     <footer>
-        <p>
-            <a href="https://github.com/seolcoding/excel">GitHub Repository</a> |
-            Built with OpenAI Agents SDK + GPT-5.2
-        </p>
-        <p>© 2024 Excel to WebApp Converter</p>
+        <div class="container text-center">
+            <p>Built with OpenAI Agents SDK | <a href="https://github.com/seolcoding/excel" target="_blank">GitHub</a></p>
+            <p style="opacity: 0.7; font-size: 0.9rem;">해커톤 2024 - Excel to WebApp Converter</p>
+        </div>
     </footer>
+
+    <script>
+        const demos = [
+            {
+                num: "01",
+                name: "간이영수증",
+                file: "demos/01-receipt.html",
+                category: "수식풍부 (XLSX)",
+                reason: "233개 수식, VLOOKUP/IF/SUM 등 핵심 함수 포함 - 변환 기술력 시연에 최적",
+                functions: ["IF", "SUM", "TEXT", "TODAY", "VLOOKUP"],
+                formulas: 233
+            },
+            {
+                num: "02",
+                name: "종합소득세 계산기",
+                file: "demos/02-income-tax.html",
+                category: "세금계산",
+                reason: "세금 계산 로직 → JS 함수 변환 - 실용적 비즈니스 가치 시연",
+                functions: ["VLOOKUP", "IFERROR", "MAX", "SUM"],
+                formulas: 24
+            },
+            {
+                num: "03",
+                name: "4대보험 자동계산기",
+                file: "demos/03-insurance.html",
+                category: "보험/급여",
+                reason: "4대보험 자동 계산 - HR 도메인 실용성 시연",
+                functions: ["자동계산"],
+                formulas: 6
+            },
+            {
+                num: "04",
+                name: "거래명세표 (자동계산)",
+                file: "demos/04-invoice-auto.html",
+                category: "자동화",
+                reason: "동적 계산 로직 포함 - 자동화 기능 시연",
+                functions: ["자동계산"],
+                formulas: 0
+            },
+            {
+                num: "05",
+                name: "계산서",
+                file: "demos/05-statement.html",
+                category: "세무/회계",
+                reason: "기본 세무 양식 - 비즈니스 실용성 시연",
+                functions: ["양식"],
+                formulas: 0
+            },
+            {
+                num: "06",
+                name: "인사기록카드",
+                file: "demos/06-hr-record.html",
+                category: "인사/HR",
+                reason: "HR 문서 양식 - 도메인 다양성 시연",
+                functions: ["양식"],
+                formulas: 0
+            },
+            {
+                num: "07",
+                name: "거래명세표",
+                file: "demos/07-invoice.html",
+                category: "거래/B2B",
+                reason: "B2B 거래 양식 - 일반 비즈니스 활용성",
+                functions: ["양식"],
+                formulas: 0
+            },
+            {
+                num: "08",
+                name: "자금집행품의서",
+                file: "demos/08-fund-request.html",
+                category: "재무/자금",
+                reason: "자금 관리 양식 - 재무 도메인 시연",
+                functions: ["양식"],
+                formulas: 0
+            },
+            {
+                num: "09",
+                name: "CPM 공정표",
+                file: "demos/09-construction.html",
+                category: "건설/공사",
+                reason: "건설 산업 문서 - 산업별 다양성 시연",
+                functions: ["네트워크"],
+                formulas: 0
+            },
+            {
+                num: "10",
+                name: "가계부 (자동화)",
+                file: "demos/10-household.html",
+                category: "개인용",
+                reason: "가계부 자동화 - 개인 사용자 타겟 시연",
+                functions: ["자동화"],
+                formulas: 0
+            }
+        ];
+
+        const grid = document.getElementById('demo-grid');
+
+        demos.forEach(demo => {
+            const card = document.createElement('div');
+            card.className = 'col-md-6 col-lg-4';
+            card.innerHTML = `
+                <div class="demo-card">
+                    <div class="card-header">
+                        <h5>${demo.num}. ${demo.name}</h5>
+                        <span class="badge-category">${demo.category}</span>
+                    </div>
+                    <div class="card-body">
+                        <p class="reason">${demo.reason}</p>
+                        <div class="functions">
+                            ${demo.functions.map(f => `<span class="function-tag">${f}</span>`).join('')}
+                        </div>
+                        <p class="formula-count">${demo.formulas > 0 ? `${demo.formulas}개 수식 변환됨` : '양식 템플릿'}</p>
+                        <a href="${demo.file}" class="btn btn-demo" target="_blank">데모 보기 →</a>
+                    </div>
+                </div>
+            `;
+            grid.appendChild(card);
+        });
+    </script>
 </body>
 </html>

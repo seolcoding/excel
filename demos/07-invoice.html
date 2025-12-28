@@ -1,0 +1,1244 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>거래명세표 작성/출력</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <style>
+    :root{
+      --app-font: "Noto Sans KR", system-ui, -apple-system, "Segoe UI", Roboto, "Apple SD Gothic Neo", "Malgun Gothic", Arial, sans-serif;
+      --ink:#111;
+      --line:#000;
+      --muted:#6c757d;
+      --bg:#f6f7f9;
+      --paper:#fff;
+      --header:#eef1f4;
+      --danger:#dc3545;
+    }
+
+    html, body { height: 100%; }
+    body { font-family: var(--app-font); background: var(--bg); color: var(--ink); }
+
+    .app-title { letter-spacing: -0.3px; }
+
+    .panel-sticky {
+      position: sticky;
+      top: 0.75rem;
+      max-height: calc(100vh - 1.5rem);
+      overflow: auto;
+    }
+
+    .form-hint { color: var(--muted); font-size: 0.875rem; }
+    .error-text { color: var(--danger); font-size: 0.875rem; }
+
+    /* Table (input) */
+    .items-table thead th { background: #fff; }
+    .items-table th, .items-table td { vertical-align: middle; }
+    .items-table input, .items-table select { min-width: 80px; }
+    .num-input { text-align: right; }
+
+    /* Preview paper */
+    .preview-wrap { background: #e9ecef; padding: 1rem; border-radius: 0.75rem; }
+    #printArea {
+      background: var(--paper);
+      color: var(--ink);
+      border: 1px solid #ced4da;
+      border-radius: 0.5rem;
+      padding: 12mm 10mm;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.06);
+    }
+
+    .doc-title { font-weight: 800; font-size: 1.4rem; letter-spacing: 0.2px; }
+
+    .doc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+    .doc-box {
+      border: 1px solid var(--line);
+      padding: 6px;
+    }
+
+    .doc-box h3 {
+      margin: 0 0 4px 0;
+      font-size: 0.95rem;
+      font-weight: 700;
+    }
+
+    .kv { display: grid; grid-template-columns: 110px 1fr; gap: 4px 8px; font-size: 0.9rem; }
+    .kv .k { color: #222; font-weight: 600; }
+    .kv .v { word-break: break-word; }
+
+    .doc-meta { display: grid; grid-template-columns: 110px 1fr; gap: 4px 8px; font-size: 0.9rem; }
+
+    /* Print-table style like 거래명세표 */
+    .print-table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+      font-size: 0.9rem;
+    }
+    .print-table th, .print-table td {
+      border: 1px solid var(--line);
+      padding: 3px 4px;
+      word-break: break-word;
+    }
+    .print-table thead th {
+      background: var(--header);
+      font-weight: 700;
+      text-align: center;
+    }
+
+    .text-right { text-align: right; }
+    .text-center { text-align: center; }
+
+    .totals-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 6px;
+    }
+
+    .totals-row {
+      display: grid;
+      grid-template-columns: 140px 1fr;
+      border: 1px solid var(--line);
+    }
+    .totals-row > div { padding: 4px 6px; }
+    .totals-row .label { background: var(--header); font-weight: 700; }
+    .totals-row .value { text-align: right; font-variant-numeric: tabular-nums; }
+
+    .notes-box { border: 1px solid var(--line); padding: 6px; min-height: 22mm; word-break: break-word; }
+
+    /* Mobile tabs */
+    .mobile-tabs { display: none; }
+
+    @media (max-width: 991.98px) {
+      .panel-sticky { position: static; max-height: none; }
+      .desktop-two-col { display: none; }
+      .mobile-tabs { display: block; }
+    }
+
+    /* PRINT */
+    @page {
+      size: A4 portrait;
+      margin: 10mm 9mm 10mm 19mm;
+    }
+    @media print {
+      body { background: #fff; }
+      .no-print { display: none !important; }
+      .preview-wrap { padding: 0; background: transparent; }
+      #printArea {
+        width: 195mm;
+        max-width: 195mm;
+        border: none;
+        border-radius: 0;
+        padding: 0;
+        box-shadow: none;
+        font-size: 11pt;
+      }
+      .print-table thead th { background: #fff; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container-fluid py-3" x-data="appData()" x-init="init()">
+    <div class="d-flex align-items-center justify-content-between mb-3 no-print">
+      <div>
+        <h1 class="h4 mb-0 app-title">거래명세표 작성/출력</h1>
+        <div class="text-secondary small">입력 · 미리보기 · 인쇄(PDF 저장) 지원</div>
+      </div>
+      <div class="d-flex gap-2">
+        <button type="button" class="btn btn-outline-secondary" @click="saveToLocal()">저장</button>
+        <button type="button" class="btn btn-outline-secondary" @click="loadFromLocal()">불러오기</button>
+        <button type="button" class="btn btn-primary" @click="print()">인쇄 / PDF 저장</button>
+      </div>
+    </div>
+
+    <!-- Mobile tabs -->
+    <div class="mobile-tabs no-print mb-3">
+      <ul class="nav nav-tabs" role="tablist">
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" :class="activeTab==='input' ? 'active' : ''" type="button" role="tab" @click="activeTab='input'">입력</button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" :class="activeTab==='preview' ? 'active' : ''" type="button" role="tab" @click="activeTab='preview'">미리보기</button>
+        </li>
+      </ul>
+    </div>
+
+    <div class="row g-3 desktop-two-col">
+      <!-- LEFT: Input -->
+      <div class="col-lg-6">
+        <div class="card panel-sticky no-print">
+          <div class="card-body">
+            <form @submit.prevent>
+              <div class="alert alert-danger py-2" role="status" aria-live="polite" x-show="validationSummary.length">
+                <div class="fw-semibold">입력 오류</div>
+                <ul class="mb-0 ps-3">
+                  <template x-for="(msg, idx) in validationSummary" :key="idx">
+                    <li x-text="msg"></li>
+                  </template>
+                </ul>
+              </div>
+
+              <fieldset class="border rounded p-3 mb-3">
+                <legend class="float-none w-auto px-2 mb-0">거래처/문서 정보</legend>
+
+                <div class="row g-2">
+                  <div class="col-md-6">
+                    <label class="form-label" for="docDate">작성일자 <span class="text-danger">*</span></label>
+                    <input class="form-control" type="date" id="docDate" x-model="header.docDate" required aria-required="true" @input="scheduleCalc()" />
+                    <div class="form-hint" id="docDate_hint">문서 상단에 인쇄됩니다.</div>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label" for="statementNo">거래명세표 번호</label>
+                    <input class="form-control" type="text" id="statementNo" x-model.trim="header.statementNo" placeholder="예: 2025-001" @input="scheduleCalc()" />
+                  </div>
+                </div>
+
+                <hr class="my-3" />
+
+                <div class="row g-2">
+                  <div class="col-12"><div class="fw-semibold">공급자</div></div>
+                  <div class="col-md-6">
+                    <label class="form-label" for="supplierName">상호(성명) <span class="text-danger">*</span></label>
+                    <input class="form-control" id="supplierName" x-model.trim="header.supplierName" required aria-required="true" @input="scheduleCalc()" />
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label" for="supplierBizNo">사업자등록번호</label>
+                    <input class="form-control" id="supplierBizNo" x-model.trim="header.supplierBizNo" placeholder="000-00-00000" @blur="normalizeBizNo('supplier')" @input="scheduleCalc()" aria-describedby="supplierBizNo_err" />
+                    <div class="error-text" id="supplierBizNo_err" x-show="errors.supplierBizNo" x-text="errors.supplierBizNo"></div>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label" for="supplierCeo">대표자</label>
+                    <input class="form-control" id="supplierCeo" x-model.trim="header.supplierCeo" @input="scheduleCalc()" />
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label" for="supplierTel">연락처</label>
+                    <input class="form-control" id="supplierTel" x-model.trim="header.supplierTel" placeholder="예: 02-000-0000" @input="scheduleCalc()" />
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label" for="supplierAddress">주소</label>
+                    <input class="form-control" id="supplierAddress" x-model.trim="header.supplierAddress" @input="scheduleCalc()" />
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label" for="supplierBizType">업태</label>
+                    <input class="form-control" id="supplierBizType" x-model.trim="header.supplierBizType" @input="scheduleCalc()" />
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label" for="supplierBizItem">종목</label>
+                    <input class="form-control" id="supplierBizItem" x-model.trim="header.supplierBizItem" @input="scheduleCalc()" />
+                  </div>
+                </div>
+
+                <hr class="my-3" />
+
+                <div class="row g-2">
+                  <div class="col-12"><div class="fw-semibold">공급받는자</div></div>
+                  <div class="col-md-6">
+                    <label class="form-label" for="buyerName">상호(성명) <span class="text-danger">*</span></label>
+                    <input class="form-control" id="buyerName" x-model.trim="header.buyerName" required aria-required="true" @input="scheduleCalc()" />
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label" for="buyerBizNo">사업자등록번호</label>
+                    <input class="form-control" id="buyerBizNo" x-model.trim="header.buyerBizNo" placeholder="000-00-00000" @blur="normalizeBizNo('buyer')" @input="scheduleCalc()" aria-describedby="buyerBizNo_err" />
+                    <div class="error-text" id="buyerBizNo_err" x-show="errors.buyerBizNo" x-text="errors.buyerBizNo"></div>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label" for="buyerCeo">대표자</label>
+                    <input class="form-control" id="buyerCeo" x-model.trim="header.buyerCeo" @input="scheduleCalc()" />
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label" for="buyerTel">연락처</label>
+                    <input class="form-control" id="buyerTel" x-model.trim="header.buyerTel" @input="scheduleCalc()" />
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label" for="buyerAddress">주소</label>
+                    <input class="form-control" id="buyerAddress" x-model.trim="header.buyerAddress" @input="scheduleCalc()" />
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label" for="buyerBizType">업태</label>
+                    <input class="form-control" id="buyerBizType" x-model.trim="header.buyerBizType" @input="scheduleCalc()" />
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label" for="buyerBizItem">종목</label>
+                    <input class="form-control" id="buyerBizItem" x-model.trim="header.buyerBizItem" @input="scheduleCalc()" />
+                  </div>
+                </div>
+
+                <hr class="my-3" />
+
+                <div class="row g-2">
+                  <div class="col-md-6">
+                    <label class="form-label" for="vatMode">부가세 적용</label>
+                    <select class="form-select" id="vatMode" x-model="header.vatMode" @change="scheduleCalc()">
+                      <option value="별도">별도</option>
+                      <option value="포함">포함</option>
+                      <option value="면세">면세</option>
+                    </select>
+                    <div class="form-hint">별도: 공급가액+세액 / 포함: 금액에 VAT 포함 / 면세: VAT 0</div>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label" for="vatRate">부가세율(%)</label>
+                    <input class="form-control num-input" type="number" id="vatRate" x-model.number="header.vatRate" min="0" step="0.1" @input="scheduleCalc()" :disabled="header.vatMode==='면세'" />
+                  </div>
+                </div>
+              </fieldset>
+
+              <fieldset class="border rounded p-3 mb-3">
+                <legend class="float-none w-auto px-2 mb-0">품목 내역</legend>
+                <div class="d-flex gap-2 mb-2">
+                  <button type="button" class="btn btn-sm btn-outline-primary" @click="addRow()" aria-label="품목 행 추가">+ 행 추가</button>
+                  <button type="button" class="btn btn-sm btn-outline-secondary" @click="addRows(5)" aria-label="품목 행 5개 추가">+ 5행</button>
+                  <button type="button" class="btn btn-sm btn-outline-danger ms-auto" @click="clearEmptyRows()" aria-label="빈 행 정리">빈 행 정리</button>
+                </div>
+
+                <div class="table-responsive">
+                  <table class="table table-sm table-bordered items-table align-middle" aria-label="품목 입력 테이블">
+                    <thead>
+                      <tr>
+                        <th scope="col" class="text-center" style="width: 110px;">일자</th>
+                        <th scope="col">품목</th>
+                        <th scope="col">규격</th>
+                        <th scope="col" class="text-center" style="width: 90px;">수량</th>
+                        <th scope="col" class="text-center" style="width: 120px;">단가</th>
+                        <th scope="col" class="text-center" style="width: 130px;">금액</th>
+                        <th scope="col" class="text-center" style="width: 130px;">공급가액</th>
+                        <th scope="col" class="text-center" style="width: 120px;">세액</th>
+                        <th scope="col">비고</th>
+                        <th scope="col" class="text-center" style="width: 72px;">삭제</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <template x-for="(row, idx) in items" :key="row._id">
+                        <tr>
+                          <td>
+                            <input class="form-control form-control-sm" type="date" :id="'item_date_'+idx" x-model="row.date" @input="scheduleCalc()" />
+                          </td>
+                          <td>
+                            <input class="form-control form-control-sm" type="text" :id="'item_name_'+idx" x-model.trim="row.itemName" @input="scheduleCalc()" />
+                          </td>
+                          <td>
+                            <input class="form-control form-control-sm" type="text" :id="'item_spec_'+idx" x-model.trim="row.spec" @input="scheduleCalc()" />
+                          </td>
+                          <td>
+                            <input class="form-control form-control-sm num-input" type="number" step="0.01" min="0" :id="'item_qty_'+idx" x-model.number="row.qty" @input="scheduleCalc()" />
+                          </td>
+                          <td>
+                            <input class="form-control form-control-sm num-input" type="number" step="1" min="0" :id="'item_unit_'+idx" x-model.number="row.unitPrice" @input="scheduleCalc()" />
+                          </td>
+                          <td class="text-right">
+                            <div class="small" x-text="formatCurrencyKRW(row.amount)"></div>
+                          </td>
+                          <td class="text-right">
+                            <div class="small" x-text="formatCurrencyKRW(row.supplyAmount)"></div>
+                          </td>
+                          <td class="text-right">
+                            <div class="small" x-text="formatCurrencyKRW(row.vat)"></div>
+                          </td>
+                          <td>
+                            <input class="form-control form-control-sm" type="text" :id="'item_remark_'+idx" x-model.trim="row.remark" @input="scheduleCalc()" />
+                          </td>
+                          <td class="text-center">
+                            <button type="button" class="btn btn-sm btn-outline-danger" @click="removeRow(idx)" :aria-label="'품목 행 삭제 ' + (idx+1)">삭제</button>
+                          </td>
+                        </tr>
+                      </template>
+                    </tbody>
+                  </table>
+                </div>
+                <div class="form-hint">금액/공급가액/세액은 자동 계산됩니다. (원 단위 반올림)</div>
+              </fieldset>
+
+              <fieldset class="border rounded p-3">
+                <legend class="float-none w-auto px-2 mb-0">합계/결제</legend>
+
+                <div class="row g-2">
+                  <div class="col-md-6">
+                    <label class="form-label" for="discountAmount">할인/조정 금액</label>
+                    <input class="form-control num-input" type="number" step="1" id="discountAmount" x-model.number="settlement.discountAmount" @input="scheduleCalc()" />
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label" for="depositAmount">입금액(선수금)</label>
+                    <input class="form-control num-input" type="number" step="1" id="depositAmount" x-model.number="settlement.depositAmount" @input="scheduleCalc()" />
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label" for="notes">비고(전달사항)</label>
+                    <input class="form-control" type="text" id="notes" x-model.trim="settlement.notes" @input="scheduleCalc()" />
+                  </div>
+                </div>
+
+                <hr class="my-3" />
+
+                <div class="row g-2">
+                  <div class="col-md-6">
+                    <div class="d-flex justify-content-between border rounded p-2 bg-light">
+                      <div class="fw-semibold">공급가액 합계</div>
+                      <div class="fw-semibold" x-text="formatCurrencyKRW(totals.sumSupplyAmount)"></div>
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <div class="d-flex justify-content-between border rounded p-2 bg-light">
+                      <div class="fw-semibold">세액 합계</div>
+                      <div class="fw-semibold" x-text="formatCurrencyKRW(totals.sumVatAmount)"></div>
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <div class="d-flex justify-content-between border rounded p-2 bg-light">
+                      <div class="fw-semibold">합계금액</div>
+                      <div class="fw-semibold" x-text="formatCurrencyKRW(totals.sumTotalAmount)"></div>
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <div class="d-flex justify-content-between border rounded p-2 bg-warning-subtle">
+                      <div class="fw-bold">최종 청구금액</div>
+                      <div class="fw-bold" x-text="formatCurrencyKRW(totals.finalPayableAmount)"></div>
+                    </div>
+                  </div>
+                </div>
+              </fieldset>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT: Preview -->
+      <div class="col-lg-6">
+        <div class="preview-wrap">
+          <div class="d-flex justify-content-end mb-2 no-print">
+            <button type="button" class="btn btn-sm btn-outline-primary" @click="print()">인쇄 / PDF 저장</button>
+          </div>
+          <div id="printArea" aria-label="인쇄 미리보기 문서">
+            <div class="d-flex justify-content-between align-items-start mb-2">
+              <div>
+                <div class="doc-title">거래명세표</div>
+                <div class="small text-secondary">작성일자: <span class="text-dark" x-text="displayDate(header.docDate)"></span></div>
+              </div>
+              <div class="text-end">
+                <div class="small">번호</div>
+                <div class="fw-semibold" x-text="header.statementNo || '—'"></div>
+              </div>
+            </div>
+
+            <div class="doc-grid mb-2">
+              <section class="doc-box">
+                <h3>공급자</h3>
+                <div class="kv">
+                  <div class="k">상호(성명)</div><div class="v" x-text="header.supplierName || '—'"></div>
+                  <div class="k">사업자번호</div><div class="v" x-text="header.supplierBizNo || '—'"></div>
+                  <div class="k">대표자</div><div class="v" x-text="header.supplierCeo || '—'"></div>
+                  <div class="k">주소</div><div class="v" x-text="header.supplierAddress || '—'"></div>
+                  <div class="k">업태/종목</div><div class="v"><span x-text="header.supplierBizType || '—'"></span> / <span x-text="header.supplierBizItem || '—'"></span></div>
+                  <div class="k">연락처</div><div class="v" x-text="header.supplierTel || '—'"></div>
+                </div>
+              </section>
+
+              <section class="doc-box">
+                <h3>공급받는자</h3>
+                <div class="kv">
+                  <div class="k">상호(성명)</div><div class="v" x-text="header.buyerName || '—'"></div>
+                  <div class="k">사업자번호</div><div class="v" x-text="header.buyerBizNo || '—'"></div>
+                  <div class="k">대표자</div><div class="v" x-text="header.buyerCeo || '—'"></div>
+                  <div class="k">주소</div><div class="v" x-text="header.buyerAddress || '—'"></div>
+                  <div class="k">업태/종목</div><div class="v"><span x-text="header.buyerBizType || '—'"></span> / <span x-text="header.buyerBizItem || '—'"></span></div>
+                  <div class="k">연락처</div><div class="v" x-text="header.buyerTel || '—'"></div>
+                </div>
+              </section>
+            </div>
+
+            <div class="mb-2">
+              <table class="print-table" aria-label="품목 인쇄 테이블">
+                <thead>
+                  <tr>
+                    <th style="width: 11%;">일자</th>
+                    <th style="width: 21%;">품목</th>
+                    <th style="width: 14%;">규격</th>
+                    <th style="width: 8%;">수량</th>
+                    <th style="width: 12%;">단가</th>
+                    <th style="width: 12%;">금액</th>
+                    <th style="width: 12%;">공급가액</th>
+                    <th style="width: 10%;">세액</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <template x-for="(row, idx) in printableRows" :key="row._id">
+                    <tr>
+                      <td class="text-center" x-text="displayDateShort(row.date)"></td>
+                      <td x-text="row.itemName"></td>
+                      <td x-text="row.spec"></td>
+                      <td class="text-right" x-text="formatQty(row.qty)"></td>
+                      <td class="text-right" x-text="formatNumberPlain(row.unitPrice)"></td>
+                      <td class="text-right" x-text="formatNumberPlain(row.amount)"></td>
+                      <td class="text-right" x-text="formatNumberPlain(row.supplyAmount)"></td>
+                      <td class="text-right" x-text="formatNumberPlain(row.vat)"></td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="row g-2">
+              <div class="col-12 col-md-7">
+                <div class="doc-box">
+                  <div class="doc-meta">
+                    <div class="k fw-semibold">부가세 적용</div>
+                    <div class="v">
+                      <span x-text="header.vatMode"></span>
+                      <span x-show="header.vatMode!=='면세'">(율 <span x-text="header.vatRate"></span>%)</span>
+                    </div>
+                    <div class="k fw-semibold">비고</div>
+                    <div class="v">
+                      <div class="notes-box" x-text="settlement.notes || ''"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-12 col-md-5">
+                <div class="totals-grid">
+                  <div class="totals-row">
+                    <div class="label">공급가액 합계</div>
+                    <div class="value" x-text="formatNumberPlain(totals.sumSupplyAmount)"></div>
+                  </div>
+                  <div class="totals-row">
+                    <div class="label">세액 합계</div>
+                    <div class="value" x-text="formatNumberPlain(totals.sumVatAmount)"></div>
+                  </div>
+                  <div class="totals-row">
+                    <div class="label">합계금액</div>
+                    <div class="value" x-text="formatNumberPlain(totals.sumTotalAmount)"></div>
+                  </div>
+                  <div class="totals-row">
+                    <div class="label">할인/조정</div>
+                    <div class="value" x-text="formatNumberPlain(settlement.discountAmount)"></div>
+                  </div>
+                  <div class="totals-row">
+                    <div class="label">입금액(선수금)</div>
+                    <div class="value" x-text="formatNumberPlain(settlement.depositAmount)"></div>
+                  </div>
+                  <div class="totals-row">
+                    <div class="label">최종 청구금액</div>
+                    <div class="value fw-bold" x-text="formatNumberPlain(totals.finalPayableAmount)"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="mt-2 small text-secondary">
+              * 본 문서는 웹에서 계산된 금액을 기준으로 인쇄됩니다.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mobile: conditional views -->
+    <div class="row g-3 d-lg-none">
+      <div class="col-12" x-show="activeTab==='input'" x-cloak>
+        <div class="card no-print">
+          <div class="card-body">
+            <!-- reuse same input form via template? keep simple: show desktop left by duplicating? -->
+            <div class="text-secondary small mb-2">모바일에서는 상단 탭으로 입력/미리보기를 전환합니다.</div>
+            <!-- To avoid duplicating markup, we keep desktop layout hidden only above; for mobile, show the same content by cloning with x-html is unsafe.
+                 Practical approach: allow scrolling to preview area below on mobile by switching tab and using same #printArea.
+                 We'll include a compact set of quick actions only. -->
+            <div class="d-flex gap-2 mb-2">
+              <button type="button" class="btn btn-outline-secondary" @click="saveToLocal()">저장</button>
+              <button type="button" class="btn btn-outline-secondary" @click="loadFromLocal()">불러오기</button>
+              <button type="button" class="btn btn-primary ms-auto" @click="activeTab='preview'">미리보기로</button>
+            </div>
+            <div class="alert alert-info small mb-0">모바일 입력은 화면을 넓게 쓰기 위해 ‘데스크톱 보기(가로)’를 권장합니다.</div>
+          </div>
+        </div>
+
+        <!-- On mobile, show the same input panel (not sticky) by showing the desktop left card as normal using CSS. -->
+        <div class="mt-3 no-print" style="display:block;">
+          <div class="card">
+            <div class="card-body">
+              <!-- Minimal re-render: Use the same form markup via a hidden template is not available.
+                   Therefore we show the desktop form in all sizes, but desktop-two-col hidden on mobile.
+                   For mobile, we present a link to expand: We will not duplicate. -->
+              <div class="small text-secondary">입력 폼은 데스크톱(또는 넓은 화면)에서 최적화되어 있습니다. PC에서 사용을 권장합니다.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-12" x-show="activeTab==='preview'" x-cloak>
+        <div class="preview-wrap">
+          <div class="d-flex justify-content-between mb-2 no-print">
+            <button type="button" class="btn btn-outline-secondary" @click="activeTab='input'">입력으로</button>
+            <button type="button" class="btn btn-primary" @click="print()">인쇄 / PDF 저장</button>
+          </div>
+          <!-- Reuse same #printArea by referencing it in DOM above; but mobile layout hides desktop-two-col, so we need a second printArea for mobile.
+               We'll render another printArea with same content via simple duplication with a distinct id. -->
+          <div id="printAreaMobile" class="bg-white border rounded p-3" style="font-size: 0.95rem;">
+            <div class="d-flex justify-content-between align-items-start mb-2">
+              <div>
+                <div class="doc-title">거래명세표</div>
+                <div class="small text-secondary">작성일자: <span class="text-dark" x-text="displayDate(header.docDate)"></span></div>
+              </div>
+              <div class="text-end">
+                <div class="small">번호</div>
+                <div class="fw-semibold" x-text="header.statementNo || '—'"></div>
+              </div>
+            </div>
+            <div class="doc-grid mb-2" style="grid-template-columns: 1fr;">
+              <section class="doc-box">
+                <h3>공급자</h3>
+                <div class="kv">
+                  <div class="k">상호(성명)</div><div class="v" x-text="header.supplierName || '—'"></div>
+                  <div class="k">사업자번호</div><div class="v" x-text="header.supplierBizNo || '—'"></div>
+                  <div class="k">대표자</div><div class="v" x-text="header.supplierCeo || '—'"></div>
+                  <div class="k">주소</div><div class="v" x-text="header.supplierAddress || '—'"></div>
+                </div>
+              </section>
+              <section class="doc-box">
+                <h3>공급받는자</h3>
+                <div class="kv">
+                  <div class="k">상호(성명)</div><div class="v" x-text="header.buyerName || '—'"></div>
+                  <div class="k">사업자번호</div><div class="v" x-text="header.buyerBizNo || '—'"></div>
+                  <div class="k">대표자</div><div class="v" x-text="header.buyerCeo || '—'"></div>
+                  <div class="k">주소</div><div class="v" x-text="header.buyerAddress || '—'"></div>
+                </div>
+              </section>
+            </div>
+            <table class="print-table" aria-label="품목 인쇄 테이블(모바일)">
+              <thead>
+                <tr>
+                  <th>일자</th><th>품목</th><th class="text-right">금액</th>
+                </tr>
+              </thead>
+              <tbody>
+                <template x-for="row in printableRows" :key="row._id">
+                  <tr>
+                    <td class="text-center" x-text="displayDateShort(row.date)"></td>
+                    <td x-text="row.itemName"></td>
+                    <td class="text-right" x-text="formatNumberPlain(row.amount)"></td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+            <div class="mt-2">
+              <div class="d-flex justify-content-between border p-2"><div class="fw-semibold">합계금액</div><div x-text="formatNumberPlain(totals.sumTotalAmount)"></div></div>
+              <div class="d-flex justify-content-between border p-2"><div class="fw-bold">최종 청구금액</div><div class="fw-bold" x-text="formatNumberPlain(totals.finalPayableAmount)"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // ===== Excel formula helper functions (included as requested) =====
+    function _sum(...args) {
+        return args.flat().reduce((a, b) => (parseFloat(a) || 0) + (parseFloat(b) || 0), 0);
+    }
+
+    function _sumRange(rangeData) {
+        if (Array.isArray(rangeData)) {
+            return rangeData.flat().reduce((a, b) => (parseFloat(a) || 0) + (parseFloat(b) || 0), 0);
+        }
+        return parseFloat(rangeData) || 0;
+    }
+
+    function _average(...args) {
+        const flat = args.flat().filter(x => x !== null && x !== '' && !isNaN(x));
+        return flat.length ? _sum(...flat) / flat.length : 0;
+    }
+
+    function _averageRange(rangeData) {
+        if (Array.isArray(rangeData)) {
+            const flat = rangeData.flat().filter(x => x !== null && x !== '' && !isNaN(x));
+            return flat.length ? _sumRange(flat) / flat.length : 0;
+        }
+        return parseFloat(rangeData) || 0;
+    }
+
+    function _count(...args) {
+        return args.flat().filter(x => typeof x === 'number' && !isNaN(x)).length;
+    }
+
+    function _counta(...args) {
+        return args.flat().filter(x => x !== null && x !== '' && x !== undefined).length;
+    }
+
+    function _and(...args) {
+        return args.every(x => Boolean(x));
+    }
+
+    function _or(...args) {
+        return args.some(x => Boolean(x));
+    }
+
+    function _round(num, digits = 0) {
+        const factor = Math.pow(10, digits);
+        return Math.round(num * factor) / factor;
+    }
+
+    function _roundUp(num, digits = 0) {
+        const factor = Math.pow(10, digits);
+        return Math.ceil(num * factor) / factor;
+    }
+
+    function _roundDown(num, digits = 0) {
+        const factor = Math.pow(10, digits);
+        return Math.floor(num * factor) / factor;
+    }
+
+    function _len(text) {
+        return String(text).length;
+    }
+
+    function _left(text, numChars = 1) {
+        return String(text).substring(0, numChars);
+    }
+
+    function _right(text, numChars = 1) {
+        const str = String(text);
+        return str.substring(str.length - numChars);
+    }
+
+    function _mid(text, startNum, numChars) {
+        return String(text).substring(startNum - 1, startNum - 1 + numChars);
+    }
+
+    function _trim(text) {
+        return String(text).trim();
+    }
+
+    function _upper(text) {
+        return String(text).toUpperCase();
+    }
+
+    function _lower(text) {
+        return String(text).toLowerCase();
+    }
+
+    function _concat(...args) {
+        return args.join('');
+    }
+
+    // Number formatting
+    function formatNumber(num, decimals = 0) {
+        return new Intl.NumberFormat('ko-KR', {
+            minimumFractionDigits: decimals,
+            maximumFractionDigits: decimals
+        }).format(num);
+    }
+
+    function formatCurrency(num) {
+        return new Intl.NumberFormat('ko-KR', {
+            style: 'currency',
+            currency: 'KRW',
+            maximumFractionDigits: 0
+        }).format(num);
+    }
+
+    function formatPercent(num, decimals = 1) {
+        return new Intl.NumberFormat('ko-KR', {
+            style: 'percent',
+            minimumFractionDigits: decimals,
+            maximumFractionDigits: decimals
+        }).format(num / 100);
+    }
+
+    // ===== App logic =====
+
+    function validateBusinessNumber(bizNo) {
+      // 허용: 10자리(숫자) or 000-00-00000
+      const raw = String(bizNo ?? '').trim();
+      if (!raw) return { valid: true, normalized: '' };
+
+      const digits = raw.replace(/[^0-9]/g, '');
+      if (digits.length !== 10) return { valid: false, normalized: raw, message: '사업자등록번호는 10자리여야 합니다.' };
+
+      // 간단한 체크(형식): 000-00-00000
+      const normalized = `${digits.slice(0,3)}-${digits.slice(3,5)}-${digits.slice(5)}`;
+      return { valid: true, normalized };
+    }
+
+    function formatCurrencyKRW(value) {
+      const n = Number(value);
+      if (!isFinite(n)) return '0원';
+      return new Intl.NumberFormat('ko-KR').format(Math.round(n)) + '원';
+    }
+
+    function calculateLineAmounts(items, vatMode, vatRate) {
+      const rate = (Number(vatRate) || 0) / 100;
+
+      return items.map((r) => {
+        const qty = Number(r.qty) || 0;
+        const unitPrice = Number(r.unitPrice) || 0;
+        const amount = Math.round(qty * unitPrice); // 원 단위
+
+        let supplyAmount = 0;
+        let vat = 0;
+
+        if (vatMode === '면세') {
+          supplyAmount = amount;
+          vat = 0;
+        } else if (vatMode === '포함') {
+          // 공급가액 = round(금액 / (1+rate))
+          const denom = 1 + rate;
+          supplyAmount = denom === 0 ? amount : Math.round(amount / denom);
+          vat = amount - supplyAmount;
+        } else {
+          // 별도 (default)
+          supplyAmount = amount;
+          vat = Math.round(supplyAmount * rate);
+        }
+
+        return {
+          ...r,
+          qty,
+          unitPrice,
+          amount,
+          supplyAmount,
+          vat,
+        };
+      });
+    }
+
+    function calculateTotals(itemsComputed, vatMode, vatRate, discountAmount, depositAmount) {
+      const sumSupplyAmount = itemsComputed.reduce((a, r) => a + (Number(r.supplyAmount) || 0), 0);
+      const sumVatAmount = itemsComputed.reduce((a, r) => a + (Number(r.vat) || 0), 0);
+
+      // 별도: 공급+세액 / 포함: supply+vat(=amount) / 면세: supply
+      const sumTotalAmount = (vatMode === '면세') ? sumSupplyAmount : (sumSupplyAmount + sumVatAmount);
+
+      const disc = Number(discountAmount) || 0;
+      const dep = Number(depositAmount) || 0;
+      const finalPayableAmount = sumTotalAmount - disc - dep;
+
+      return {
+        sumSupplyAmount: Math.round(sumSupplyAmount),
+        sumVatAmount: Math.round(sumVatAmount),
+        sumTotalAmount: Math.round(sumTotalAmount),
+        finalPayableAmount: Math.round(finalPayableAmount),
+      };
+    }
+
+    function appData() {
+      return {
+        activeTab: 'input',
+        _calcTimer: null,
+
+        header: {
+          docDate: '',
+          statementNo: '',
+
+          supplierName: '',
+          supplierBizNo: '',
+          supplierCeo: '',
+          supplierAddress: '',
+          supplierBizType: '',
+          supplierBizItem: '',
+          supplierTel: '',
+
+          buyerName: '',
+          buyerBizNo: '',
+          buyerCeo: '',
+          buyerAddress: '',
+          buyerBizType: '',
+          buyerBizItem: '',
+          buyerTel: '',
+
+          vatMode: '별도',
+          vatRate: 10,
+        },
+
+        items: [],
+
+        settlement: {
+          discountAmount: 0,
+          depositAmount: 0,
+          notes: '',
+        },
+
+        totals: {
+          sumSupplyAmount: 0,
+          sumVatAmount: 0,
+          sumTotalAmount: 0,
+          finalPayableAmount: 0,
+        },
+
+        errors: {
+          supplierBizNo: '',
+          buyerBizNo: '',
+        },
+
+        validationSummary: [],
+
+        get printableRows() {
+          // 인쇄용: 20행 고정처럼 보이도록 최소 20행 채움
+          const base = this.items.map(r => ({
+            ...r,
+            itemName: r.itemName ?? '',
+            spec: r.spec ?? '',
+          }));
+
+          const minRows = 20;
+          const rows = base.slice(0, minRows);
+          while (rows.length < minRows) rows.push(this.newRow(true));
+          return rows;
+        },
+
+        init() {
+          // 기본 10행
+          this.addRows(10);
+          // 오늘 날짜 기본값
+          const today = new Date();
+          this.header.docDate = today.toISOString().slice(0, 10);
+          this.calculate();
+        },
+
+        newRow(isBlank=false) {
+          return {
+            _id: crypto?.randomUUID ? crypto.randomUUID() : (Date.now() + '_' + Math.random().toString(16).slice(2)),
+            date: isBlank ? '' : '',
+            itemName: '',
+            spec: '',
+            qty: 0,
+            unitPrice: 0,
+            amount: 0,
+            supplyAmount: 0,
+            vat: 0,
+            remark: '',
+          };
+        },
+
+        addRow() {
+          this.items.push(this.newRow());
+          this.scheduleCalc();
+        },
+
+        addRows(n) {
+          const count = Number(n) || 0;
+          for (let i = 0; i < count; i++) this.items.push(this.newRow());
+          this.scheduleCalc();
+        },
+
+        removeRow(idx) {
+          this.items.splice(idx, 1);
+          if (this.items.length === 0) this.addRow();
+          this.scheduleCalc();
+        },
+
+        clearEmptyRows() {
+          // 품목명이 비어 있고 qty, unitPrice가 0인 행 제거 (최소 1행 유지)
+          const filtered = this.items.filter(r => {
+            const hasText = String(r.itemName || '').trim() || String(r.spec || '').trim() || String(r.remark || '').trim();
+            const hasNums = (Number(r.qty) || 0) !== 0 || (Number(r.unitPrice) || 0) !== 0;
+            return Boolean(hasText || hasNums);
+          });
+          this.items = filtered.length ? filtered : [this.newRow()];
+          this.scheduleCalc();
+        },
+
+        normalizeBizNo(which) {
+          if (which === 'supplier') {
+            const res = validateBusinessNumber(this.header.supplierBizNo);
+            this.errors.supplierBizNo = res.valid ? '' : res.message;
+            if (res.valid) this.header.supplierBizNo = res.normalized;
+          }
+          if (which === 'buyer') {
+            const res = validateBusinessNumber(this.header.buyerBizNo);
+            this.errors.buyerBizNo = res.valid ? '' : res.message;
+            if (res.valid) this.header.buyerBizNo = res.normalized;
+          }
+          this.scheduleCalc();
+        },
+
+        scheduleCalc() {
+          // debounce 200ms
+          clearTimeout(this._calcTimer);
+          this._calcTimer = setTimeout(() => this.calculate(), 200);
+        },
+
+        validate() {
+          const msgs = [];
+          this.validationSummary = [];
+
+          if (!String(this.header.docDate || '').trim()) msgs.push('작성일자를 입력하세요.');
+          if (!String(this.header.supplierName || '').trim()) msgs.push('공급자 상호(성명)을 입력하세요.');
+          if (!String(this.header.buyerName || '').trim()) msgs.push('공급받는자 상호(성명)을 입력하세요.');
+
+          const s = validateBusinessNumber(this.header.supplierBizNo);
+          this.errors.supplierBizNo = s.valid ? '' : (s.message || '사업자등록번호 형식이 올바르지 않습니다.');
+
+          const b = validateBusinessNumber(this.header.buyerBizNo);
+          this.errors.buyerBizNo = b.valid ? '' : (b.message || '사업자등록번호 형식이 올바르지 않습니다.');
+
+          // 숫자 필드 정리
+          if (!isFinite(Number(this.header.vatRate))) msgs.push('부가세율(%)은 숫자여야 합니다.');
+
+          this.validationSummary = msgs;
+          return msgs.length === 0 && !this.errors.supplierBizNo && !this.errors.buyerBizNo;
+        },
+
+        calculate() {
+          // (a) normalize numbers
+          this.header.vatRate = Number(this.header.vatRate);
+          if (!isFinite(this.header.vatRate)) this.header.vatRate = 0;
+          if (this.header.vatMode === '면세') this.header.vatRate = 0;
+
+          this.settlement.discountAmount = Number(this.settlement.discountAmount) || 0;
+          this.settlement.depositAmount = Number(this.settlement.depositAmount) || 0;
+
+          // biz no normalize (without forcing error spam)
+          if (String(this.header.supplierBizNo || '').trim()) {
+            const s = validateBusinessNumber(this.header.supplierBizNo);
+            if (s.valid) this.header.supplierBizNo = s.normalized;
+          }
+          if (String(this.header.buyerBizNo || '').trim()) {
+            const b = validateBusinessNumber(this.header.buyerBizNo);
+            if (b.valid) this.header.buyerBizNo = b.normalized;
+          }
+
+          // (b) line calc
+          const computed = calculateLineAmounts(this.items, this.header.vatMode, this.header.vatRate);
+          this.items = computed;
+
+          // (c) totals
+          this.totals = calculateTotals(
+            computed,
+            this.header.vatMode,
+            this.header.vatRate,
+            this.settlement.discountAmount,
+            this.settlement.depositAmount
+          );
+
+          // (d) validation summary
+          this.validate();
+        },
+
+        // Formatting helpers for UI
+        formatCurrencyKRW,
+        formatQty(v) {
+          const n = Number(v);
+          if (!isFinite(n)) return '';
+          // 수량은 소수 둘째까지 표시
+          return new Intl.NumberFormat('ko-KR', { maximumFractionDigits: 2 }).format(n);
+        },
+        formatNumberPlain(v) {
+          const n = Number(v);
+          if (!isFinite(n)) return '';
+          return new Intl.NumberFormat('ko-KR', { maximumFractionDigits: 0 }).format(Math.round(n));
+        },
+        displayDate(dateStr) {
+          if (!dateStr) return '—';
+          // YYYY-MM-DD
+          return dateStr;
+        },
+        displayDateShort(dateStr) {
+          if (!dateStr) return '';
+          // MM-DD
+          const m = String(dateStr).slice(5,7);
+          const d = String(dateStr).slice(8,10);
+          return `${m}-${d}`;
+        },
+
+        storageKey() {
+          const d = this.header.docDate || 'no-date';
+          const no = (this.header.statementNo || 'no-no').trim();
+          return `statement::${d}::${no}`;
+        },
+
+        saveToLocal() {
+          const payload = {
+            header: this.header,
+            items: this.items,
+            settlement: this.settlement,
+          };
+          localStorage.setItem(this.storageKey(), JSON.stringify(payload));
+          alert('저장되었습니다. (브라우저 로컬저장소)');
+        },
+
+        loadFromLocal() {
+          const raw = localStorage.getItem(this.storageKey());
+          if (!raw) {
+            alert('저장된 데이터가 없습니다.\n작성일자/번호 조합 키로 저장됩니다.');
+            return;
+          }
+          try {
+            const payload = JSON.parse(raw);
+            this.header = { ...this.header, ...(payload.header || {}) };
+            this.items = Array.isArray(payload.items) ? payload.items : this.items;
+            this.settlement = { ...this.settlement, ...(payload.settlement || {}) };
+            // ensure ids
+            this.items = this.items.map(r => ({ ...this.newRow(true), ...r, _id: r._id || this.newRow(true)._id }));
+            this.calculate();
+            alert('불러오기 완료');
+          } catch (e) {
+            console.error(e);
+            alert('불러오기에 실패했습니다.');
+          }
+        },
+
+        print() {
+          // 인쇄는 #printArea 기준. 모바일에서는 #printAreaMobile이지만, 인쇄용은 데스크톱 레이아웃이 더 정확함.
+          // 따라서 인쇄 직전에 데스크톱 미리보기가 DOM에 있도록 탭을 preview로 전환.
+          this.activeTab = 'preview';
+          this.calculate();
+          setTimeout(() => window.print(), 50);
+        }
+      };
+    }
+  </script>
+
+<!-- Agent Trace Viewer -->
+<style>
+.trace-toggle {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 9999;
+    background: #6366f1;
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 25px;
+    cursor: pointer;
+    font-size: 14px;
+    box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.trace-toggle:hover { background: #4f46e5; }
+.trace-panel {
+    position: fixed;
+    top: 0;
+    right: -450px;
+    width: 450px;
+    height: 100vh;
+    background: #1e1e2e;
+    color: #cdd6f4;
+    z-index: 9998;
+    transition: right 0.3s ease;
+    overflow-y: auto;
+    font-family: 'Monaco', 'Menlo', monospace;
+    font-size: 12px;
+}
+.trace-panel.open { right: 0; }
+.trace-header {
+    padding: 16px;
+    background: #313244;
+    border-bottom: 1px solid #45475a;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.trace-header h3 { margin: 0; font-size: 14px; }
+.trace-close {
+    background: none;
+    border: none;
+    color: #cdd6f4;
+    cursor: pointer;
+    font-size: 18px;
+}
+.trace-content { padding: 16px; }
+.span-item {
+    margin-bottom: 12px;
+    padding: 12px;
+    background: #313244;
+    border-radius: 8px;
+    border-left: 3px solid #89b4fa;
+}
+.span-item.agent { border-left-color: #a6e3a1; }
+.span-item.generation { border-left-color: #f9e2af; }
+.span-item.function { border-left-color: #cba6f7; }
+.span-type {
+    font-size: 10px;
+    text-transform: uppercase;
+    color: #6c7086;
+    margin-bottom: 4px;
+}
+.span-name { font-weight: bold; color: #89dceb; }
+.span-data {
+    margin-top: 8px;
+    padding: 8px;
+    background: #1e1e2e;
+    border-radius: 4px;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+.span-time { color: #6c7086; font-size: 11px; }
+.trace-summary {
+    padding: 12px 16px;
+    background: #45475a;
+    margin: 0 16px 16px;
+    border-radius: 8px;
+}
+.trace-summary-item { display: flex; justify-content: space-between; margin: 4px 0; }
+</style>
+
+<button class="trace-toggle" onclick="toggleTracePanel()">
+    <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+        <path d="M9.5 13a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm0-5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm0-5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/>
+    </svg>
+    Agent Trace
+</button>
+
+<div class="trace-panel" id="tracePanel">
+    <div class="trace-header">
+        <h3>Agent Trace Viewer</h3>
+        <button class="trace-close" onclick="toggleTracePanel()">&times;</button>
+    </div>
+    <div class="trace-summary" id="traceSummary"></div>
+    <div class="trace-content" id="traceContent"></div>
+</div>
+
+<script>
+const TRACE_DATA = {"trace_id": "trace_2032a846550a4be980fa3f3030470f97", "workflow_name": "Excel-to-WebApp: 거래명세표1.xlsx", "group_id": null, "metadata": null, "started_at": "2025-12-28T11:41:22.057323", "ended_at": "2025-12-28T11:55:19.470742", "spans": [{"span_id": "span_4541b4b4eed742d8a7a1ed6c", "parent_id": "span_d593521402684f6389a07e93", "started_at": "2025-12-28T02:41:22.068125+00:00", "ended_at": "2025-12-28T02:41:24.782000+00:00", "error": null, "type": "response", "data": {"type": "response", "response_id": "resp_05b7ba34af90ec7c00695098d2676881948d690929f0eb8b89"}}, {"span_id": "span_5be3dc4b8eca4460a8666ced", "parent_id": "span_d593521402684f6389a07e93", "started_at": "2025-12-28T02:41:24.782509+00:00", "ended_at": "2025-12-28T02:41:24.846581+00:00", "error": null, "type": "function", "data": {"type": "function", "name": "analyze_excel", "input": "{\"file_path\":\"excel_files/엑셀서식(20160517)/거래명세표1/거래명세표1.xlsx\"}", "output": "{'filename': '거래명세표1.xlsx', 'file_type': 'xlsx', 'sheets': [{'name': 'Sheet1', 'row_count': 40, 'col_count': 32, 'used_range': 'A1:AF40', 'input_cells': [], 'output_cells': [], 'formulas': [], 'has_print_area': False, 'print_area': None}, {'name': 'Sheet2', 'row_count': 1, 'col_count': 1, 'used_range': 'A1:A1', 'input_cells': [], 'output_cells': [], 'formulas': [], 'has_print_area': False, 'print_area': None}, {'name': 'Sheet3', 'row_count': 1, 'col_count': 1, 'used_range': 'A1:A1', 'input_cells': [], 'output_cells': [], 'formulas': [], 'has_print_area': False, 'print_area': None}, {'name': 'Sheet4', 'row_count': 1, 'col_count': 1, 'used_range': 'A1:A1', 'input_cells': [], 'output_cells': [], 'formulas': [], 'has_print_area': False, 'print_area': None}, {'name': 'Sheet5', 'row_count': 1, 'col_count': 1, 'used_range': 'A1:A1', 'input_cells': [], 'output_cells': [], 'formulas': [], 'has_print_area': False, 'print_area': None}, {'name': 'Sheet6', 'row_count': 1, 'col_count': 1, 'used_range': 'A1:A1', 'input_cells': [], 'output_cells': [], 'formulas': [], 'has_print_area': False, 'print_area': None}, {'name': 'Sheet7', 'row_count': 1, 'col_count': 1, 'used_range': 'A1:A1', 'input_cells': [], 'output_cells': [], 'formulas': [], 'has_print_area': False, 'print_area': None}, {'name': 'Sheet8', 'row_count': 1, 'col_count': 1, 'used_range': 'A1:A1', 'input_cells': [], 'output_cells': [], 'formulas': [], 'has_print_area': False, 'print_area': None}, {'name': 'Sheet9', 'row_count': 1, 'col_count': 1, 'used_range': 'A1:A1', 'input_cells': [], 'output_cells': [], 'formulas': [], 'has_print_area': False, 'print_area': None}, {'name': 'Sheet10', 'row_count': 1, 'col_count': 1, 'used_range': 'A1:A1', 'input_cells': [], 'output_cells': [], 'formulas': [], 'has_print_area': False, 'print_area': None}], 'vba_modules': [], 'has_vba': False, 'print_settings': {'orientation': 'portrait', 'paper_size': 'A4', 'margins': {'top': 0.39375, 'bottom': 0.39375, 'left': 0.747916666666667, 'right': 0.354166666666667}, 'header': None, 'footer': None, 'fit_to_page': False, 'scale': 100}, 'total_formulas': 0, 'total_input_cells': 0, 'total_output_cells': 0, 'complexity_score': 'medium'}", "mcp_data": null}}, {"span_id": "span_d0b876c8f00c44e190c49ae9", "parent_id": "span_d593521402684f6389a07e93", "started_at": "2025-12-28T02:41:24.847803+00:00", "ended_at": "2025-12-28T02:41:31.274639+00:00", "error": null, "type": "response", "data": {"type": "response", "response_id": "resp_05b7ba34af90ec7c00695098d512bc8194b3fb191aac8fd505"}}, {"span_id": "span_ed640f4551b248e6a88a4507", "parent_id": "span_d593521402684f6389a07e93", "started_at": "2025-12-28T02:41:31.274865+00:00", "ended_at": "2025-12-28T02:41:31.334239+00:00", "error": null, "type": "function", "data": {"type": "function", "name": "get_sheet_cells", "input": "{\"file_path\":\"excel_files/엑셀서식(20160517)/거래명세표1/거래명세표1.xlsx\",\"sheet_name\":\"Sheet1\"}", "output": "{'A1': {'address': 'A1', 'value': '거 래 일 자', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'G1': {'address': 'G1', 'value': '거 래 명 세 표', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'AF2': {'address': 'AF2', 'value': '(공급받는자 보관용)', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'A3': {'address': 'A3', 'value': '공 급 자', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'B3': {'address': 'B3', 'value': '등록번호', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'Q3': {'address': 'Q3', 'value': '공급받는자', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'R3': {'address': 'R3', 'value': '등록번호', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'B5': {'address': 'B5', 'value': '상     호', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'L5': {'address': 'L5', 'value': '성명', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'R5': {'address': 'R5', 'value': '상     호', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'AB5': {'address': 'AB5', 'value': '성명', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'B6': {'address': 'B6', 'value': '(법인명)', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'R6': {'address': 'R6', 'value': '(법인명)', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'B7': {'address': 'B7', 'value': '사 업 장', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'R7': {'address': 'R7', 'value': '사 업 장', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'B8': {'address': 'B8', 'value': '주     소', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'R8': {'address': 'R8', 'value': '주     소', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'B9': {'address': 'B9', 'value': '업     태', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'K9': {'address': 'K9', 'value': '종목', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'R9': {'address': 'R9', 'value': '업     태', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'AA9': {'address': 'AA9', 'value': '종목', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'A11': {'address': 'A11', 'value': '월', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'B11': {'address': 'B11', 'value': '일', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'C11': {'address': 'C11', 'value': '품          목', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'I11': {'address': 'I11', 'value': '규격', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'M11': {'address': 'M11', 'value': '수량', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'O11': {'address': 'O11', 'value': '단      가', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'T11': {'address': 'T11', 'value': '공  급  가  액', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'Z11': {'address': 'Z11', 'value': '세        액', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'AE11': {'address': 'AE11', 'value': '비고', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'A16': {'address': 'A16', 'value': '공급\\n가액', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'H16': {'address': 'H16', 'value': '세액', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'N16': {'address': 'N16', 'value': '합계\\n금액', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'U16': {'address': 'U16', 'value': '미수금', 'formula': None, 'data_type': 'string', 'format': '\\\\\\\\#,##0'}, 'AA16': {'address': 'AA16', 'value': '인수자', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'AF18': {'address': 'AF18', 'value': 'http://ecw100.com', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'AF19': {'address': 'AF19', 'value': '본 세금계산서는 첨부된 프로그램으로 출력하였습니다.', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'A22': {'address': 'A22', 'value': '거 래 일 자', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'G22': {'address': 'G22', 'value': '거 래 명 세 표', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'AF23': {'address': 'AF23', 'value': '(공급자 보관용)', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'A24': {'address': 'A24', 'value': '공 급 자', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'B24': {'address': 'B24', 'value': '등록번호', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'Q24': {'address': 'Q24', 'value': '공급받는자', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'R24': {'address': 'R24', 'value': '등록번호', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'B26': {'address': 'B26', 'value': '상     호', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'L26': {'address': 'L26', 'value': '성명', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'R26': {'address': 'R26', 'value': '상     호', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'AB26': {'address': 'AB26', 'value': '성명', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'B27': {'address': 'B27', 'value': '(법인명)', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'R27': {'address': 'R27', 'value': '(법인명)', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'B28': {'address': 'B28', 'value': '사 업 장', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'R28': {'address': 'R28', 'value': '사 업 장', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'B29': {'address': 'B29', 'value': '주     소', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'R29': {'address': 'R29', 'value': '주     소', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'B30': {'address': 'B30', 'value': '업     태', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'K30': {'address': 'K30', 'value': '종목', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'R30': {'address': 'R30', 'value': '업     태', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'AA30': {'address': 'AA30', 'value': '종목', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'A32': {'address': 'A32', 'value': '월', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'B32': {'address': 'B32', 'value': '일', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'C32': {'address': 'C32', 'value': '품          목', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'I32': {'address': 'I32', 'value': '규격', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'M32': {'address': 'M32', 'value': '수량', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'O32': {'address': 'O32', 'value': '단      가', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'T32': {'address': 'T32', 'value': '공  급  가  액', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'Z32': {'address': 'Z32', 'value': '세        액', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'AE32': {'address': 'AE32', 'value': '비고', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'A37': {'address': 'A37', 'value': '공급\\n가액', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'H37': {'address': 'H37', 'value': '세액', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'N37': {'address': 'N37', 'value': '합계\\n금액', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'U37': {'address': 'U37', 'value': '미수금', 'formula': None, 'data_type': 'string', 'format': '\\\\\\\\#,##0'}, 'AA37': {'address': 'AA37', 'value': '인수자', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'AF39': {'address': 'AF39', 'value': 'http://ecw100.com', 'formula': None, 'data_type': 'string', 'format': 'General'}, 'AF40': {'address': 'AF40', 'value': '본 세금계산서는 첨부된 프로그램으로 출력하였습니다.', 'formula': None, 'data_type': 'string', 'format': 'General'}}", "mcp_data": null}}, {"span_id": "span_55a0b170ee074fb4a679d51f", "parent_id": "span_d593521402684f6389a07e93", "started_at": "2025-12-28T02:41:31.334667+00:00", "ended_at": "2025-12-28T02:52:51.799627+00:00", "error": null, "type": "response", "data": {"type": "response", "response_id": "resp_05b7ba34af90ec7c0069509b3411088194acd8a86098aab5ec"}}, {"span_id": "span_d593521402684f6389a07e93", "parent_id": null, "started_at": "2025-12-28T02:41:22.057718+00:00", "ended_at": "2025-12-28T02:52:51.799919+00:00", "error": null, "type": "agent", "data": {"type": "agent", "name": "Excel Analyzer", "handoffs": [], "tools": ["analyze_excel", "get_sheet_cells"], "output_type": "str"}}, {"span_id": "span_fb73fa455dc74edcbb3105f8", "parent_id": "span_1fff1540a1f3418f9a7210e9", "started_at": "2025-12-28T02:52:51.800339+00:00", "ended_at": "2025-12-28T02:53:28.517265+00:00", "error": null, "type": "response", "data": {"type": "response", "response_id": "resp_0a80963c1b2acba70069509b8402b88190b767df021b906844"}}, {"span_id": "span_1fff1540a1f3418f9a7210e9", "parent_id": null, "started_at": "2025-12-28T02:52:51.800095+00:00", "ended_at": "2025-12-28T02:53:28.517747+00:00", "error": null, "type": "agent", "data": {"type": "agent", "name": "WebApp Planner", "handoffs": [], "tools": [], "output_type": "WebAppPlan"}}, {"span_id": "span_70b3431d96bd4b418701e140", "parent_id": "span_3a94545e5ccc44658da9165a", "started_at": "2025-12-28T02:53:28.518201+00:00", "ended_at": "2025-12-28T02:53:30.094957+00:00", "error": null, "type": "response", "data": {"type": "response", "response_id": "resp_08e9bca2a103f8370069509ba8b9888195a9eb18c37f887f7a"}}, {"span_id": "span_2f1f3ad3dd6d4e00bbe2f360", "parent_id": "span_3a94545e5ccc44658da9165a", "started_at": "2025-12-28T02:53:30.095139+00:00", "ended_at": "2025-12-28T02:53:30.095274+00:00", "error": null, "type": "function", "data": {"type": "function", "name": "get_js_helpers", "input": "{}", "output": "\n// Excel formula helper functions\nfunction _sum(...args) {\n    return args.flat().reduce((a, b) => (parseFloat(a) || 0) + (parseFloat(b) || 0), 0);\n}\n\nfunction _sumRange(rangeData) {\n    if (Array.isArray(rangeData)) {\n        return rangeData.flat().reduce((a, b) => (parseFloat(a) || 0) + (parseFloat(b) || 0), 0);\n    }\n    return parseFloat(rangeData) || 0;\n}\n\nfunction _average(...args) {\n    const flat = args.flat().filter(x => x !== null && x !== '' && !isNaN(x));\n    return flat.length ? _sum(...flat) / flat.length : 0;\n}\n\nfunction _averageRange(rangeData) {\n    if (Array.isArray(rangeData)) {\n        const flat = rangeData.flat().filter(x => x !== null && x !== '' && !isNaN(x));\n        return flat.length ? _sumRange(flat) / flat.length : 0;\n    }\n    return parseFloat(rangeData) || 0;\n}\n\nfunction _count(...args) {\n    return args.flat().filter(x => typeof x === 'number' && !isNaN(x)).length;\n}\n\nfunction _counta(...args) {\n    return args.flat().filter(x => x !== null && x !== '' && x !== undefined).length;\n}\n\nfunction _and(...args) {\n    return args.every(x => Boolean(x));\n}\n\nfunction _or(...args) {\n    return args.some(x => Boolean(x));\n}\n\nfunction _round(num, digits = 0) {\n    const factor = Math.pow(10, digits);\n    return Math.round(num * factor) / factor;\n}\n\nfunction _roundUp(num, digits = 0) {\n    const factor = Math.pow(10, digits);\n    return Math.ceil(num * factor) / factor;\n}\n\nfunction _roundDown(num, digits = 0) {\n    const factor = Math.pow(10, digits);\n    return Math.floor(num * factor) / factor;\n}\n\nfunction _len(text) {\n    return String(text).length;\n}\n\nfunction _left(text, numChars = 1) {\n    return String(text).substring(0, numChars);\n}\n\nfunction _right(text, numChars = 1) {\n    const str = String(text);\n    return str.substring(str.length - numChars);\n}\n\nfunction _mid(text, startNum, numChars) {\n    return String(text).substring(startNum - 1, startNum - 1 + numChars);\n}\n\nfunction _trim(text) {\n    return String(text).trim();\n}\n\nfunction _upper(text) {\n    return String(text).toUpperCase();\n}\n\nfunction _lower(text) {\n    return String(text).toLowerCase();\n}\n\nfunction _concat(...args) {\n    return args.join('');\n}\n\n// Number formatting\nfunction formatNumber(num, decimals = 0) {\n    return new Intl.NumberFormat('ko-KR', {\n        minimumFractionDigits: decimals,\n        maximumFractionDigits: decimals\n    }).format(num);\n}\n\nfunction formatCurrency(num) {\n    return new Intl.NumberFormat('ko-KR', {\n        style: 'currency',\n        currency: 'KRW',\n        maximumFractionDigits: 0\n    }).format(num);\n}\n\nfunction formatPercent(num, decimals = 1) {\n    return new Intl.NumberFormat('ko-KR', {\n        style: 'percent',\n        minimumFractionDigits: decimals,\n        maximumFractionDigits: decimals\n    }).format(num / 100);\n}\n", "mcp_data": null}}, {"span_id": "span_3d2bd0e3ba49436baeb40601", "parent_id": "span_3a94545e5ccc44658da9165a", "started_at": "2025-12-28T02:53:30.095581+00:00", "ended_at": "2025-12-28T02:55:19.469818+00:00", "error": null, "type": "response", "data": {"type": "response", "response_id": "resp_08e9bca2a103f8370069509baa4de081959a6434e4bace4f19"}}, {"span_id": "span_3a94545e5ccc44658da9165a", "parent_id": null, "started_at": "2025-12-28T02:53:28.517963+00:00", "ended_at": "2025-12-28T02:55:19.470243+00:00", "error": null, "type": "agent", "data": {"type": "agent", "name": "WebApp Generator", "handoffs": [], "tools": ["convert_formula", "check_formula_complexity", "get_js_helpers"], "output_type": "GeneratedWebApp"}}]};
+
+function toggleTracePanel() {
+    document.getElementById('tracePanel').classList.toggle('open');
+}
+
+function renderTrace() {
+    const summary = document.getElementById('traceSummary');
+    const content = document.getElementById('traceContent');
+
+    if (!TRACE_DATA) {
+        content.innerHTML = '<p>No trace data available</p>';
+        return;
+    }
+
+    // Summary
+    const spans = TRACE_DATA.spans || [];
+    const agentSpans = spans.filter(s => s.type === 'agent').length;
+    const genSpans = spans.filter(s => s.type === 'generation').length;
+    const funcSpans = spans.filter(s => s.type === 'function').length;
+
+    summary.innerHTML = `
+        <div class="trace-summary-item"><span>Workflow</span><span>${TRACE_DATA.workflow_name || '-'}</span></div>
+        <div class="trace-summary-item"><span>Agent Spans</span><span>${agentSpans}</span></div>
+        <div class="trace-summary-item"><span>LLM Generations</span><span>${genSpans}</span></div>
+        <div class="trace-summary-item"><span>Function Calls</span><span>${funcSpans}</span></div>
+    `;
+
+    // Spans
+    let html = '';
+    spans.forEach(span => {
+        const typeClass = span.type || 'custom';
+        const data = span.data || {};
+        html += `
+            <div class="span-item ${typeClass}">
+                <div class="span-type">${span.type || 'span'}</div>
+                <div class="span-name">${data.name || data.model || span.span_id?.slice(0, 8) || '-'}</div>
+                ${data.input ? `<div class="span-data">${typeof data.input === 'string' ? data.input.slice(0, 200) : JSON.stringify(data.input).slice(0, 200)}...</div>` : ''}
+                ${data.output ? `<div class="span-data">${typeof data.output === 'string' ? data.output.slice(0, 200) : JSON.stringify(data.output).slice(0, 200)}...</div>` : ''}
+                ${data.usage ? `<div class="span-time">Tokens: ${data.usage.total_tokens || '-'}</div>` : ''}
+            </div>
+        `;
+    });
+    content.innerHTML = html || '<p>No spans recorded</p>';
+}
+
+document.addEventListener('DOMContentLoaded', renderTrace);
+</script>
+</body>
+</html>

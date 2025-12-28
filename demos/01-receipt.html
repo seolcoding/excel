@@ -1,0 +1,1040 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>간이영수증 표준 양식</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <style>
+    :root{
+      --ink:#111;
+      --grid:#000;
+      --muted:#6c757d;
+      --bg-soft:#f6f7f9;
+      --accent:#0d6efd;
+    }
+    html,body{height:100%;}
+    body{
+      font-family: "Noto Sans KR", system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+      color:var(--ink);
+      background:#fff;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .app-title{font-weight:700; letter-spacing:-0.02em;}
+    .card-title{font-weight:700;}
+
+    /* Inputs */
+    .form-hint{font-size:.85rem; color:var(--muted);}
+    .is-invalid-cell{outline:2px solid #dc3545; outline-offset:-2px; background: #fff5f5;}
+
+    /* Items table */
+    .items-table th{white-space:nowrap; font-size:.9rem; background:var(--bg-soft);}
+    .items-table td{vertical-align:middle;}
+    .num{text-align:right;}
+
+    /* Preview wrapper with scaling */
+    .preview-toolbar{gap:.5rem;}
+    .preview-frame{
+      background:#fafafa;
+      border:1px solid #ddd;
+      border-radius:.5rem;
+      padding:12px;
+      overflow:auto;
+    }
+
+    /* Print area sized to A4 landscape */
+    #print-area{
+      width:297mm;
+      min-height:210mm;
+      background:#fff;
+      color:#000;
+      transform-origin: top left;
+    }
+
+    /* Receipt grid (Excel-like) */
+    .receipt-sheet{
+      width:297mm;
+      min-height:210mm;
+      box-sizing:border-box;
+      padding:0;
+    }
+
+    .receipt-box{
+      border:1px solid var(--grid);
+      padding:10mm;
+      box-sizing:border-box;
+      min-height:210mm;
+    }
+
+    .receipt-header{
+      display:grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap:8mm;
+      align-items:start;
+    }
+
+    .receipt-title{
+      font-size:18pt;
+      font-weight:800;
+      border-bottom:2px solid #000;
+      padding-bottom:3mm;
+      margin-bottom:4mm;
+    }
+
+    .kv{
+      width:100%;
+      border-collapse:collapse;
+      font-size:11pt;
+    }
+    .kv td{padding:1.2mm 0;}
+    .kv td.k{width:28mm; color:#000; font-weight:600;}
+    .kv td.v{border-bottom:1px solid #000; padding-left:2mm;}
+
+    .receipt-meta{
+      border:1px solid #000;
+      padding:4mm;
+    }
+    .meta-grid{
+      display:grid;
+      grid-template-columns: 1fr;
+      gap:2mm;
+      font-size:10.5pt;
+    }
+    .meta-row{display:flex; gap:3mm; align-items:baseline;}
+    .meta-row .k{min-width:26mm; font-weight:700;}
+    .meta-row .v{flex:1; border-bottom:1px solid #000; padding:0 1mm;}
+
+    .receipt-items{
+      margin-top:6mm;
+      border:1px solid #000;
+    }
+    .receipt-items table{
+      width:100%;
+      border-collapse:collapse;
+      font-size:10.5pt;
+    }
+    .receipt-items th, .receipt-items td{
+      border-bottom:1px solid #000;
+      padding:2mm 2mm;
+    }
+    .receipt-items th{
+      background:#f1f1f1;
+      border-bottom:2px solid #000;
+      font-weight:800;
+    }
+    .receipt-items td.num{text-align:right;}
+
+    .receipt-footer{
+      margin-top:6mm;
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:8mm;
+      align-items:start;
+    }
+
+    .totals{
+      border:1px solid #000;
+      padding:4mm;
+    }
+    .totals .row{display:flex; justify-content:space-between; gap:4mm; padding:1.2mm 0;}
+    .totals .row strong{font-weight:800;}
+    .totals .row .v{min-width:40mm; text-align:right; border-bottom:1px solid #000; padding:0 1mm;}
+
+    .notes{
+      border:1px solid #000;
+      padding:4mm;
+      min-height:28mm;
+      font-size:10.5pt;
+    }
+
+    .badge-warn{background:#fff3cd; border:1px solid #ffecb5; color:#664d03;}
+
+    @page {
+      size: A4 landscape;
+      margin: 19mm 18mm;
+    }
+
+    @media print{
+      .no-print{display:none !important;}
+      body{background:#fff;}
+      .container{max-width:none !important; width:auto !important; padding:0 !important; margin:0 !important;}
+      .preview-frame{border:none; padding:0; overflow:visible;}
+      #print-area{transform:none !important; width:297mm; min-height:210mm;}
+    }
+  </style>
+</head>
+<body>
+  <div class="container py-4" x-data="appData()" x-init="init()">
+    <div class="d-flex align-items-baseline justify-content-between mb-3">
+      <div>
+        <h1 class="h4 app-title mb-1">간이영수증 표준 양식</h1>
+        <div class="text-secondary small">거래처/품목 정보를 입력하면 금액을 자동 계산하고 A4 가로 인쇄용 영수증을 생성합니다.</div>
+      </div>
+      <div class="no-print d-flex gap-2">
+        <button type="button" class="btn btn-outline-secondary" @click="resetAll()" aria-label="초기화">초기화</button>
+        <button type="button" class="btn btn-primary" @click="printReceipt()" aria-label="인쇄">인쇄</button>
+      </div>
+    </div>
+
+    <div class="row g-3">
+      <!-- LEFT: Inputs -->
+      <div class="col-12 col-lg-5 no-print">
+        <div class="card shadow-sm">
+          <div class="card-body">
+            <h2 class="h6 card-title mb-3">기본 정보 입력</h2>
+
+            <div class="row g-2">
+              <div class="col-12 col-md-6">
+                <label class="form-label" for="customer_code">거래처 코드(선택)</label>
+                <select class="form-select" id="customer_code" x-model="header.customer_code" @change="recalcAll()" aria-describedby="hint_customer_code">
+                  <option value="">선택 안 함</option>
+                  <template x-for="opt in customerOptions" :key="opt.code">
+                    <option :value="opt.code" x-text="opt.code + ' - ' + opt.name"></option>
+                  </template>
+                </select>
+                <div id="hint_customer_code" class="form-hint">표1[] 기준 정확일치 조회(VLOOKUP)합니다. 없으면 빈 값으로 처리됩니다.</div>
+              </div>
+
+              <div class="col-12 col-md-6">
+                <label class="form-label" for="receipt_date">작성일자</label>
+                <input class="form-control" id="receipt_date" type="date" x-model="header.receipt_date" @input="recalcAll()" aria-describedby="hint_receipt_date" />
+                <div id="hint_receipt_date" class="form-hint">미리보기에는 “m월 d일” 또는 “yyyy년 m월 d일” 형태로 표시됩니다.</div>
+              </div>
+
+              <div class="col-12 col-md-6">
+                <label class="form-label" for="receipt_no">영수증 번호</label>
+                <input class="form-control" id="receipt_no" type="text" x-model.trim="header.receipt_no" @input="recalcAll()" placeholder="예: 2025-0001" aria-describedby="hint_receipt_no" />
+                <div id="hint_receipt_no" class="form-hint">텍스트 그대로 출력됩니다.</div>
+              </div>
+
+              <div class="col-12 col-md-6">
+                <label class="form-label" for="issuer_name">발행자(담당자)</label>
+                <input class="form-control" id="issuer_name" type="text" x-model.trim="header.issuer_name" @input="recalcAll()" placeholder="예: 홍길동" aria-describedby="hint_issuer_name" />
+                <div id="hint_issuer_name" class="form-hint">텍스트 그대로 출력됩니다.</div>
+              </div>
+
+              <div class="col-12 col-md-6">
+                <label class="form-label" for="payment_method">결제수단</label>
+                <select class="form-select" id="payment_method" x-model="header.payment_method" @change="recalcAll()" aria-describedby="hint_payment_method">
+                  <option value="">선택 안 함</option>
+                  <option value="현금">현금</option>
+                  <option value="카드">카드</option>
+                  <option value="계좌이체">계좌이체</option>
+                  <option value="기타">기타</option>
+                </select>
+                <div id="hint_payment_method" class="form-hint">엑셀 F7 대응 값입니다.</div>
+              </div>
+
+              <div class="col-12 col-md-6">
+                <label class="form-label" for="override_toggle">표시명 우선순위</label>
+                <select class="form-select" id="override_toggle" x-model="ui.overrideMode" @change="recalcAll()" aria-describedby="hint_override_toggle">
+                  <option value="auto">자동(직접입력 우선)</option>
+                  <option value="lookup">조회값 우선</option>
+                </select>
+                <div id="hint_override_toggle" class="form-hint">고객명 표시(AB3) 정책: 직접입력(M5)이 있으면 우선할지 선택합니다.</div>
+              </div>
+
+              <div class="col-12 col-md-6">
+                <label class="form-label" for="customer_name_override">거래처명(직접입력/수정)</label>
+                <input class="form-control" id="customer_name_override" type="text" x-model.trim="header.customer_name_override" @input="recalcAll()" placeholder="(선택)" aria-describedby="hint_customer_name_override" />
+                <div id="hint_customer_name_override" class="form-hint">엑셀 M5 대응(표시용 AE5에도 반영 가능).</div>
+              </div>
+
+              <div class="col-12 col-md-6">
+                <label class="form-label" for="customer_contact_override">연락처/담당(직접입력/수정)</label>
+                <input class="form-control" id="customer_contact_override" type="text" x-model.trim="header.customer_contact_override" @input="recalcAll()" placeholder="예: 010-0000-0000" aria-describedby="hint_customer_contact_override" />
+                <div id="hint_customer_contact_override" class="form-hint">엑셀 M7 대응(표시용 AE7에도 반영 가능).</div>
+              </div>
+            </div>
+
+            <hr class="my-3" />
+
+            <div class="d-flex align-items-center justify-content-between mb-2">
+              <h2 class="h6 card-title mb-0">품목 입력(내역)</h2>
+              <div class="d-flex gap-2">
+                <button type="button" class="btn btn-sm btn-outline-primary" @click="addRow()">행 추가</button>
+                <button type="button" class="btn btn-sm btn-outline-danger" @click="removeLastRow()" :disabled="items.length<=1">마지막 행 삭제</button>
+              </div>
+            </div>
+
+            <div class="table-responsive">
+              <table class="table table-sm align-middle items-table">
+                <thead>
+                  <tr>
+                    <th style="min-width:160px;">품목명</th>
+                    <th style="min-width:110px;">규격</th>
+                    <th class="text-end" style="min-width:90px;">수량(E)</th>
+                    <th class="text-end" style="min-width:120px;">단가(F)</th>
+                    <th class="text-end" style="min-width:130px;">금액(G 자동)</th>
+                    <th style="min-width:140px;">비고</th>
+                    <th class="text-center" style="width:56px;">삭제</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <template x-for="(row, idx) in items" :key="row._id">
+                    <tr>
+                      <td>
+                        <input class="form-control form-control-sm" type="text" x-model.trim="row.item_name" @input="recalcAll()" :aria-label="'품목명 ' + (idx+1)" />
+                      </td>
+                      <td>
+                        <input class="form-control form-control-sm" type="text" x-model.trim="row.spec" @input="recalcAll()" :aria-label="'규격 ' + (idx+1)" />
+                      </td>
+                      <td>
+                        <input class="form-control form-control-sm num" type="text" inputmode="decimal" x-model="row.qty" @keydown="handleGridKey($event, idx)" @input="onQtyOrPriceChange(idx)" :class="row._invalidQty ? 'is-invalid-cell' : ''" :aria-label="'수량 ' + (idx+1)" />
+                      </td>
+                      <td>
+                        <input class="form-control form-control-sm num" type="text" inputmode="decimal" x-model="row.unit_price" @keydown="handleGridKey($event, idx)" @input="onQtyOrPriceChange(idx)" :class="row._invalidUnit ? 'is-invalid-cell' : ''" :aria-label="'단가 ' + (idx+1)" />
+                      </td>
+                      <td class="num">
+                        <span x-text="formatMoney(row.line_amount)"></span>
+                      </td>
+                      <td>
+                        <input class="form-control form-control-sm" type="text" x-model.trim="row.note" @input="recalcAll()" :aria-label="'비고 ' + (idx+1)" />
+                      </td>
+                      <td class="text-center">
+                        <button type="button" class="btn btn-sm btn-outline-danger" @click="removeRow(idx)" aria-label="해당 행 삭제">×</button>
+                      </td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="mt-2">
+              <template x-if="warnings.length">
+                <div class="p-2 rounded badge-warn small">
+                  <div class="fw-semibold mb-1">입력 확인</div>
+                  <ul class="mb-0 ps-3">
+                    <template x-for="(w, i) in warnings" :key="i">
+                      <li x-text="w"></li>
+                    </template>
+                  </ul>
+                </div>
+              </template>
+            </div>
+
+            <hr class="my-3" />
+
+            <details>
+              <summary class="fw-semibold">빈 서식 직접입력(옵션)</summary>
+              <div class="mt-2 small text-secondary">
+                엑셀 ‘영수증(빈 서식)’의 B12:AI28을 웹에서 1:1 재현하기 위한 입력 영역입니다. 현재 버전은 핵심 출력(헤더/내역/합계) 중심으로 구현되어 있으며,
+                이 섹션은 “메모/추가 문구” 등 보조 텍스트를 넣는 용도로 제공됩니다.
+              </div>
+              <div class="mt-2">
+                <label class="form-label" for="manual_note">추가 문구(옵션)</label>
+                <textarea id="manual_note" class="form-control" rows="3" x-model.trim="manual.note" @input="recalcAll()" placeholder="예: 환불/교환 규정, 안내 문구 등"></textarea>
+              </div>
+            </details>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT: Preview/Print -->
+      <div class="col-12 col-lg-7">
+        <div class="d-flex align-items-center justify-content-between mb-2 no-print">
+          <h2 class="h6 mb-0">영수증 미리보기/인쇄</h2>
+          <div class="d-flex align-items-center preview-toolbar no-print">
+            <label class="small text-secondary" for="scale">미리보기 배율</label>
+            <input id="scale" type="range" min="40" max="110" step="5" x-model.number="ui.scale" @input="applyScale()" style="width:160px;" aria-label="미리보기 배율" />
+            <span class="small text-secondary" x-text="ui.scale + '%'" style="width:52px;"></span>
+          </div>
+        </div>
+
+        <div class="preview-frame">
+          <div id="print-area" x-ref="printArea" class="receipt-sheet">
+            <div class="receipt-box">
+              <div class="receipt-header">
+                <div>
+                  <div class="receipt-title">간이영수증</div>
+                  <table class="kv" aria-label="영수증 기본 정보">
+                    <tr>
+                      <td class="k">거래처</td>
+                      <td class="v" x-text="receiptModel.customer_name_display || ''"></td>
+                    </tr>
+                    <tr>
+                      <td class="k">거래처코드</td>
+                      <td class="v" x-text="receiptModel.customer_code_echo || ''"></td>
+                    </tr>
+                    <tr>
+                      <td class="k">연락처/담당</td>
+                      <td class="v" x-text="receiptModel.customer_contact_display || ''"></td>
+                    </tr>
+                  </table>
+                </div>
+
+                <div class="receipt-meta" aria-label="영수증 메타 정보">
+                  <div class="meta-grid">
+                    <div class="meta-row"><span class="k">작성일자</span><span class="v" x-text="receiptModel.receipt_date_display"></span></div>
+                    <div class="meta-row"><span class="k">영수증번호</span><span class="v" x-text="receiptModel.receipt_no"></span></div>
+                    <div class="meta-row"><span class="k">발행자</span><span class="v" x-text="receiptModel.issuer_name"></span></div>
+                    <div class="meta-row"><span class="k">결제수단</span><span class="v" x-text="receiptModel.payment_method"></span></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="receipt-items" aria-label="영수증 내역">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>품목</th>
+                      <th>규격</th>
+                      <th class="num">수량</th>
+                      <th class="num">단가</th>
+                      <th class="num">금액</th>
+                      <th>비고</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <template x-for="(r, i) in receiptModel.itemsToPrint" :key="i">
+                      <tr>
+                        <td x-text="r.item_name"></td>
+                        <td x-text="r.spec"></td>
+                        <td class="num" x-text="formatNumberSafe(r.qty)"></td>
+                        <td class="num" x-text="formatMoney(r.unit_price)"></td>
+                        <td class="num" x-text="formatMoney(r.line_amount)"></td>
+                        <td x-text="r.note"></td>
+                      </tr>
+                    </template>
+                    <template x-if="receiptModel.itemsToPrint.length===0">
+                      <tr>
+                        <td colspan="6" class="text-center" style="padding:10mm; color:#666;">내역이 없습니다. 좌측에서 품목을 입력하세요.</td>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+
+              <div class="receipt-footer">
+                <div class="totals" aria-label="합계 정보">
+                  <div class="row"><span>공급가액(합계)</span><span class="v" x-text="formatMoney(receiptModel.subtotal)"></span></div>
+                  <div class="row"><span>부가세(간이)</span><span class="v" x-text="formatMoney(receiptModel.vat)"></span></div>
+                  <div class="row"><strong>합계</strong><span class="v" x-text="formatMoney(receiptModel.total)"></span></div>
+                  <div class="small text-secondary mt-2">※ 부가세는 기본 0원(간이영수증)으로 처리합니다. 필요 시 로직을 확장하세요.</div>
+                </div>
+
+                <div class="notes" aria-label="비고/안내">
+                  <div class="fw-semibold mb-1">비고</div>
+                  <div style="white-space:pre-wrap;" x-text="receiptModel.manual_note"></div>
+                </div>
+              </div>
+
+              <div class="mt-3 small" style="color:#000;">
+                <div class="d-flex justify-content-between">
+                  <div>출력일: <span x-text="receiptModel.today_display"></span></div>
+                  <div>시스템: 간이영수증 표준 양식(Web)</div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+
+        <div class="no-print mt-2 small text-secondary">
+          인쇄 시 좌측 입력 영역은 숨겨지고, 우측 영수증만 A4 가로로 출력됩니다.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Excel formula helper functions
+    function _sum(...args) {
+        return args.flat().reduce((a, b) => (parseFloat(a) || 0) + (parseFloat(b) || 0), 0);
+    }
+
+    function _sumRange(rangeData) {
+        if (Array.isArray(rangeData)) {
+            return rangeData.flat().reduce((a, b) => (parseFloat(a) || 0) + (parseFloat(b) || 0), 0);
+        }
+        return parseFloat(rangeData) || 0;
+    }
+
+    function _average(...args) {
+        const flat = args.flat().filter(x => x !== null && x !== '' && !isNaN(x));
+        return flat.length ? _sum(...flat) / flat.length : 0;
+    }
+
+    function _averageRange(rangeData) {
+        if (Array.isArray(rangeData)) {
+            const flat = rangeData.flat().filter(x => x !== null && x !== '' && !isNaN(x));
+            return flat.length ? _sumRange(flat) / flat.length : 0;
+        }
+        return parseFloat(rangeData) || 0;
+    }
+
+    function _count(...args) {
+        return args.flat().filter(x => typeof x === 'number' && !isNaN(x)).length;
+    }
+
+    function _counta(...args) {
+        return args.flat().filter(x => x !== null && x !== '' && x !== undefined).length;
+    }
+
+    function _and(...args) {
+        return args.every(x => Boolean(x));
+    }
+
+    function _or(...args) {
+        return args.some(x => Boolean(x));
+    }
+
+    function _round(num, digits = 0) {
+        const factor = Math.pow(10, digits);
+        return Math.round(num * factor) / factor;
+    }
+
+    function _roundUp(num, digits = 0) {
+        const factor = Math.pow(10, digits);
+        return Math.ceil(num * factor) / factor;
+    }
+
+    function _roundDown(num, digits = 0) {
+        const factor = Math.pow(10, digits);
+        return Math.floor(num * factor) / factor;
+    }
+
+    function _len(text) {
+        return String(text).length;
+    }
+
+    function _left(text, numChars = 1) {
+        return String(text).substring(0, numChars);
+    }
+
+    function _right(text, numChars = 1) {
+        const str = String(text);
+        return str.substring(str.length - numChars);
+    }
+
+    function _mid(text, startNum, numChars) {
+        return String(text).substring(startNum - 1, startNum - 1 + numChars);
+    }
+
+    function _trim(text) {
+        return String(text).trim();
+    }
+
+    function _upper(text) {
+        return String(text).toUpperCase();
+    }
+
+    function _lower(text) {
+        return String(text).toLowerCase();
+    }
+
+    function _concat(...args) {
+        return args.join('');
+    }
+
+    // Number formatting
+    function formatNumber(num, decimals = 0) {
+        return new Intl.NumberFormat('ko-KR', {
+            minimumFractionDigits: decimals,
+            maximumFractionDigits: decimals
+        }).format(num);
+    }
+
+    function formatCurrency(num) {
+        return new Intl.NumberFormat('ko-KR', {
+            style: 'currency',
+            currency: 'KRW',
+            maximumFractionDigits: 0
+        }).format(num);
+    }
+
+    function formatPercent(num, decimals = 1) {
+        return new Intl.NumberFormat('ko-KR', {
+            style: 'percent',
+            minimumFractionDigits: decimals,
+            maximumFractionDigits: decimals
+        }).format(num / 100);
+    }
+
+    // --- App Logic ---
+    function appData(){
+      return {
+        // UI state
+        ui: {
+          scale: 80,
+          overrideMode: 'auto', // auto | lookup
+        },
+
+        // Lookup table (표1[]) - demo data (replace with real data or import)
+        lookupTable: [],
+        customerOptions: [],
+
+        // Header inputs (영수증!C3, F4~F7, M5, M7)
+        header: {
+          customer_code: '',
+          receipt_date: '',
+          receipt_no: '',
+          issuer_name: '',
+          payment_method: '',
+          customer_name_override: '',
+          customer_contact_override: '',
+        },
+
+        // Optional manual inputs (영수증(빈 서식) 영역 대체)
+        manual: {
+          note: ''
+        },
+
+        // Items (영수증DB A~I simplified)
+        items: [],
+
+        // Computed outputs model
+        receiptModel: {
+          customer_name_lookup: '', // J3
+          customer_code_echo: '',
+          customer_name_display: '',
+          customer_contact_display: '',
+          receipt_date_display: '',
+          receipt_no: '',
+          issuer_name: '',
+          payment_method: '',
+          today_display: '',
+          itemsToPrint: [],
+          subtotal: 0,
+          vat: 0,
+          total: 0,
+          manual_note: ''
+        },
+
+        warnings: [],
+
+        init(){
+          this.loadLookupTable();
+          this.items = this.makeInitialRows(8);
+          this.recalcAll();
+          this.applyScale();
+        },
+
+        resetAll(){
+          this.header = {
+            customer_code: '',
+            receipt_date: '',
+            receipt_no: '',
+            issuer_name: '',
+            payment_method: '',
+            customer_name_override: '',
+            customer_contact_override: '',
+          };
+          this.manual = { note: '' };
+          this.items = this.makeInitialRows(8);
+          this.warnings = [];
+          this.recalcAll();
+          this.applyScale();
+        },
+
+        makeInitialRows(n){
+          const rows = [];
+          for(let i=0;i<n;i++) rows.push(this.newRow());
+          return rows;
+        },
+
+        newRow(){
+          return {
+            _id: crypto?.randomUUID ? crypto.randomUUID() : String(Date.now()+Math.random()),
+            item_name: '',
+            spec: '',
+            qty: '',
+            unit_price: '',
+            note: '',
+            line_amount: 0, // G
+            line_total_i: '', // I (array formula placeholder)
+            _invalidQty: false,
+            _invalidUnit: false,
+          };
+        },
+
+        addRow(){
+          this.items.push(this.newRow());
+          this.recalcAll();
+        },
+
+        removeLastRow(){
+          if(this.items.length>1){
+            this.items.pop();
+            this.recalcAll();
+          }
+        },
+
+        removeRow(idx){
+          this.items.splice(idx,1);
+          if(this.items.length===0) this.items.push(this.newRow());
+          this.recalcAll();
+        },
+
+        handleGridKey(e, rowIdx){
+          // Lightweight keyboard support: Enter moves to next row same column
+          if(e.key === 'Enter'){
+            e.preventDefault();
+            const target = e.target;
+            const td = target.closest('td');
+            const tr = target.closest('tr');
+            if(!td || !tr) return;
+            const cellIndex = Array.from(tr.children).indexOf(td);
+            const nextTr = tr.nextElementSibling;
+            if(nextTr){
+              const nextTd = nextTr.children[cellIndex];
+              const input = nextTd?.querySelector('input');
+              input?.focus();
+              input?.select?.();
+            }
+          }
+        },
+
+        applyScale(){
+          const s = Math.max(40, Math.min(110, Number(this.ui.scale)||80)) / 100;
+          if(this.$refs?.printArea) this.$refs.printArea.style.transform = `scale(${s})`;
+        },
+
+        // --- Data source ---
+        loadLookupTable(){
+          // 표1[] (거래처/코드 매핑) - 실제 운영 시 서버/파일 업로드/관리 화면으로 대체
+          this.lookupTable = [
+            { code: 'C001', name: '가나다상사', contact: '02-123-4567' },
+            { code: 'C002', name: '마루테크', contact: '010-9876-5432' },
+            { code: 'C003', name: '한빛유통', contact: '031-555-1212' },
+          ];
+          this.customerOptions = this.lookupTable.map(x => ({code:x.code, name:x.name}));
+        },
+
+        // Excel VLOOKUP(...,0) equivalent
+        vlookupExact(key, table, colIndex){
+          // colIndex: 1-based (Excel)
+          const k = (key ?? '').toString().trim();
+          if(!k) return '';
+          const row = table.find(r => (r.code ?? '').toString().trim() === k);
+          if(!row) return '';
+          const cols = Object.keys(row);
+          const idx = Math.max(1, colIndex) - 1;
+          const colName = cols[idx];
+          return colName ? (row[colName] ?? '') : '';
+        },
+
+        // --- Calculation ---
+        onQtyOrPriceChange(idx){
+          // realtime validate + recalc line
+          this.calculateLineAmounts();
+          this.calculateReceiptModel();
+        },
+
+        parseNumberLoose(v){
+          if(v===null || v===undefined) return NaN;
+          if(typeof v === 'number') return v;
+          const s = String(v).replace(/,/g,'').trim();
+          if(s==='') return NaN;
+          return Number(s);
+        },
+
+        // 영수증DB: G2 = F2*E2 (pattern for all rows)
+        calculateLineAmounts(){
+          const warnings = [];
+          for(const row of this.items){
+            const qty = this.parseNumberLoose(row.qty);
+            const unit = this.parseNumberLoose(row.unit_price);
+
+            row._invalidQty = !(Number.isFinite(qty) && qty >= 0);
+            row._invalidUnit = !(Number.isFinite(unit) && unit >= 0);
+
+            // Converted from Excel: =F2*E2  ->  data['F2']*data['E2']
+            // Here mapping: unit_price => F, qty => E
+            if(row._invalidQty || row._invalidUnit){
+              row.line_amount = 0;
+              // Only warn when user typed something
+              if(String(row.qty).trim()!=='' || String(row.unit_price).trim()!==''){
+                warnings.push('수량/단가에는 0 이상의 숫자만 입력할 수 있습니다. (오류 행은 합계에서 제외)');
+              }
+            } else {
+              row.line_amount = unit * qty;
+            }
+          }
+          this.warnings = Array.from(new Set(warnings));
+        },
+
+        // 영수증DB I열 ArrayFormula: 원본 수식 텍스트가 제공되지 않아 placeholder 구현
+        calculateArrayColumnI(){
+          // NOTE: Excel의 I2:I51 ArrayFormula 원식이 필요합니다.
+          // 임시 정책: I열은 "금액"(G)과 동일하게 두되, 실제 요구사항 확인 시 교체.
+          for(const row of this.items){
+            row.line_total_i = row.line_amount;
+          }
+        },
+
+        calculateReceiptModel(){
+          // Step B: lookup
+          const nameLookup = this.vlookupExact(this.header.customer_code, this.lookupTable, 2); // name
+          const contactLookup = this.vlookupExact(this.header.customer_code, this.lookupTable, 3); // contact
+
+          // Step C: override policy
+          const overrideName = (this.header.customer_name_override ?? '').trim();
+          const overrideContact = (this.header.customer_contact_override ?? '').trim();
+
+          let customerNameDisplay = '';
+          if(this.ui.overrideMode === 'lookup'){
+            customerNameDisplay = nameLookup || overrideName;
+          } else {
+            customerNameDisplay = overrideName || nameLookup;
+          }
+
+          const customerContactDisplay = overrideContact || contactLookup;
+
+          // Step D/E: items
+          const printable = this.items
+            .filter(r => (r.item_name||'').trim() || (r.spec||'').trim() || (String(r.qty||'').trim()!=='' ) || (String(r.unit_price||'').trim()!=='' ) || (r.note||'').trim())
+            .map(r => ({
+              item_name: (r.item_name||'').trim(),
+              spec: (r.spec||'').trim(),
+              qty: this.parseNumberLoose(r.qty),
+              unit_price: this.parseNumberLoose(r.unit_price),
+              line_amount: r.line_amount,
+              note: (r.note||'').trim()
+            }));
+
+          // subtotal excludes invalid rows (line_amount already 0)
+          const subtotal = _sum(printable.map(r => Number.isFinite(r.line_amount) ? r.line_amount : 0));
+
+          // VAT policy (not specified in provided formulas): default 0
+          const vat = 0;
+          const total = subtotal + vat;
+
+          const today = new Date();
+
+          this.receiptModel = {
+            // Output cell mapping equivalents
+            customer_name_lookup: nameLookup, // J3
+            customer_code_echo: (this.header.customer_code || ''), // U3 = C3
+            customer_name_display: customerNameDisplay || nameLookup, // AB3 = J3 (with override policy)
+            customer_contact_display: customerContactDisplay,
+
+            // Header echoes (X4=F4 etc.)
+            receipt_date_display: this.formatDateKorean(this.header.receipt_date),
+            receipt_no: (this.header.receipt_no || '').trim(),
+            issuer_name: (this.header.issuer_name || '').trim(),
+            payment_method: (this.header.payment_method || '').trim(),
+
+            today_display: this.formatDateKorean(today.toISOString().slice(0,10), true),
+
+            itemsToPrint: printable,
+            subtotal,
+            vat,
+            total,
+            manual_note: (this.manual.note || '').trim(),
+          };
+
+          // Warn if lookup failed
+          if((this.header.customer_code||'').trim() && !nameLookup){
+            if(!this.warnings.includes('거래처 코드를 확인하세요(조회 결과 없음).')){
+              this.warnings.push('거래처 코드를 확인하세요(조회 결과 없음).');
+            }
+          }
+        },
+
+        recalcAll(){
+          this.calculateLineAmounts();
+          this.calculateArrayColumnI();
+          this.calculateReceiptModel();
+          this.applyScale();
+        },
+
+        // --- Rendering/Printing ---
+        renderPrintPreview(){
+          // Current implementation binds directly via Alpine to receiptModel.
+          // Kept for plan parity.
+          this.applyScale();
+        },
+
+        printReceipt(){
+          this.recalcAll();
+          this.renderPrintPreview();
+          window.print();
+        },
+
+        // --- Formatters ---
+        formatMoney(v){
+          const n = Number(v);
+          if(!Number.isFinite(n)) return '';
+          // Korean currency formatting without forcing "₩" display in cell-like view is sometimes preferred.
+          // Here: show as number with commas; change to formatCurrency(n) if needed.
+          return formatNumber(n, 0);
+        },
+
+        formatNumberSafe(v){
+          const n = Number(v);
+          if(!Number.isFinite(n)) return '';
+          return formatNumber(n, 0);
+        },
+
+        formatDateKorean(yyyyMMdd, includeYear=false){
+          if(!yyyyMMdd) return '';
+          const d = new Date(yyyyMMdd);
+          if(Number.isNaN(d.getTime())) return '';
+          const y = d.getFullYear();
+          const m = d.getMonth()+1;
+          const day = d.getDate();
+          return includeYear ? `${y}년 ${m}월 ${day}일` : `${m}월 ${day}일`;
+        },
+      };
+    }
+  </script>
+
+<!-- Agent Trace Viewer -->
+<style>
+.trace-toggle {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 9999;
+    background: #6366f1;
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 25px;
+    cursor: pointer;
+    font-size: 14px;
+    box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.trace-toggle:hover { background: #4f46e5; }
+.trace-panel {
+    position: fixed;
+    top: 0;
+    right: -450px;
+    width: 450px;
+    height: 100vh;
+    background: #1e1e2e;
+    color: #cdd6f4;
+    z-index: 9998;
+    transition: right 0.3s ease;
+    overflow-y: auto;
+    font-family: 'Monaco', 'Menlo', monospace;
+    font-size: 12px;
+}
+.trace-panel.open { right: 0; }
+.trace-header {
+    padding: 16px;
+    background: #313244;
+    border-bottom: 1px solid #45475a;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.trace-header h3 { margin: 0; font-size: 14px; }
+.trace-close {
+    background: none;
+    border: none;
+    color: #cdd6f4;
+    cursor: pointer;
+    font-size: 18px;
+}
+.trace-content { padding: 16px; }
+.span-item {
+    margin-bottom: 12px;
+    padding: 12px;
+    background: #313244;
+    border-radius: 8px;
+    border-left: 3px solid #89b4fa;
+}
+.span-item.agent { border-left-color: #a6e3a1; }
+.span-item.generation { border-left-color: #f9e2af; }
+.span-item.function { border-left-color: #cba6f7; }
+.span-type {
+    font-size: 10px;
+    text-transform: uppercase;
+    color: #6c7086;
+    margin-bottom: 4px;
+}
+.span-name { font-weight: bold; color: #89dceb; }
+.span-data {
+    margin-top: 8px;
+    padding: 8px;
+    background: #1e1e2e;
+    border-radius: 4px;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+.span-time { color: #6c7086; font-size: 11px; }
+.trace-summary {
+    padding: 12px 16px;
+    background: #45475a;
+    margin: 0 16px 16px;
+    border-radius: 8px;
+}
+.trace-summary-item { display: flex; justify-content: space-between; margin: 4px 0; }
+</style>
+
+<button class="trace-toggle" onclick="toggleTracePanel()">
+    <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+        <path d="M9.5 13a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm0-5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm0-5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/>
+    </svg>
+    Agent Trace
+</button>
+
+<div class="trace-panel" id="tracePanel">
+    <div class="trace-header">
+        <h3>Agent Trace Viewer</h3>
+        <button class="trace-close" onclick="toggleTracePanel()">&times;</button>
+    </div>
+    <div class="trace-summary" id="traceSummary"></div>
+    <div class="trace-content" id="traceContent"></div>
+</div>
+
+<script>
+const TRACE_DATA = {"trace_id": "trace_e60c22a2d3b74cac8ccb1e045ac57b11", "workflow_name": "Excel-to-WebApp: 엑셀 간이영수증 표준 양식 v2.0.xlsx", "group_id": null, "metadata": null, "started_at": "2025-12-28T11:29:07.220537", "ended_at": "2025-12-28T11:34:02.919789", "spans": [{"span_id": "span_2bb9e11764054191b079005b", "parent_id": "span_b10a187215bf4748bb3a6d6d", "started_at": "2025-12-28T02:29:07.231300+00:00", "ended_at": "2025-12-28T02:29:09.141521+00:00", "error": null, "type": "response", "data": {"type": "response", "response_id": "resp_09c5758ecf38dcdb00695095f3911481958878643dce926279"}}, {"span_id": "span_bf8140cf9c534182a94c31dd", "parent_id": "span_b10a187215bf4748bb3a6d6d", "started_at": "2025-12-28T02:29:09.141980+00:00", "ended_at": "2025-12-28T02:29:09.238774+00:00", "error": null, "type": "function", "data": {"type": "function", "name": "analyze_excel", "input": "{\"file_path\":\"excel_files/엑셀 간이영수증 표준 양식 v2.0.xlsx\"}", "output": "{'filename': '엑셀 간이영수증 표준 양식 v2.0.xlsx', 'file_type': 'xlsx', 'sheets': [{'name': '영수증(빈 서식)', 'row_count': 28, 'col_count': 35, 'used_range': 'B2:AI28', 'input_cells': ['B12', 'B13', 'B14', 'B15', 'B16', 'B17', 'B18', 'B19', 'B20', 'B21', 'B22', 'B23', 'B24', 'B25', 'B26', 'C3', 'D12', 'D13', 'D14', 'D15', 'D16', 'D17', 'D18', 'D19', 'D20', 'D21', 'D22', 'D23', 'D24', 'D25', 'D26', 'F4', 'F5', 'F6', 'F7', 'H12', 'H13', 'H14', 'H15', 'H16', 'H17', 'H18', 'H19', 'H20', 'H21', 'H22', 'H23', 'H24', 'H25', 'H26', 'J12', 'J13', 'J14', 'J15', 'J16', 'J17', 'J18', 'J19', 'J20', 'J21', 'J22', 'J23', 'J24', 'J25', 'J26', 'J3', 'M5', 'M7', 'O12', 'O13', 'O14', 'O15', 'O16', 'O17', 'O18', 'O19', 'O20', 'O21', 'O22', 'O23', 'O24', 'O25', 'O26', 'P12', 'P13', 'P14', 'P15', 'P16', 'P17', 'P18', 'P19', 'P20', 'P21', 'P22', 'P23', 'P24', 'P25', 'P26', 'Q12', 'Q13', 'Q14', 'Q15', 'Q16', 'Q17', 'Q18', 'Q19', 'Q20', 'Q21', 'Q22', 'Q23', 'Q24', 'Q25', 'Q26'], 'output_cells': ['AB12', 'AB13', 'AB14', 'AB15', 'AB16', 'AB17', 'AB18', 'AB19', 'AB20', 'AB21', 'AB22', 'AB23', 'AB24', 'AB25', 'AB26', 'AB3', 'AC27', 'AE5', 'AE7', 'AF12', 'AF13', 'AF14', 'AF15', 'AF16', 'AF17', 'AF18', 'AF19', 'AF20', 'AF21', 'AF22', 'AF23', 'AF24', 'AF25', 'AF26', 'G9', 'K27', 'N12', 'N13', 'N14', 'N15', 'N16', 'N17', 'N18', 'N19', 'N20', 'N21', 'N22', 'N23', 'N24', 'N25', 'N26', 'T12', 'T13', 'T14', 'T15', 'T16', 'T17', 'T18', 'T19', 'T20', 'T21', 'T22', 'T23', 'T24', 'T25', 'T26', 'T9', 'U3', 'V12', 'V13', 'V14', 'V15', 'V16', 'V17', 'V18', 'V19', 'V20', 'V21', 'V22', 'V23', 'V24', 'V25', 'V26', 'X4', 'X5', 'X6', 'X7', 'Y9', 'Z12', 'Z13', 'Z14', 'Z15', 'Z16', 'Z17', 'Z18', 'Z19', 'Z20', 'Z21', 'Z22', 'Z23', 'Z24', 'Z25', 'Z26'], 'formulas': [{'cell': 'U3', 'formula': '=C3', 'dependencies': ['C3'], 'result_type': 'number'}, {'cell': 'AB3', 'formula': '=J3', 'dependencies': ['J3'], 'result_type': 'number'}, {'cell': 'X4', 'formula': '=F4', 'dependencies': ['F4'], 'result_type': 'number'}, {'cell': 'X5', 'formula': '=F5', 'dependencies': ['F5'], 'result_type': 'number'}, {'cell': 'AE5', 'formula': '=M5', 'dependencies': ['M5'], 'result_type': 'number'}, {'cell': 'X6', 'formula': '=F6', 'dependencies': ['F6'], 'result_type': 'number'}, {'cell': 'X7', 'formula': '=F7', 'dependencies': ['F7'], 'result_type': 'number'}, {'cell': 'AE7', 'formula': '=M7', 'dependencies': ['M7'], 'result_type': 'number'}, {'cell': 'G9', 'formula': '=K27', 'dependencies': ['K27'], 'result_type': 'number'}, {'cell': 'T9', 'formula': '=TODAY()', 'dependencies': [], 'result_type': 'date'}, {'cell': 'Y9', 'formula': '=G9', 'dependencies': ['G9'], 'result_type': 'number'}, {'cell': 'N12', 'formula': '=H12*J12', 'dependencies': ['H12', 'J12'], 'result_type': 'number'}, {'cell': 'T12', 'formula': '=IF(B12=\"\",\"\",TEXT(B12,\"m월 d일\"))', 'dependencies': ['B12'], 'result_type': 'string'}, {'cell': 'V12', 'formula': '=D12&\"\"', 'dependencies': ['D12'], 'result_type': 'number'}, {'cell': 'Z12', 'formula': '=H12', 'dependencies': ['H12'], 'result_type': 'number'}, {'cell': 'AB12', 'formula': '=J12', 'dependencies': ['J12'], 'result_type': 'number'}, {'cell': 'AF12', 'formula': '=N12', 'dependencies': ['N12'], 'result_type': 'number'}, {'cell': 'N13', 'formula': '=H13*J13', 'dependencies': ['J13', 'H13'], 'result_type': 'number'}, {'cell': 'T13', 'formula': '=IF(B13=\"\",\"\",TEXT(B13,\"m월 d일\"))', 'dependencies': ['B13'], 'result_type': 'string'}, {'cell': 'V13', 'formula': '=D13&\"\"', 'dependencies': ['D13'], 'result_type': 'number'}, {'cell': 'Z13', 'formula': '=H13', 'dependencies': ['H13'], 'result_type': 'number'}, {'cell': 'AB13', 'formula': '=J13', 'dependencies': ['J13'], 'result_type': 'number'}, {'cell': 'AF13', 'formula': '=N13', 'dependencies': ['N13'], 'result_type': 'number'}, {'cell': 'N14', 'formula': '=H14*J14', 'dependencies': ['H14', 'J14'], 'result_type': 'number'}, {'cell': 'T14', 'formula': '=IF(B14=\"\",\"\",TEXT(B14,\"m월 d일\"))', 'dependencies': ['B14'], 'result_type': 'string'}, {'cell': 'V14', 'formula': '=D14&\"\"', 'dependencies': ['D14'], 'result_type': 'number'}, {'cell': 'Z14', 'formula': '=H14', 'dependencies': ['H14'], 'result_type': 'number'}, {'cell': 'AB14', 'formula': '=J14', 'dependencies': ['J14'], 'result_type': 'number'}, {'cell': 'AF14', 'formula': '=N14', 'dependencies': ['N14'], 'result_type': 'number'}, {'cell': 'N15', 'formula': '=H15*J15', 'dependencies': ['J15', 'H15'], 'result_type': 'number'}, {'cell': 'T15', 'formula': '=IF(B15=\"\",\"\",TEXT(B15,\"m월 d일\"))', 'dependencies': ['B15'], 'result_type': 'string'}, {'cell': 'V15', 'formula': '=D15&\"\"', 'dependencies': ['D15'], 'result_type': 'number'}, {'cell': 'Z15', 'formula': '=H15', 'dependencies': ['H15'], 'result_type': 'number'}, {'cell': 'AB15', 'formula': '=J15', 'dependencies': ['J15'], 'result_type': 'number'}, {'cell': 'AF15', 'formula': '=N15', 'dependencies': ['N15'], 'result_type': 'number'}, {'cell': 'N16', 'formula': '=H16*J16', 'dependencies': ['H16', 'J16'], 'result_type': 'number'}, {'cell': 'T16', 'formula': '=IF(B16=\"\",\"\",TEXT(B16,\"m월 d일\"))', 'dependencies': ['B16'], 'result_type': 'string'}, {'cell': 'V16', 'formula': '=D16&\"\"', 'dependencies': ['D16'], 'result_type': 'number'}, {'cell': 'Z16', 'formula': '=H16', 'dependencies': ['H16'], 'result_type': 'number'}, {'cell': 'AB16', 'formula': '=J16', 'dependencies': ['J16'], 'result_type': 'number'}, {'cell': 'AF16', 'formula': '=N16', 'dependencies': ['N16'], 'result_type': 'number'}, {'cell': 'N17', 'formula': '=H17*J17', 'dependencies': ['J17', 'H17'], 'result_type': 'number'}, {'cell': 'T17', 'formula': '=IF(B17=\"\",\"\",TEXT(B17,\"m월 d일\"))', 'dependencies': ['B17'], 'result_type': 'string'}, {'cell': 'V17', 'formula': '=D17&\"\"', 'dependencies': ['D17'], 'result_type': 'number'}, {'cell': 'Z17', 'formula': '=H17', 'dependencies': ['H17'], 'result_type': 'number'}, {'cell': 'AB17', 'formula': '=J17', 'dependencies': ['J17'], 'result_type': 'number'}, {'cell': 'AF17', 'formula': '=N17', 'dependencies': ['N17'], 'result_type': 'number'}, {'cell': 'N18', 'formula': '=H18*J18', 'dependencies': ['J18', 'H18'], 'result_type': 'number'}, {'cell': 'T18', 'formula': '=IF(B18=\"\",\"\",TEXT(B18,\"m월 d일\"))', 'dependencies': ['B18'], 'result_type': 'string'}, {'cell': 'V18', 'formula': '=D18&\"\"', 'dependencies': ['D18'], 'result_type': 'number'}, {'cell': 'Z18', 'formula': '=H18', 'dependencies': ['H18'], 'result_type': 'number'}, {'cell': 'AB18', 'formula': '=J18', 'dependencies': ['J18'], 'result_type': 'number'}, {'cell': 'AF18', 'formula': '=N18', 'dependencies': ['N18'], 'result_type': 'number'}, {'cell': 'N19', 'formula': '=H19*J19', 'dependencies': ['H19', 'J19'], 'result_type': 'number'}, {'cell': 'T19', 'formula': '=IF(B19=\"\",\"\",TEXT(B19,\"m월 d일\"))', 'dependencies': ['B19'], 'result_type': 'string'}, {'cell': 'V19', 'formula': '=D19&\"\"', 'dependencies': ['D19'], 'result_type': 'number'}, {'cell': 'Z19', 'formula': '=H19', 'dependencies': ['H19'], 'result_type': 'number'}, {'cell': 'AB19', 'formula': '=J19', 'dependencies': ['J19'], 'result_type': 'number'}, {'cell': 'AF19', 'formula': '=N19', 'dependencies': ['N19'], 'result_type': 'number'}, {'cell': 'N20', 'formula': '=H20*J20', 'dependencies': ['J20', 'H20'], 'result_type': 'number'}, {'cell': 'T20', 'formula': '=IF(B20=\"\",\"\",TEXT(B20,\"m월 d일\"))', 'dependencies': ['B20'], 'result_type': 'string'}, {'cell': 'V20', 'formula': '=D20&\"\"', 'dependencies': ['D20'], 'result_type': 'number'}, {'cell': 'Z20', 'formula': '=H20', 'dependencies': ['H20'], 'result_type': 'number'}, {'cell': 'AB20', 'formula': '=J20', 'dependencies': ['J20'], 'result_type': 'number'}, {'cell': 'AF20', 'formula': '=N20', 'dependencies': ['N20'], 'result_type': 'number'}, {'cell': 'N21', 'formula': '=H21*J21', 'dependencies': ['H21', 'J21'], 'result_type': 'number'}, {'cell': 'T21', 'formula': '=IF(B21=\"\",\"\",TEXT(B21,\"m월 d일\"))', 'dependencies': ['B21'], 'result_type': 'string'}, {'cell': 'V21', 'formula': '=D21&\"\"', 'dependencies': ['D21'], 'result_type': 'number'}, {'cell': 'Z21', 'formula': '=H21', 'dependencies': ['H21'], 'result_type': 'number'}, {'cell': 'AB21', 'formula': '=J21', 'dependencies': ['J21'], 'result_type': 'number'}, {'cell': 'AF21', 'formula': '=N21', 'dependencies': ['N21'], 'result_type': 'number'}, {'cell': 'N22', 'formula': '=H22*J22', 'dependencies': ['J22', 'H22'], 'result_type': 'number'}, {'cell': 'T22', 'formula': '=IF(B22=\"\",\"\",TEXT(B22,\"m월 d일\"))', 'dependencies': ['B22'], 'result_type': 'string'}, {'cell': 'V22', 'formula': '=D22&\"\"', 'dependencies': ['D22'], 'result_type': 'number'}, {'cell': 'Z22', 'formula': '=H22', 'dependencies': ['H22'], 'result_type': 'number'}, {'cell': 'AB22', 'formula': '=J22', 'dependencies': ['J22'], 'result_type': 'number'}, {'cell': 'AF22', 'formula': '=N22', 'dependencies': ['N22'], 'result_type': 'number'}, {'cell': 'N23', 'formula': '=H23*J23', 'dependencies': ['J23', 'H23'], 'result_type': 'number'}, {'cell': 'T23', 'formula': '=IF(B23=\"\",\"\",TEXT(B23,\"m월 d일\"))', 'dependencies': ['B23'], 'result_type': 'string'}, {'cell': 'V23', 'formula': '=D23&\"\"', 'dependencies': ['D23'], 'result_type': 'number'}, {'cell': 'Z23', 'formula': '=H23', 'dependencies': ['H23'], 'result_type': 'number'}, {'cell': 'AB23', 'formula': '=J23', 'dependencies': ['J23'], 'result_type': 'number'}, {'cell': 'AF23', 'formula': '=N23', 'dependencies': ['N23'], 'result_type': 'number'}, {'cell': 'N24', 'formula': '=H24*J24', 'dependencies': ['J24', 'H24'], 'result_type': 'number'}, {'cell': 'T24', 'formula': '=IF(B24=\"\",\"\",TEXT(B24,\"m월 d일\"))', 'dependencies': ['B24'], 'result_type': 'string'}, {'cell': 'V24', 'formula': '=D24&\"\"', 'dependencies': ['D24'], 'result_type': 'number'}, {'cell': 'Z24', 'formula': '=H24', 'dependencies': ['H24'], 'result_type': 'number'}, {'cell': 'AB24', 'formula': '=J24', 'dependencies': ['J24'], 'result_type': 'number'}, {'cell': 'AF24', 'formula': '=N24', 'dependencies': ['N24'], 'result_type': 'number'}, {'cell': 'N25', 'formula': '=H25*J25', 'dependencies': ['H25', 'J25'], 'result_type': 'number'}, {'cell': 'T25', 'formula': '=IF(B25=\"\",\"\",TEXT(B25,\"m월 d일\"))', 'dependencies': ['B25'], 'result_type': 'string'}, {'cell': 'V25', 'formula': '=D25&\"\"', 'dependencies': ['D25'], 'result_type': 'number'}, {'cell': 'Z25', 'formula': '=H25', 'dependencies': ['H25'], 'result_type': 'number'}, {'cell': 'AB25', 'formula': '=J25', 'dependencies': ['J25'], 'result_type': 'number'}, {'cell': 'AF25', 'formula': '=N25', 'dependencies': ['N25'], 'result_type': 'number'}, {'cell': 'N26', 'formula': '=H26*J26', 'dependencies': ['H26', 'J26'], 'result_type': 'number'}, {'cell': 'T26', 'formula': '=IF(B26=\"\",\"\",TEXT(B26,\"m월 d일\"))', 'dependencies': ['B26'], 'result_type': 'string'}, {'cell': 'V26', 'formula': '=D26&\"\"', 'dependencies': ['D26'], 'result_type': 'number'}, {'cell': 'Z26', 'formula': '=H26', 'dependencies': ['H26'], 'result_type': 'number'}, {'cell': 'AB26', 'formula': '=J26', 'dependencies': ['J26'], 'result_type': 'number'}, {'cell': 'AF26', 'formula': '=N26', 'dependencies': ['N26'], 'result_type': 'number'}, {'cell': 'K27', 'formula': '=SUM(N12:Q26)', 'dependencies': ['N15', 'O18', 'Q13', 'P21', 'O23', 'P22', 'N16', 'Q24', 'Q14', 'O14', 'N13', 'Q19', 'O20', 'P13', 'O25', 'Q12', 'P12', 'Q17', 'Q21', 'P25', 'O15', 'O17', 'P26', 'Q20', 'O16', 'N22', 'P16', 'Q16', 'N17', 'N18', 'N25', 'N26', 'O19', 'Q15', 'N12', 'O24', 'P23', 'P24', 'P15', 'N20', 'Q25', 'O21', 'P14', 'P18', 'P19', 'P20', 'N14', 'N24', 'N21', 'Q23', 'O12', 'O26', 'N19', 'N23', 'Q26', 'Q18', 'Q22', 'O13', 'P17', 'O22'], 'result_type': 'number'}, {'cell': 'AC27', 'formula': '=K27', 'dependencies': ['K27'], 'result_type': 'number'}], 'has_print_area': True, 'print_area': \"'영수증(빈 서식)'!$B$2:$AI$27\"}, {'name': '영수증', 'row_count': 28, 'col_count': 35, 'used_range': 'B2:AI28', 'input_cells': ['C3', 'F4', 'F5', 'F6', 'F7', 'M5', 'M7', '표1[]'], 'output_cells': ['AB3', 'AE12', 'AE13', 'AE14', 'AE15', 'AE16', 'AE17', 'AE18', 'AE19', 'AE20', 'AE21', 'AE22', 'AE23', 'AE24', 'AE25', 'AE26', 'AE5', 'AE7', 'AI12', 'AI13', 'AI14', 'AI15', 'AI16', 'AI17', 'AI18', 'AI19', 'AI20', 'AI21', 'AI22', 'AI23', 'AI24', 'AI25', 'AI26', 'AI27', 'B12', 'B13', 'B14', 'B15', 'B16', 'B17', 'B18', 'B19', 'B20', 'B21', 'B22', 'B23', 'B24', 'B25', 'B26', 'B9', 'D12', 'D13', 'D14', 'D15', 'D16', 'D17', 'D18', 'D19', 'D20', 'D21', 'D22', 'D23', 'D24', 'D25', 'D26', 'G9', 'H12', 'H13', 'H14', 'H15', 'H16', 'H17', 'H18', 'H19', 'H20', 'H21', 'H22', 'H23', 'H24', 'H25', 'H26', 'J3', 'M12', 'M13', 'M14', 'M15', 'M16', 'M17', 'M18', 'M19', 'M20', 'M21', 'M22', 'M23', 'M24', 'M25', 'M26', 'Q12', 'Q13', 'Q14', 'Q15', 'Q16', 'Q17', 'Q18', 'Q19', 'Q20', 'Q21', 'Q22', 'Q23', 'Q24', 'Q25', 'Q26', 'Q27', 'T12', 'T13', 'T14', 'T15', 'T16', 'T17', 'T18', 'T19', 'T20', 'T21', 'T22', 'T23', 'T24', 'T25', 'T26', 'T9', 'U3', 'V12', 'V13', 'V14', 'V15', 'V16', 'V17', 'V18', 'V19', 'V20', 'V21', 'V22', 'V23', 'V24', 'V25', 'V26', 'X4', 'X5', 'X6', 'X7', 'Y9', 'Z12', 'Z13', 'Z14', 'Z15', 'Z16', 'Z17', 'Z18', 'Z19', 'Z20', 'Z21', 'Z22', 'Z23', 'Z24', 'Z25', 'Z26'], 'formulas': [{'cell': 'J3', 'formula': '=VLOOKUP(C3,표1[],2,0)', 'dependencies': ['표1[]', 'C3'], 'result_type': 'number'}, {'cell': 'U3', 'formula': '=C3', 'dependencies': ['C3'], 'result_type': 'number'}, {'cell': 'AB3', 'formula': '=J3', 'dependencies': ['J3'], 'result_type': 'number'}, {'cell': 'X4', 'formula': '=F4', 'dependencies': ['F4'], 'result_type': 'number'}, {'cell': 'X5', 'formula': '=F5', 'dependencies': ['F5'], 'result_type': 'number'}, {'cell': 'AE5', 'formula': '=M5', 'dependencies': ['M5'], 'result_type': 'number'}, {'cell': 'X6', 'formula': '=F6', 'dependencies': ['F6'], 'result_type': 'number'}, {'cell': 'X7', 'formula': '=F7', 'dependencies': ['F7'], 'result_type': 'number'}, {'cell': 'AE7', 'formula': '=M7', 'dependencies': ['M7'], 'result_type': 'number'}, {'cell': 'B9', 'formula': '=TODAY()', 'dependencies': [], 'result_type': 'date'}, {'cell': 'G9', 'formula': '=Q27', 'dependencies': ['Q27'], 'result_type': 'number'}, {'cell': 'T9', 'formula': '=TODAY()', 'dependencies': [], 'result_type': 'date'}, {'cell': 'Y9', 'formula': '=G9', 'dependencies': ['G9'], 'result_type': 'number'}, {'cell': 'B12', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x111f6c9b0>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'D12', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x111f6c980>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'H12', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x111f6c950>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'M12', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x111f6c920>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'Q12', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x111f6c8f0>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'T12', 'formula': '=B12', 'dependencies': ['B12'], 'result_type': 'number'}, {'cell': 'V12', 'formula': '=D12', 'dependencies': ['D12'], 'result_type': 'number'}, {'cell': 'Z12', 'formula': '=H12', 'dependencies': ['H12'], 'result_type': 'number'}, {'cell': 'AE12', 'formula': '=M12', 'dependencies': ['M12'], 'result_type': 'number'}, {'cell': 'AI12', 'formula': '=Q12', 'dependencies': ['Q12'], 'result_type': 'number'}, {'cell': 'B13', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x111f6dbe0>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'D13', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x111f6dbb0>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'H13', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x111f6db80>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'M13', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x111f6db50>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'Q13', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x111f6db20>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'T13', 'formula': '=B13', 'dependencies': ['B13'], 'result_type': 'number'}, {'cell': 'V13', 'formula': '=D13', 'dependencies': ['D13'], 'result_type': 'number'}, {'cell': 'Z13', 'formula': '=H13', 'dependencies': ['H13'], 'result_type': 'number'}, {'cell': 'AE13', 'formula': '=M13', 'dependencies': ['M13'], 'result_type': 'number'}, {'cell': 'AI13', 'formula': '=Q13', 'dependencies': ['Q13'], 'result_type': 'number'}, {'cell': 'B14', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x112968c50>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'D14', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x112968c80>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'H14', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x112968cb0>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'M14', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x112968ce0>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'Q14', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x112968d10>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'T14', 'formula': '=B14', 'dependencies': ['B14'], 'result_type': 'number'}, {'cell': 'V14', 'formula': '=D14', 'dependencies': ['D14'], 'result_type': 'number'}, {'cell': 'Z14', 'formula': '=H14', 'dependencies': ['H14'], 'result_type': 'number'}, {'cell': 'AE14', 'formula': '=M14', 'dependencies': ['M14'], 'result_type': 'number'}, {'cell': 'AI14', 'formula': '=Q14', 'dependencies': ['Q14'], 'result_type': 'number'}, {'cell': 'B15', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x112940200>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'D15', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x1129401d0>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'H15', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x1129401a0>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'M15', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x112940170>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'Q15', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x112940140>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'T15', 'formula': '=B15', 'dependencies': ['B15'], 'result_type': 'number'}, {'cell': 'V15', 'formula': '=D15', 'dependencies': ['D15'], 'result_type': 'number'}, {'cell': 'Z15', 'formula': '=H15', 'dependencies': ['H15'], 'result_type': 'number'}, {'cell': 'AE15', 'formula': '=M15', 'dependencies': ['M15'], 'result_type': 'number'}, {'cell': 'AI15', 'formula': '=Q15', 'dependencies': ['Q15'], 'result_type': 'number'}, {'cell': 'B16', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x111f6e390>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'D16', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x111f6e3c0>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'H16', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x111f6e3f0>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'M16', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x111f6e420>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'Q16', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x111f6e480>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'T16', 'formula': '=B16', 'dependencies': ['B16'], 'result_type': 'number'}, {'cell': 'V16', 'formula': '=D16', 'dependencies': ['D16'], 'result_type': 'number'}, {'cell': 'Z16', 'formula': '=H16', 'dependencies': ['H16'], 'result_type': 'number'}, {'cell': 'AE16', 'formula': '=M16', 'dependencies': ['M16'], 'result_type': 'number'}, {'cell': 'AI16', 'formula': '=Q16', 'dependencies': ['Q16'], 'result_type': 'number'}, {'cell': 'B17', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x111f8ec90>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'D17', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x111f8ecc0>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'H17', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x111f8f380>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'M17', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x111f8f4a0>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'Q17', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x111f8f4d0>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'T17', 'formula': '=B17', 'dependencies': ['B17'], 'result_type': 'number'}, {'cell': 'V17', 'formula': '=D17', 'dependencies': ['D17'], 'result_type': 'number'}, {'cell': 'Z17', 'formula': '=H17', 'dependencies': ['H17'], 'result_type': 'number'}, {'cell': 'AE17', 'formula': '=M17', 'dependencies': ['M17'], 'result_type': 'number'}, {'cell': 'AI17', 'formula': '=Q17', 'dependencies': ['Q17'], 'result_type': 'number'}, {'cell': 'B18', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x111f8c500>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'D18', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x111f8c4d0>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'H18', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x111f8c4a0>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'M18', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x111f8c470>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'Q18', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x111f8c440>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'T18', 'formula': '=B18', 'dependencies': ['B18'], 'result_type': 'number'}, {'cell': 'V18', 'formula': '=D18', 'dependencies': ['D18'], 'result_type': 'number'}, {'cell': 'Z18', 'formula': '=H18', 'dependencies': ['H18'], 'result_type': 'number'}, {'cell': 'AE18', 'formula': '=M18', 'dependencies': ['M18'], 'result_type': 'number'}, {'cell': 'AI18', 'formula': '=Q18', 'dependencies': ['Q18'], 'result_type': 'number'}, {'cell': 'B19', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x11291f380>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'D19', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x11291ffb0>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'H19', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x11291e8d0>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'M19', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x11291ec90>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'Q19', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x11291ea50>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'T19', 'formula': '=B19', 'dependencies': ['B19'], 'result_type': 'number'}, {'cell': 'V19', 'formula': '=D19', 'dependencies': ['D19'], 'result_type': 'number'}, {'cell': 'Z19', 'formula': '=H19', 'dependencies': ['H19'], 'result_type': 'number'}, {'cell': 'AE19', 'formula': '=M19', 'dependencies': ['M19'], 'result_type': 'number'}, {'cell': 'AI19', 'formula': '=Q19', 'dependencies': ['Q19'], 'result_type': 'number'}, {'cell': 'B20', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x112940bf0>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'D20', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x112940bc0>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'H20', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x112940b90>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'M20', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x112940b60>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'Q20', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x112940b30>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'T20', 'formula': '=B20', 'dependencies': ['B20'], 'result_type': 'number'}, {'cell': 'V20', 'formula': '=D20', 'dependencies': ['D20'], 'result_type': 'number'}, {'cell': 'Z20', 'formula': '=H20', 'dependencies': ['H20'], 'result_type': 'number'}, {'cell': 'AE20', 'formula': '=M20', 'dependencies': ['M20'], 'result_type': 'number'}, {'cell': 'AI20', 'formula': '=Q20', 'dependencies': ['Q20'], 'result_type': 'number'}, {'cell': 'B21', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x112941dc0>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'D21', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x112941d90>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'H21', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x112941d60>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'M21', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x112941d30>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'Q21', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x112941d00>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'T21', 'formula': '=B21', 'dependencies': ['B21'], 'result_type': 'number'}, {'cell': 'V21', 'formula': '=D21', 'dependencies': ['D21'], 'result_type': 'number'}, {'cell': 'Z21', 'formula': '=H21', 'dependencies': ['H21'], 'result_type': 'number'}, {'cell': 'AE21', 'formula': '=M21', 'dependencies': ['M21'], 'result_type': 'number'}, {'cell': 'AI21', 'formula': '=Q21', 'dependencies': ['Q21'], 'result_type': 'number'}, {'cell': 'B22', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x112942f90>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'D22', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x112942f60>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'H22', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x112942f30>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'M22', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x112942f00>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'Q22', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x112942ed0>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'T22', 'formula': '=B22', 'dependencies': ['B22'], 'result_type': 'number'}, {'cell': 'V22', 'formula': '=D22', 'dependencies': ['D22'], 'result_type': 'number'}, {'cell': 'Z22', 'formula': '=H22', 'dependencies': ['H22'], 'result_type': 'number'}, {'cell': 'AE22', 'formula': '=M22', 'dependencies': ['M22'], 'result_type': 'number'}, {'cell': 'AI22', 'formula': '=Q22', 'dependencies': ['Q22'], 'result_type': 'number'}, {'cell': 'B23', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x11296ae40>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'D23', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x11296ae70>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'H23', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x11296aea0>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'M23', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x11296aed0>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'Q23', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x11296af00>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'T23', 'formula': '=B23', 'dependencies': ['B23'], 'result_type': 'number'}, {'cell': 'V23', 'formula': '=D23', 'dependencies': ['D23'], 'result_type': 'number'}, {'cell': 'Z23', 'formula': '=H23', 'dependencies': ['H23'], 'result_type': 'number'}, {'cell': 'AE23', 'formula': '=M23', 'dependencies': ['M23'], 'result_type': 'number'}, {'cell': 'AI23', 'formula': '=Q23', 'dependencies': ['Q23'], 'result_type': 'number'}, {'cell': 'B24', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x112942720>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'D24', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x112942750>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'H24', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x1129427b0>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'M24', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x1129427e0>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'Q24', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x112942810>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'T24', 'formula': '=B24', 'dependencies': ['B24'], 'result_type': 'number'}, {'cell': 'V24', 'formula': '=D24', 'dependencies': ['D24'], 'result_type': 'number'}, {'cell': 'Z24', 'formula': '=H24', 'dependencies': ['H24'], 'result_type': 'number'}, {'cell': 'AE24', 'formula': '=M24', 'dependencies': ['M24'], 'result_type': 'number'}, {'cell': 'AI24', 'formula': '=Q24', 'dependencies': ['Q24'], 'result_type': 'number'}, {'cell': 'B25', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x11291d3d0>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'D25', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x11291fad0>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'H25', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x11291d130>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'M25', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x11291d850>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'Q25', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x111f63350>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'T25', 'formula': '=B25', 'dependencies': ['B25'], 'result_type': 'number'}, {'cell': 'V25', 'formula': '=D25', 'dependencies': ['D25'], 'result_type': 'number'}, {'cell': 'Z25', 'formula': '=H25', 'dependencies': ['H25'], 'result_type': 'number'}, {'cell': 'AE25', 'formula': '=M25', 'dependencies': ['M25'], 'result_type': 'number'}, {'cell': 'AI25', 'formula': '=Q25', 'dependencies': ['Q25'], 'result_type': 'number'}, {'cell': 'B26', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x111f8f950>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'D26', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x111f8f920>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'H26', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x111f8f8f0>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'M26', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x111f8f8c0>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'Q26', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x111f8f890>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'T26', 'formula': '=B26', 'dependencies': ['B26'], 'result_type': 'number'}, {'cell': 'V26', 'formula': '=D26', 'dependencies': ['D26'], 'result_type': 'number'}, {'cell': 'Z26', 'formula': '=H26', 'dependencies': ['H26'], 'result_type': 'number'}, {'cell': 'AE26', 'formula': '=M26', 'dependencies': ['M26'], 'result_type': 'number'}, {'cell': 'AI26', 'formula': '=Q26', 'dependencies': ['Q26'], 'result_type': 'number'}, {'cell': 'Q27', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x111f6ff20>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'AI27', 'formula': '=Q27', 'dependencies': ['Q27'], 'result_type': 'number'}], 'has_print_area': True, 'print_area': \"'영수증'!$B$2:$AI$27\"}, {'name': '영수증DB', 'row_count': 51, 'col_count': 9, 'used_range': 'A1:I51', 'input_cells': ['E10', 'E11', 'E12', 'E2', 'E3', 'E4', 'E5', 'E6', 'E7', 'E8', 'E9', 'F10', 'F11', 'F12', 'F2', 'F3', 'F4', 'F5', 'F6', 'F7', 'F8', 'F9'], 'output_cells': ['G10', 'G11', 'G12', 'G2', 'G3', 'G4', 'G5', 'G6', 'G7', 'G8', 'G9', 'I10', 'I11', 'I12', 'I13', 'I14', 'I15', 'I16', 'I17', 'I18', 'I19', 'I2', 'I20', 'I21', 'I22', 'I23', 'I24', 'I25', 'I26', 'I27', 'I28', 'I29', 'I3', 'I30', 'I31', 'I32', 'I33', 'I34', 'I35', 'I36', 'I37', 'I38', 'I39', 'I4', 'I40', 'I41', 'I42', 'I43', 'I44', 'I45', 'I46', 'I47', 'I48', 'I49', 'I5', 'I50', 'I51', 'I6', 'I7', 'I8', 'I9'], 'formulas': [{'cell': 'G2', 'formula': '=F2*E2', 'dependencies': ['E2', 'F2'], 'result_type': 'number'}, {'cell': 'I2', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x111f62d20>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'G3', 'formula': '=F3*E3', 'dependencies': ['E3', 'F3'], 'result_type': 'number'}, {'cell': 'I3', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x112915e20>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'G4', 'formula': '=F4*E4', 'dependencies': ['E4', 'F4'], 'result_type': 'number'}, {'cell': 'I4', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x111f6ef90>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'G5', 'formula': '=F5*E5', 'dependencies': ['F5', 'E5'], 'result_type': 'number'}, {'cell': 'I5', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x111f6d0d0>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'G6', 'formula': '=F6*E6', 'dependencies': ['F6', 'E6'], 'result_type': 'number'}, {'cell': 'I6', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x112968380>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'G7', 'formula': '=F7*E7', 'dependencies': ['F7', 'E7'], 'result_type': 'number'}, {'cell': 'I7', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x112969fd0>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'G8', 'formula': '=F8*E8', 'dependencies': ['E8', 'F8'], 'result_type': 'number'}, {'cell': 'I8', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x11296b9e0>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'G9', 'formula': '=F9*E9', 'dependencies': ['F9', 'E9'], 'result_type': 'number'}, {'cell': 'I9', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x11296bbf0>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'G10', 'formula': '=F10*E10', 'dependencies': ['F10', 'E10'], 'result_type': 'number'}, {'cell': 'I10', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x112968680>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'G11', 'formula': '=F11*E11', 'dependencies': ['E11', 'F11'], 'result_type': 'number'}, {'cell': 'I11', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x1129692e0>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'G12', 'formula': '=F12*E12', 'dependencies': ['E12', 'F12'], 'result_type': 'number'}, {'cell': 'I12', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x112969490>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'I13', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x11296a600>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'I14', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x11296a840>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'I15', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x112941670>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'I16', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x1129424e0>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'I17', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x112940890>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'I18', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x1129437d0>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'I19', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x112942d20>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'I20', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x112941550>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'I21', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x1129429f0>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'I22', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x112943f80>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'I23', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x112943770>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'I24', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x112943860>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'I25', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x112943fb0>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'I26', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x112942de0>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'I27', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x1129408c0>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'I28', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x112941310>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'I29', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x112941370>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'I30', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x112942540>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'I31', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x112943680>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'I32', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x112943710>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'I33', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x1129415e0>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'I34', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x11296a9c0>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'I35', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x112969af0>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'I36', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x112969220>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'I37', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x112969b80>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'I38', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x11296a480>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'I39', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x11296a360>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'I40', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x11296a1b0>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'I41', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x11296a0f0>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'I42', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x11296a000>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'I43', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x112969a60>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'I44', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x112969a00>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'I45', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x1129699a0>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'I46', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x112969910>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'I47', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x1129698e0>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'I48', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x112969520>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'I49', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x1129694c0>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'I50', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x112969400>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'I51', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x1129693a0>', 'dependencies': [], 'result_type': 'boolean'}], 'has_print_area': False, 'print_area': None}], 'vba_modules': [], 'has_vba': False, 'print_settings': {'orientation': 'landscape', 'paper_size': 'A4', 'margins': {'top': 0.7480314960629921, 'bottom': 0.7480314960629921, 'left': 0.7086614173228347, 'right': 0.7086614173228347}, 'header': None, 'footer': None, 'fit_to_page': False, 'scale': 93}, 'total_formulas': 329, 'total_input_cells': 143, 'total_output_cells': 329, 'complexity_score': 'medium'}", "mcp_data": null}}, {"span_id": "span_19b72dbdbaef4cb7aadb2b60", "parent_id": "span_b10a187215bf4748bb3a6d6d", "started_at": "2025-12-28T02:29:09.240201+00:00", "ended_at": "2025-12-28T02:31:43.111884+00:00", "error": null, "type": "response", "data": {"type": "response", "response_id": "resp_09c5758ecf38dcdb00695095f579a48195b9648d8e03a61ba2"}}, {"span_id": "span_b10a187215bf4748bb3a6d6d", "parent_id": null, "started_at": "2025-12-28T02:29:07.220888+00:00", "ended_at": "2025-12-28T02:31:43.112223+00:00", "error": null, "type": "agent", "data": {"type": "agent", "name": "Excel Analyzer", "handoffs": [], "tools": ["analyze_excel", "get_sheet_cells"], "output_type": "str"}}, {"span_id": "span_7c3e1bdfc159426d8e035fe2", "parent_id": "span_882bdd0ecaa14b4ca86efda4", "started_at": "2025-12-28T02:31:43.112986+00:00", "ended_at": "2025-12-28T02:32:24.488500+00:00", "error": null, "type": "response", "data": {"type": "response", "response_id": "resp_023c46258ea8365e006950968f55888197a31449ca5dc4ba0a"}}, {"span_id": "span_882bdd0ecaa14b4ca86efda4", "parent_id": null, "started_at": "2025-12-28T02:31:43.112730+00:00", "ended_at": "2025-12-28T02:32:24.489065+00:00", "error": null, "type": "agent", "data": {"type": "agent", "name": "WebApp Planner", "handoffs": [], "tools": [], "output_type": "WebAppPlan"}}, {"span_id": "span_888973605b2c46069a905839", "parent_id": "span_a195cde340dd4e5ba08cd169", "started_at": "2025-12-28T02:32:24.489705+00:00", "ended_at": "2025-12-28T02:32:25.823129+00:00", "error": null, "type": "response", "data": {"type": "response", "response_id": "resp_00e633c84ec2c3a400695096b8b5788190b8062cba60bc19f6"}}, {"span_id": "span_91eaba009d314e6195df1316", "parent_id": "span_a195cde340dd4e5ba08cd169", "started_at": "2025-12-28T02:32:25.823331+00:00", "ended_at": "2025-12-28T02:32:25.824124+00:00", "error": null, "type": "function", "data": {"type": "function", "name": "get_js_helpers", "input": "{}", "output": "\n// Excel formula helper functions\nfunction _sum(...args) {\n    return args.flat().reduce((a, b) => (parseFloat(a) || 0) + (parseFloat(b) || 0), 0);\n}\n\nfunction _sumRange(rangeData) {\n    if (Array.isArray(rangeData)) {\n        return rangeData.flat().reduce((a, b) => (parseFloat(a) || 0) + (parseFloat(b) || 0), 0);\n    }\n    return parseFloat(rangeData) || 0;\n}\n\nfunction _average(...args) {\n    const flat = args.flat().filter(x => x !== null && x !== '' && !isNaN(x));\n    return flat.length ? _sum(...flat) / flat.length : 0;\n}\n\nfunction _averageRange(rangeData) {\n    if (Array.isArray(rangeData)) {\n        const flat = rangeData.flat().filter(x => x !== null && x !== '' && !isNaN(x));\n        return flat.length ? _sumRange(flat) / flat.length : 0;\n    }\n    return parseFloat(rangeData) || 0;\n}\n\nfunction _count(...args) {\n    return args.flat().filter(x => typeof x === 'number' && !isNaN(x)).length;\n}\n\nfunction _counta(...args) {\n    return args.flat().filter(x => x !== null && x !== '' && x !== undefined).length;\n}\n\nfunction _and(...args) {\n    return args.every(x => Boolean(x));\n}\n\nfunction _or(...args) {\n    return args.some(x => Boolean(x));\n}\n\nfunction _round(num, digits = 0) {\n    const factor = Math.pow(10, digits);\n    return Math.round(num * factor) / factor;\n}\n\nfunction _roundUp(num, digits = 0) {\n    const factor = Math.pow(10, digits);\n    return Math.ceil(num * factor) / factor;\n}\n\nfunction _roundDown(num, digits = 0) {\n    const factor = Math.pow(10, digits);\n    return Math.floor(num * factor) / factor;\n}\n\nfunction _len(text) {\n    return String(text).length;\n}\n\nfunction _left(text, numChars = 1) {\n    return String(text).substring(0, numChars);\n}\n\nfunction _right(text, numChars = 1) {\n    const str = String(text);\n    return str.substring(str.length - numChars);\n}\n\nfunction _mid(text, startNum, numChars) {\n    return String(text).substring(startNum - 1, startNum - 1 + numChars);\n}\n\nfunction _trim(text) {\n    return String(text).trim();\n}\n\nfunction _upper(text) {\n    return String(text).toUpperCase();\n}\n\nfunction _lower(text) {\n    return String(text).toLowerCase();\n}\n\nfunction _concat(...args) {\n    return args.join('');\n}\n\n// Number formatting\nfunction formatNumber(num, decimals = 0) {\n    return new Intl.NumberFormat('ko-KR', {\n        minimumFractionDigits: decimals,\n        maximumFractionDigits: decimals\n    }).format(num);\n}\n\nfunction formatCurrency(num) {\n    return new Intl.NumberFormat('ko-KR', {\n        style: 'currency',\n        currency: 'KRW',\n        maximumFractionDigits: 0\n    }).format(num);\n}\n\nfunction formatPercent(num, decimals = 1) {\n    return new Intl.NumberFormat('ko-KR', {\n        style: 'percent',\n        minimumFractionDigits: decimals,\n        maximumFractionDigits: decimals\n    }).format(num / 100);\n}\n", "mcp_data": null}}, {"span_id": "span_8f33f4ead5ab4c15bd2a1f43", "parent_id": "span_a195cde340dd4e5ba08cd169", "started_at": "2025-12-28T02:32:25.823354+00:00", "ended_at": "2025-12-28T02:32:25.824150+00:00", "error": null, "type": "function", "data": {"type": "function", "name": "check_formula_complexity", "input": "{\"formula\":\"=VLOOKUP(C3,표1[],2,0)\"}", "output": "formula='=VLOOKUP(C3,표1[],2,0)' is_simple=False conversion_method='llm'", "mcp_data": null}}, {"span_id": "span_81ce0fc8a3f344b7ad0e041d", "parent_id": "span_a195cde340dd4e5ba08cd169", "started_at": "2025-12-28T02:32:25.823367+00:00", "ended_at": "2025-12-28T02:32:25.824177+00:00", "error": null, "type": "function", "data": {"type": "function", "name": "check_formula_complexity", "input": "{\"formula\":\"=F2*E2\"}", "output": "formula='=F2*E2' is_simple=True conversion_method='direct'", "mcp_data": null}}, {"span_id": "span_982930c92d914c6caa1ecbed", "parent_id": "span_a195cde340dd4e5ba08cd169", "started_at": "2025-12-28T02:32:25.823378+00:00", "ended_at": "2025-12-28T02:32:25.824186+00:00", "error": null, "type": "function", "data": {"type": "function", "name": "convert_formula", "input": "{\"formula\":\"=F2*E2\"}", "output": "success=True js_code=\"data['F2']*data['E2']\" requires_llm=False error=None", "mcp_data": null}}, {"span_id": "span_8123c6f3aaf7452c9a1905e6", "parent_id": "span_a195cde340dd4e5ba08cd169", "started_at": "2025-12-28T02:32:25.824638+00:00", "ended_at": "2025-12-28T02:34:02.918913+00:00", "error": null, "type": "response", "data": {"type": "response", "response_id": "resp_00e633c84ec2c3a400695096ba0e3c8190b0082451eaf44d9f"}}, {"span_id": "span_a195cde340dd4e5ba08cd169", "parent_id": null, "started_at": "2025-12-28T02:32:24.489457+00:00", "ended_at": "2025-12-28T02:34:02.919334+00:00", "error": null, "type": "agent", "data": {"type": "agent", "name": "WebApp Generator", "handoffs": [], "tools": ["convert_formula", "check_formula_complexity", "get_js_helpers"], "output_type": "GeneratedWebApp"}}]};
+
+function toggleTracePanel() {
+    document.getElementById('tracePanel').classList.toggle('open');
+}
+
+function renderTrace() {
+    const summary = document.getElementById('traceSummary');
+    const content = document.getElementById('traceContent');
+
+    if (!TRACE_DATA) {
+        content.innerHTML = '<p>No trace data available</p>';
+        return;
+    }
+
+    // Summary
+    const spans = TRACE_DATA.spans || [];
+    const agentSpans = spans.filter(s => s.type === 'agent').length;
+    const genSpans = spans.filter(s => s.type === 'generation').length;
+    const funcSpans = spans.filter(s => s.type === 'function').length;
+
+    summary.innerHTML = `
+        <div class="trace-summary-item"><span>Workflow</span><span>${TRACE_DATA.workflow_name || '-'}</span></div>
+        <div class="trace-summary-item"><span>Agent Spans</span><span>${agentSpans}</span></div>
+        <div class="trace-summary-item"><span>LLM Generations</span><span>${genSpans}</span></div>
+        <div class="trace-summary-item"><span>Function Calls</span><span>${funcSpans}</span></div>
+    `;
+
+    // Spans
+    let html = '';
+    spans.forEach(span => {
+        const typeClass = span.type || 'custom';
+        const data = span.data || {};
+        html += `
+            <div class="span-item ${typeClass}">
+                <div class="span-type">${span.type || 'span'}</div>
+                <div class="span-name">${data.name || data.model || span.span_id?.slice(0, 8) || '-'}</div>
+                ${data.input ? `<div class="span-data">${typeof data.input === 'string' ? data.input.slice(0, 200) : JSON.stringify(data.input).slice(0, 200)}...</div>` : ''}
+                ${data.output ? `<div class="span-data">${typeof data.output === 'string' ? data.output.slice(0, 200) : JSON.stringify(data.output).slice(0, 200)}...</div>` : ''}
+                ${data.usage ? `<div class="span-time">Tokens: ${data.usage.total_tokens || '-'}</div>` : ''}
+            </div>
+        `;
+    });
+    content.innerHTML = html || '<p>No spans recorded</p>';
+}
+
+document.addEventListener('DOMContentLoaded', renderTrace);
+</script>
+</body>
+</html>

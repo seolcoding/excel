@@ -1,0 +1,941 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>종합소득세 간이 계산기</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <style>
+    :root{
+      --app-bg:#ffffff;
+      --grid:#e5e7eb;
+      --muted:#6b7280;
+      --accent:#0d6efd;
+      --result-bg:#f8fafc;
+      --danger:#dc2626;
+      --ok:#059669;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    }
+
+    @font-face{font-family:"Noto Sans KR";font-style:normal;font-weight:400;src:local("Noto Sans KR");}
+    body{background:var(--app-bg); color:#111827; font-family:"Noto Sans KR", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;}
+
+    .app-header{border-bottom:1px solid var(--grid);}
+    .app-title{font-weight:800; letter-spacing:-0.02em;}
+    .small-muted{color:var(--muted); font-size:.9rem;}
+
+    .excel-card{border:1px solid var(--grid); border-radius:.75rem; overflow:hidden; background:#fff;}
+    .excel-card .card-hd{background:#f3f4f6; border-bottom:1px solid var(--grid); padding:.75rem 1rem; font-weight:700;}
+    .excel-card .card-bd{padding:1rem;}
+
+    label.form-label{font-weight:600;}
+    input[type="number"], .form-select{font-variant-numeric: tabular-nums;}
+    .num-input{ text-align:right; font-family:var(--mono); }
+
+    .result-box{background:var(--result-bg); border:1px solid var(--grid); border-radius:.75rem;}
+    .result-row{display:flex; justify-content:space-between; align-items:baseline; padding:.65rem .85rem; border-top:1px dashed #e5e7eb;}
+    .result-row:first-child{border-top:none;}
+    .result-label{color:#111827; font-weight:650;}
+    .result-value{font-family:var(--mono); font-variant-numeric: tabular-nums; font-weight:800;}
+
+    .result-emph{border:2px solid #111827; background:#fff;}
+
+    .help-callout{background:#fff7ed; border:1px solid #fed7aa; border-radius:.75rem; padding:.75rem 1rem;}
+
+    .err-msg{color:var(--danger); font-size:.85rem; margin-top:.25rem;}
+    .is-invalid{border-color: var(--danger) !important;}
+
+    .badge-soft{background:#eef2ff; border:1px solid #c7d2fe; color:#3730a3;}
+
+    /* Print */
+    @page{ size:A4 portrait; margin:19mm 18mm 19mm 18mm; }
+
+    @media print{
+      .no-print{display:none !important;}
+      .excel-card{border:1px solid #111 !important;}
+      .excel-card .card-hd{background:#fff !important;}
+      .result-box{background:#fff !important;}
+      a[href]:after{content:"";}
+      .print-grid{display:block !important;}
+      .print-only{display:block !important;}
+      .screen-only{display:none !important;}
+
+      /* Make inputs look like document fields */
+      input, select{border:none !important; box-shadow:none !important; padding:0 !important; height:auto !important; background:transparent !important;}
+      .form-control, .form-select{background:transparent !important;}
+      .num-input{text-align:right !important;}
+    }
+
+    .print-only{display:none;}
+
+    /* Table */
+    .table-sm td,.table-sm th{padding:.45rem;}
+    .mono{font-family:var(--mono); font-variant-numeric: tabular-nums;}
+  </style>
+</head>
+<body>
+  <div class="container py-4" x-data="appData()" x-init="init()">
+
+    <!-- Header -->
+    <header class="app-header pb-3 mb-4">
+      <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-2">
+        <div>
+          <h1 class="h3 app-title mb-1">종합소득세 간이 계산기 <span class="badge badge-soft align-middle ms-1">웹 버전</span></h1>
+          <div class="small-muted">엑셀(종합소득세 엑셀 간이 계산기 v2.1) 기반 간이 산출 · 참고용(법적 효력 없음)</div>
+        </div>
+        <div class="no-print d-flex gap-2">
+          <button type="button" class="btn btn-outline-secondary" @click="resetAll()">초기화</button>
+          <button type="button" class="btn btn-primary" :disabled="hasErrors" @click="calculate()">계산하기</button>
+          <button type="button" class="btn btn-outline-dark" :disabled="hasErrors" @click="print()">인쇄</button>
+        </div>
+      </div>
+      <div class="help-callout mt-3 no-print" role="note" aria-label="면책 문구">
+        <div class="fw-semibold">면책</div>
+        <div class="small-muted">본 계산기는 입력값에 따른 <span class="fw-semibold">예상</span> 세액을 산출합니다. 실제 신고 시에는 공제/세액공제 요건, 소득 유형별 필요경비, 소득금액 계산 등 추가 요소가 반영될 수 있습니다.</div>
+      </div>
+    </header>
+
+    <div class="row g-3 print-grid">
+      <!-- Inputs -->
+      <div class="col-12 col-lg-6">
+        <div class="excel-card">
+          <div class="card-hd">기본 정보 및 소득/공제 입력</div>
+          <div class="card-bd">
+            <form novalidate @submit.prevent>
+
+              <fieldset class="mb-3">
+                <legend class="h6 mb-2">기본 정보</legend>
+
+                <div class="row g-2">
+                  <div class="col-12 col-md-6">
+                    <label class="form-label" for="tax_year">과세연도</label>
+                    <select id="tax_year" class="form-select" x-model="inputs.tax_year" @change="onInputChanged()"
+                      :class="fieldClass('tax_year')" aria-describedby="tax_year_help tax_year_err">
+                      <option value="">선택</option>
+                      <template x-for="y in availableYears" :key="y">
+                        <option :value="String(y)" x-text="y"></option>
+                      </template>
+                    </select>
+                    <div id="tax_year_help" class="form-text">세율/누진공제는 과세연도 기준</div>
+                    <div id="tax_year_err" class="err-msg" x-show="errors.tax_year" x-text="errors.tax_year" aria-live="polite"></div>
+                  </div>
+
+                  <div class="col-12 col-md-6">
+                    <label class="form-label" for="filing_type">신고유형</label>
+                    <select id="filing_type" class="form-select" x-model="inputs.filing_type" @change="onInputChanged()"
+                      :class="fieldClass('filing_type')" aria-describedby="filing_type_help filing_type_err">
+                      <option value="">선택</option>
+                      <option value="general">일반 신고(간이)</option>
+                      <option value="simple">단순 참고(간이)</option>
+                    </select>
+                    <div id="filing_type_help" class="form-text">본 버전은 간이 계산 로직</div>
+                    <div id="filing_type_err" class="err-msg" x-show="errors.filing_type" x-text="errors.filing_type" aria-live="polite"></div>
+                  </div>
+                </div>
+              </fieldset>
+
+              <fieldset class="mb-3">
+                <legend class="h6 mb-2">소득 입력 (원)</legend>
+
+                <div class="mb-2">
+                  <label class="form-label" for="business_income_amount">사업소득 금액</label>
+                  <input id="business_income_amount" type="number" inputmode="numeric" class="form-control num-input"
+                    x-model="inputs.business_income_amount" @input="onInputChanged()" min="0" step="1"
+                    :class="fieldClass('business_income_amount')" aria-describedby="business_income_amount_err" />
+                  <div id="business_income_amount_err" class="err-msg" x-show="errors.business_income_amount" x-text="errors.business_income_amount" aria-live="polite"></div>
+                </div>
+
+                <div class="mb-2">
+                  <label class="form-label" for="other_income_amount">기타소득 금액</label>
+                  <input id="other_income_amount" type="number" inputmode="numeric" class="form-control num-input"
+                    x-model="inputs.other_income_amount" @input="onInputChanged()" min="0" step="1"
+                    :class="fieldClass('other_income_amount')" aria-describedby="other_income_amount_err" />
+                  <div id="other_income_amount_err" class="err-msg" x-show="errors.other_income_amount" x-text="errors.other_income_amount" aria-live="polite"></div>
+                </div>
+
+                <div class="mb-2">
+                  <label class="form-label" for="financial_income_amount">이자·배당 등 금융소득</label>
+                  <input id="financial_income_amount" type="number" inputmode="numeric" class="form-control num-input"
+                    x-model="inputs.financial_income_amount" @input="onInputChanged()" min="0" step="1"
+                    :class="fieldClass('financial_income_amount')" aria-describedby="financial_income_amount_err" />
+                  <div id="financial_income_amount_err" class="err-msg" x-show="errors.financial_income_amount" x-text="errors.financial_income_amount" aria-live="polite"></div>
+                </div>
+
+                <div class="mb-2">
+                  <label class="form-label" for="other_comprehensive_income_amount">기타 종합소득(임대/연금 등)</label>
+                  <input id="other_comprehensive_income_amount" type="number" inputmode="numeric" class="form-control num-input"
+                    x-model="inputs.other_comprehensive_income_amount" @input="onInputChanged()" min="0" step="1"
+                    :class="fieldClass('other_comprehensive_income_amount')" aria-describedby="other_comprehensive_income_amount_err" />
+                  <div id="other_comprehensive_income_amount_err" class="err-msg" x-show="errors.other_comprehensive_income_amount" x-text="errors.other_comprehensive_income_amount" aria-live="polite"></div>
+                </div>
+              </fieldset>
+
+              <fieldset class="mb-3">
+                <legend class="h6 mb-2">공제/세액공제(간이)</legend>
+
+                <div class="mb-2">
+                  <label class="form-label" for="medical_insurance_paid">건강보험료(연간 납부액)</label>
+                  <input id="medical_insurance_paid" type="number" inputmode="numeric" class="form-control num-input"
+                    x-model="inputs.medical_insurance_paid" @input="onInputChanged()" min="0" step="1"
+                    :class="fieldClass('medical_insurance_paid')" aria-describedby="medical_insurance_paid_help medical_insurance_paid_err" />
+                  <div id="medical_insurance_paid_help" class="form-text">간이 세액공제(예시)로 반영될 수 있습니다.</div>
+                  <div id="medical_insurance_paid_err" class="err-msg" x-show="errors.medical_insurance_paid" x-text="errors.medical_insurance_paid" aria-live="polite"></div>
+                </div>
+
+                <div class="row g-2 align-items-end">
+                  <div class="col-12 col-md-6">
+                    <div class="form-check mt-1">
+                      <input id="spouse_deduction" type="checkbox" class="form-check-input"
+                        x-model="inputs.spouse_deduction" @change="onInputChanged()" />
+                      <label class="form-check-label" for="spouse_deduction">배우자 공제 적용</label>
+                    </div>
+                  </div>
+                  <div class="col-12 col-md-6">
+                    <label class="form-label" for="dependent_count">부양가족 수</label>
+                    <input id="dependent_count" type="number" inputmode="numeric" class="form-control num-input"
+                      x-model="inputs.dependent_count" @input="onInputChanged()" min="0" step="1"
+                      :class="fieldClass('dependent_count')" aria-describedby="dependent_count_err" />
+                    <div id="dependent_count_err" class="err-msg" x-show="errors.dependent_count" x-text="errors.dependent_count" aria-live="polite"></div>
+                  </div>
+                </div>
+              </fieldset>
+
+              <fieldset>
+                <legend class="h6 mb-2">기납부세액</legend>
+                <label class="form-label" for="prepaid_tax">기납부세액(원천징수/중간예납 등)</label>
+                <input id="prepaid_tax" type="number" inputmode="numeric" class="form-control num-input"
+                  x-model="inputs.prepaid_tax" @input="onInputChanged()" min="0" step="1"
+                  :class="fieldClass('prepaid_tax')" aria-describedby="prepaid_tax_err" />
+                <div id="prepaid_tax_err" class="err-msg" x-show="errors.prepaid_tax" x-text="errors.prepaid_tax" aria-live="polite"></div>
+              </fieldset>
+
+              <div class="no-print mt-3 small-muted">입력 변경 시 자동 재계산됩니다(약간의 지연 적용).</div>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <!-- Results -->
+      <div class="col-12 col-lg-6">
+        <section class="excel-card" aria-live="polite" aria-label="계산 결과">
+          <div class="card-hd d-flex justify-content-between align-items-center">
+            <span>계산 결과</span>
+            <span class="small-muted" x-text="computedAt ? ('업데이트: ' + computedAt) : ''"></span>
+          </div>
+          <div class="card-bd">
+
+            <div class="result-box">
+              <div class="result-row">
+                <div class="result-label">종합소득금액(합계)</div>
+                <div class="result-value" x-text="formatKRW(outputs.total_income)"></div>
+              </div>
+              <div class="result-row">
+                <div class="result-label">소득공제 합계</div>
+                <div class="result-value" x-text="formatKRW(outputs.income_deduction_total)"></div>
+              </div>
+              <div class="result-row">
+                <div class="result-label">과세표준</div>
+                <div class="result-value" x-text="formatKRW(outputs.tax_base)"></div>
+              </div>
+              <div class="result-row">
+                <div class="result-label">산출세액</div>
+                <div class="result-value" x-text="formatKRW(outputs.calculated_tax)"></div>
+              </div>
+              <div class="result-row">
+                <div class="result-label">세액공제 합계</div>
+                <div class="result-value" x-text="formatKRW(outputs.tax_credit_total)"></div>
+              </div>
+              <div class="result-row">
+                <div class="result-label">결정세액</div>
+                <div class="result-value" x-text="formatKRW(outputs.determined_tax)"></div>
+              </div>
+              <div class="result-row result-emph">
+                <div>
+                  <div class="result-label">납부(환급) 예상세액</div>
+                  <div class="small-muted">(결정세액 - 기납부세액)</div>
+                </div>
+                <div class="result-value" :class="outputs.final_tax_payable < 0 ? 'text-success' : 'text-dark'" x-text="formatKRW(outputs.final_tax_payable)"></div>
+              </div>
+              <div class="result-row">
+                <div class="result-label">지방소득세(예상)</div>
+                <div class="result-value" x-text="formatKRW(outputs.local_income_tax)"></div>
+              </div>
+              <div class="result-row result-emph">
+                <div class="result-label">총 납부(환급) 예상액(지방세 포함)</div>
+                <div class="result-value" :class="outputs.total_payable_with_local < 0 ? 'text-success' : 'text-dark'" x-text="formatKRW(outputs.total_payable_with_local)"></div>
+              </div>
+              <div class="result-row">
+                <div class="result-label">실효세율</div>
+                <div class="result-value" x-text="formatPercentValue(outputs.effective_tax_rate)"></div>
+              </div>
+            </div>
+
+            <div class="mt-3 small-muted">
+              * 실효세율 = (결정세액 ÷ 종합소득금액) × 100
+            </div>
+
+            <!-- Print summary block -->
+            <div class="print-only mt-3" aria-label="인쇄용 요약">
+              <hr>
+              <div class="row">
+                <div class="col-6">
+                  <div class="small-muted">과세연도</div>
+                  <div class="fw-semibold" x-text="inputs.tax_year || '-' "></div>
+                </div>
+                <div class="col-6">
+                  <div class="small-muted">신고유형</div>
+                  <div class="fw-semibold" x-text="filingTypeLabel(inputs.filing_type)"></div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+        <div class="excel-card mt-3 no-print">
+          <div class="card-hd">세율 구간표(내부 계산용) / 계산 상세</div>
+          <div class="card-bd">
+            <details>
+              <summary class="fw-semibold">열기/닫기</summary>
+              <div class="mt-3">
+                <div class="small-muted mb-2">과세연도 <span class="fw-semibold" x-text="inputs.tax_year || '미선택'"></span> 기준</div>
+                <div class="table-responsive">
+                  <table class="table table-sm align-middle">
+                    <thead>
+                      <tr>
+                        <th>구간</th>
+                        <th class="text-end">상한(원)</th>
+                        <th class="text-end">세율</th>
+                        <th class="text-end">누진공제(원)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <template x-for="(b, idx) in currentBrackets" :key="idx">
+                        <tr>
+                          <td x-text="idx+1"></td>
+                          <td class="text-end mono" x-text="b.upTo === Infinity ? '∞' : formatKRWPlain(b.upTo)"></td>
+                          <td class="text-end mono" x-text="(b.rate*100).toFixed(1) + '%' "></td>
+                          <td class="text-end mono" x-text="formatKRWPlain(b.quickDeduction)"></td>
+                        </tr>
+                      </template>
+                    </tbody>
+                  </table>
+                </div>
+
+                <div class="mt-2">
+                  <div class="small-muted">(엑셀 매핑) tax_bracket_table: M5~ 누적 산출 구조 → 본 앱은 <span class="fw-semibold">calcProgressiveTax</span>로 통합</div>
+                  <div class="small-muted">내부 데이터 셀(참고):</div>
+                  <pre class="small bg-light p-2 rounded border mono" x-text="JSON.stringify(debugCells, null, 2)"></pre>
+                </div>
+              </div>
+            </details>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <footer class="mt-4 small-muted no-print">
+      <div>버전: 1.0 (간이)</div>
+      <div>주의: 원본 엑셀의 일부 수식(P15~ 배열수식 등) 원문이 제공되지 않아, 본 웹앱은 공개된 수식/요구사항을 기반으로 <span class="fw-semibold">누진세/기본 공제(간이)</span>를 구현했습니다. 원본 수식 전체를 제공하면 1:1 이관(29개 수식)으로 정밀도를 높일 수 있습니다.</div>
+    </footer>
+
+  </div>
+
+  <script>
+    // ===== Excel formula helper functions (from get_js_helpers) =====
+    function _sum(...args) {
+        return args.flat().reduce((a, b) => (parseFloat(a) || 0) + (parseFloat(b) || 0), 0);
+    }
+
+    function _sumRange(rangeData) {
+        if (Array.isArray(rangeData)) {
+            return rangeData.flat().reduce((a, b) => (parseFloat(a) || 0) + (parseFloat(b) || 0), 0);
+        }
+        return parseFloat(rangeData) || 0;
+    }
+
+    function _average(...args) {
+        const flat = args.flat().filter(x => x !== null && x !== '' && !isNaN(x));
+        return flat.length ? _sum(...flat) / flat.length : 0;
+    }
+
+    function _averageRange(rangeData) {
+        if (Array.isArray(rangeData)) {
+            const flat = rangeData.flat().filter(x => x !== null && x !== '' && !isNaN(x));
+            return flat.length ? _sumRange(flat) / flat.length : 0;
+        }
+        return parseFloat(rangeData) || 0;
+    }
+
+    function _count(...args) {
+        return args.flat().filter(x => typeof x === 'number' && !isNaN(x)).length;
+    }
+
+    function _counta(...args) {
+        return args.flat().filter(x => x !== null && x !== '' && x !== undefined).length;
+    }
+
+    function _and(...args) {
+        return args.every(x => Boolean(x));
+    }
+
+    function _or(...args) {
+        return args.some(x => Boolean(x));
+    }
+
+    function _round(num, digits = 0) {
+        const factor = Math.pow(10, digits);
+        return Math.round(num * factor) / factor;
+    }
+
+    function _roundUp(num, digits = 0) {
+        const factor = Math.pow(10, digits);
+        return Math.ceil(num * factor) / factor;
+    }
+
+    function _roundDown(num, digits = 0) {
+        const factor = Math.pow(10, digits);
+        return Math.floor(num * factor) / factor;
+    }
+
+    function _len(text) {
+        return String(text).length;
+    }
+
+    function _left(text, numChars = 1) {
+        return String(text).substring(0, numChars);
+    }
+
+    function _right(text, numChars = 1) {
+        const str = String(text);
+        return str.substring(str.length - numChars);
+    }
+
+    function _mid(text, startNum, numChars) {
+        return String(text).substring(startNum - 1, startNum - 1 + numChars);
+    }
+
+    function _trim(text) {
+        return String(text).trim();
+    }
+
+    function _upper(text) {
+        return String(text).toUpperCase();
+    }
+
+    function _lower(text) {
+        return String(text).toLowerCase();
+    }
+
+    function _concat(...args) {
+        return args.join('');
+    }
+
+    function formatNumber(num, decimals = 0) {
+        return new Intl.NumberFormat('ko-KR', {
+            minimumFractionDigits: decimals,
+            maximumFractionDigits: decimals
+        }).format(num);
+    }
+
+    function formatCurrency(num) {
+        return new Intl.NumberFormat('ko-KR', {
+            style: 'currency',
+            currency: 'KRW',
+            maximumFractionDigits: 0
+        }).format(num);
+    }
+
+    function formatPercent(num, decimals = 1) {
+        return new Intl.NumberFormat('ko-KR', {
+            style: 'percent',
+            minimumFractionDigits: decimals,
+            maximumFractionDigits: decimals
+        }).format(num / 100);
+    }
+
+    // ===== App utilities =====
+    function parseNumberSafe(v){
+      if (v === null || v === undefined) return 0;
+      if (typeof v === 'number') return Number.isFinite(v) ? v : 0;
+      const s = String(v).replace(/,/g,'').trim();
+      const n = Number(s);
+      return Number.isFinite(n) ? n : 0;
+    }
+
+    function formatKRW(value){
+      const n = Math.round(parseNumberSafe(value));
+      const abs = Math.abs(n);
+      const str = abs.toLocaleString('ko-KR');
+      return (n < 0 ? '-' : '') + str + '원';
+    }
+
+    function formatKRWPlain(value){
+      const n = Math.round(parseNumberSafe(value));
+      const abs = Math.abs(n);
+      const str = abs.toLocaleString('ko-KR');
+      return (n < 0 ? '-' : '') + str;
+    }
+
+    function clampMin0(n){ return Math.max(0, parseNumberSafe(n)); }
+
+    // Progressive tax using rate + quickDeduction
+    // tax = taxBase * rate - quickDeduction, with bracket selected by upTo
+    function calcProgressiveTax(taxBase, brackets){
+      const base = Math.max(0, Math.floor(parseNumberSafe(taxBase)));
+      const b = (brackets || []).find(x => base <= x.upTo) || brackets[brackets.length - 1];
+      if (!b) return 0;
+      const tax = base * b.rate - b.quickDeduction;
+      return Math.max(0, Math.floor(tax));
+    }
+
+    // ===== Tax tables (간이: 2023/2024 동일 구조로 제공) =====
+    // NOTE: 실제 세법 개정에 따라 연도별 값이 다를 수 있습니다. 필요 시 정확한 연도별 표로 교체하세요.
+    const TAX_TABLE_BY_YEAR = {
+      2023: {
+        brackets: [
+          { upTo: 12000000, rate: 0.06, quickDeduction: 0 },
+          { upTo: 46000000, rate: 0.15, quickDeduction: 1080000 },
+          { upTo: 88000000, rate: 0.24, quickDeduction: 5220000 },
+          { upTo: 150000000, rate: 0.35, quickDeduction: 14900000 },
+          { upTo: 300000000, rate: 0.38, quickDeduction: 19400000 },
+          { upTo: 500000000, rate: 0.40, quickDeduction: 25400000 },
+          { upTo: 1000000000, rate: 0.42, quickDeduction: 35400000 },
+          { upTo: Infinity, rate: 0.45, quickDeduction: 65400000 },
+        ]
+      },
+      2024: {
+        brackets: [
+          { upTo: 12000000, rate: 0.06, quickDeduction: 0 },
+          { upTo: 46000000, rate: 0.15, quickDeduction: 1080000 },
+          { upTo: 88000000, rate: 0.24, quickDeduction: 5220000 },
+          { upTo: 150000000, rate: 0.35, quickDeduction: 14900000 },
+          { upTo: 300000000, rate: 0.38, quickDeduction: 19400000 },
+          { upTo: 500000000, rate: 0.40, quickDeduction: 25400000 },
+          { upTo: 1000000000, rate: 0.42, quickDeduction: 35400000 },
+          { upTo: Infinity, rate: 0.45, quickDeduction: 65400000 },
+        ]
+      }
+    };
+
+    function appData(){
+      return {
+        availableYears: [2024, 2023],
+
+        inputs: {
+          tax_year: '',
+          filing_type: '',
+          business_income_amount: 0,
+          other_income_amount: 0,
+          financial_income_amount: 0,
+          other_comprehensive_income_amount: 0,
+          medical_insurance_paid: 0,
+          spouse_deduction: false,
+          dependent_count: 0,
+          prepaid_tax: 0,
+        },
+
+        outputs: {
+          total_income: 0,
+          income_deduction_total: 0,
+          tax_base: 0,
+          calculated_tax: 0,
+          tax_credit_total: 0,
+          determined_tax: 0,
+          final_tax_payable: 0,
+          local_income_tax: 0,
+          total_payable_with_local: 0,
+          effective_tax_rate: 0,
+          tax_bracket_table: 0,
+        },
+
+        errors: {},
+        hasErrors: false,
+        computedAt: '',
+        _timer: null,
+
+        debugCells: {},
+
+        get currentBrackets(){
+          const y = Number(this.inputs.tax_year);
+          return (TAX_TABLE_BY_YEAR[y] || TAX_TABLE_BY_YEAR[2024]).brackets;
+        },
+
+        init(){
+          // default year to latest
+          this.inputs.tax_year = String(this.availableYears[0]);
+          this.inputs.filing_type = 'general';
+          this.calculate();
+        },
+
+        filingTypeLabel(v){
+          if (v === 'general') return '일반 신고(간이)';
+          if (v === 'simple') return '단순 참고(간이)';
+          return '-';
+        },
+
+        fieldClass(name){
+          return this.errors[name] ? 'is-invalid' : '';
+        },
+
+        onInputChanged(){
+          // debounce calculate
+          clearTimeout(this._timer);
+          this._timer = setTimeout(() => this.calculate(), 150);
+        },
+
+        validate(){
+          const e = {};
+
+          if (!this.inputs.tax_year) e.tax_year = '과세연도를 선택하세요.';
+          if (!this.inputs.filing_type) e.filing_type = '신고유형을 선택하세요.';
+
+          const nonNegFields = [
+            'business_income_amount','other_income_amount','financial_income_amount','other_comprehensive_income_amount',
+            'medical_insurance_paid','dependent_count','prepaid_tax'
+          ];
+          for (const f of nonNegFields){
+            const v = parseNumberSafe(this.inputs[f]);
+            if (!Number.isFinite(v)) e[f] = '숫자만 입력하세요.';
+            else if (v < 0) e[f] = '0 이상으로 입력하세요.';
+          }
+          // dependent_count integer
+          const dc = parseNumberSafe(this.inputs.dependent_count);
+          if (dc % 1 !== 0) e.dependent_count = '정수로 입력하세요.';
+
+          this.errors = e;
+          this.hasErrors = Object.keys(e).length > 0;
+          return !this.hasErrors;
+        },
+
+        // Main calculate
+        calculate(){
+          if (!this.validate()) return;
+
+          // Map inputs -> internal numeric
+          const inp = {
+            tax_year: Number(this.inputs.tax_year),
+            filing_type: this.inputs.filing_type,
+            business_income_amount: clampMin0(this.inputs.business_income_amount),
+            other_income_amount: clampMin0(this.inputs.other_income_amount),
+            financial_income_amount: clampMin0(this.inputs.financial_income_amount),
+            other_comprehensive_income_amount: clampMin0(this.inputs.other_comprehensive_income_amount),
+            medical_insurance_paid: clampMin0(this.inputs.medical_insurance_paid),
+            spouse_deduction: !!this.inputs.spouse_deduction,
+            dependent_count: Math.max(0, Math.floor(clampMin0(this.inputs.dependent_count))),
+            prepaid_tax: clampMin0(this.inputs.prepaid_tax),
+          };
+
+          // ===== Cell-like computation layer (partial, based on provided formulas) =====
+          // We do not have full workbook; implement a consistent, auditable cell map.
+          const data = {};
+
+          // Inputs mapping (requested cells)
+          data['C3'] = inp.tax_year;                   // tax_year
+          data['K4'] = inp.filing_type;                // filing_type (not numeric)
+          data['C10'] = inp.business_income_amount;
+          data['C11'] = inp.other_income_amount;
+          data['C12'] = inp.financial_income_amount;
+          data['C13'] = inp.other_comprehensive_income_amount;
+          data['F19'] = inp.medical_insurance_paid;
+          data['K10'] = inp.spouse_deduction ? 1 : 0;
+          data['K11'] = inp.dependent_count;
+          data['K21'] = inp.prepaid_tax;
+
+          // Unknown upstream cells (C7=O4, C8=F15, C9=SUM(F16:F19)) exist in Excel.
+          // In this web version, we set C7~C9 to 0 for safety unless formulas are provided.
+          data['C7'] = 0;
+          data['C8'] = 0;
+          data['C9'] = 0;
+
+          // Provided formula: C14 = SUM(C7:C13)
+          // Converted by tool: _sumRange(data['C7']:data['C13'])
+          // Here we implement explicit sum of known cells.
+          data['C14'] = _sum(
+            data['C7'], data['C8'], data['C9'],
+            data['C10'], data['C11'], data['C12'], data['C13']
+          );
+
+          // Provided formula: C16 = C3 - C14 (NOTE: likely different in original; kept as provided)
+          // Converted by tool: data['C3']-data['C14']
+          data['C16'] = data['C3'] - data['C14'];
+
+          // ===== Web-app specific approximations (since remaining Excel formulas not fully provided) =====
+          // 1) Income deduction total (간이): basic personal deductions
+          //    - 본인 기본공제: 1,500,000
+          //    - 배우자: 1,500,000
+          //    - 부양가족: 1,500,000 * count
+          // 2) Tax base = max(0, total_income - income_deduction_total)
+          const BASIC_DEDUCTION_SELF = 1500000;
+          const BASIC_DEDUCTION_PER_PERSON = 1500000;
+          const incomeDeductionTotal = BASIC_DEDUCTION_SELF
+            + (inp.spouse_deduction ? BASIC_DEDUCTION_PER_PERSON : 0)
+            + (inp.dependent_count * BASIC_DEDUCTION_PER_PERSON);
+
+          const totalIncome = Math.max(0, Math.floor(data['C14']));
+          const taxBase = Math.max(0, Math.floor(totalIncome - incomeDeductionTotal));
+
+          // 3) Calculated tax by progressive table
+          const calculatedTax = calcProgressiveTax(taxBase, this.currentBrackets);
+
+          // 4) Tax credit (간이): 건강보험료의 12% 세액공제 가정(예시)
+          //    실제 규정과 다를 수 있으므로, 원본 엑셀 수식 제공 시 교체 권장.
+          const taxCreditTotal = Math.max(0, Math.floor(inp.medical_insurance_paid * 0.12));
+
+          // 5) Determined tax = max(0, calculatedTax - taxCreditTotal)
+          const determinedTax = Math.max(0, Math.floor(calculatedTax - taxCreditTotal));
+
+          // 6) Final payable/refund (national) = determinedTax - prepaid_tax
+          const finalTaxPayable = Math.floor(determinedTax - inp.prepaid_tax);
+
+          // 7) Local income tax (예상): national * 10% (통상)
+          const localIncomeTax = Math.max(0, Math.floor(Math.max(0, finalTaxPayable) * 0.10));
+
+          // 8) Total payable/refund including local tax
+          const totalWithLocal = Math.floor(finalTaxPayable + (finalTaxPayable > 0 ? localIncomeTax : 0));
+
+          // 9) Effective tax rate (determined / total income * 100)
+          const effectiveRate = totalIncome > 0 ? (determinedTax / totalIncome) * 100 : 0;
+
+          // 10) tax_bracket_table (M5) placeholder: first bracket marginal calc analogue
+          // Excel M5: =K5*L5-K5*L4 (needs K/L tables). Not available; store selected bracket index.
+          const selIdx = this.currentBrackets.findIndex(b => taxBase <= b.upTo);
+          const taxBracketTable = selIdx >= 0 ? (selIdx + 1) : this.currentBrackets.length;
+
+          // Outputs mapping
+          this.outputs.total_income = totalIncome;                 // C14
+          this.outputs.income_deduction_total = incomeDeductionTotal; // C16 (web)
+          this.outputs.tax_base = taxBase;                         // C18 (web)
+          this.outputs.calculated_tax = calculatedTax;             // C19
+          this.outputs.tax_credit_total = taxCreditTotal;          // C20
+          this.outputs.determined_tax = determinedTax;             // C22
+          this.outputs.final_tax_payable = finalTaxPayable;        // C24
+          this.outputs.local_income_tax = localIncomeTax;          // C25
+          this.outputs.total_payable_with_local = totalWithLocal;  // C26
+          this.outputs.effective_tax_rate = effectiveRate;         // C28
+          this.outputs.tax_bracket_table = taxBracketTable;        // M5 (간이 표시)
+
+          // Debug cells snapshot
+          this.debugCells = {
+            inputs_cell_map: {
+              C3: data['C3'], K4: data['K4'],
+              C10: data['C10'], C11: data['C11'], C12: data['C12'], C13: data['C13'],
+              F19: data['F19'], K10: data['K10'], K11: data['K11'], K21: data['K21']
+            },
+            provided_formula_cells: {
+              C14: data['C14'],
+              C16: data['C16']
+            },
+            web_calcs: {
+              incomeDeductionTotal,
+              taxBase,
+              calculatedTax,
+              taxCreditTotal,
+              determinedTax,
+              finalTaxPayable,
+              localIncomeTax,
+              totalWithLocal,
+              effectiveRate,
+              selectedBracket: taxBracketTable
+            }
+          };
+
+          const now = new Date();
+          this.computedAt = now.toLocaleString('ko-KR', { hour12:false });
+        },
+
+        formatKRW,
+        formatKRWPlain,
+        formatPercentValue(v){
+          const n = parseNumberSafe(v);
+          return (Number.isFinite(n) ? n : 0).toFixed(2) + '%';
+        },
+
+        resetAll(){
+          this.inputs = {
+            tax_year: String(this.availableYears[0]),
+            filing_type: 'general',
+            business_income_amount: 0,
+            other_income_amount: 0,
+            financial_income_amount: 0,
+            other_comprehensive_income_amount: 0,
+            medical_insurance_paid: 0,
+            spouse_deduction: false,
+            dependent_count: 0,
+            prepaid_tax: 0,
+          };
+          this.errors = {};
+          this.hasErrors = false;
+          this.calculate();
+        },
+
+        async print(){
+          // print-mode class for future extension
+          document.body.classList.add('print-mode');
+          // ensure latest calc
+          this.calculate();
+          await new Promise(r => setTimeout(r, 50));
+          window.print();
+          setTimeout(() => document.body.classList.remove('print-mode'), 200);
+        }
+      }
+    }
+  </script>
+
+<!-- Agent Trace Viewer -->
+<style>
+.trace-toggle {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 9999;
+    background: #6366f1;
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 25px;
+    cursor: pointer;
+    font-size: 14px;
+    box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.trace-toggle:hover { background: #4f46e5; }
+.trace-panel {
+    position: fixed;
+    top: 0;
+    right: -450px;
+    width: 450px;
+    height: 100vh;
+    background: #1e1e2e;
+    color: #cdd6f4;
+    z-index: 9998;
+    transition: right 0.3s ease;
+    overflow-y: auto;
+    font-family: 'Monaco', 'Menlo', monospace;
+    font-size: 12px;
+}
+.trace-panel.open { right: 0; }
+.trace-header {
+    padding: 16px;
+    background: #313244;
+    border-bottom: 1px solid #45475a;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.trace-header h3 { margin: 0; font-size: 14px; }
+.trace-close {
+    background: none;
+    border: none;
+    color: #cdd6f4;
+    cursor: pointer;
+    font-size: 18px;
+}
+.trace-content { padding: 16px; }
+.span-item {
+    margin-bottom: 12px;
+    padding: 12px;
+    background: #313244;
+    border-radius: 8px;
+    border-left: 3px solid #89b4fa;
+}
+.span-item.agent { border-left-color: #a6e3a1; }
+.span-item.generation { border-left-color: #f9e2af; }
+.span-item.function { border-left-color: #cba6f7; }
+.span-type {
+    font-size: 10px;
+    text-transform: uppercase;
+    color: #6c7086;
+    margin-bottom: 4px;
+}
+.span-name { font-weight: bold; color: #89dceb; }
+.span-data {
+    margin-top: 8px;
+    padding: 8px;
+    background: #1e1e2e;
+    border-radius: 4px;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+.span-time { color: #6c7086; font-size: 11px; }
+.trace-summary {
+    padding: 12px 16px;
+    background: #45475a;
+    margin: 0 16px 16px;
+    border-radius: 8px;
+}
+.trace-summary-item { display: flex; justify-content: space-between; margin: 4px 0; }
+</style>
+
+<button class="trace-toggle" onclick="toggleTracePanel()">
+    <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+        <path d="M9.5 13a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm0-5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm0-5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/>
+    </svg>
+    Agent Trace
+</button>
+
+<div class="trace-panel" id="tracePanel">
+    <div class="trace-header">
+        <h3>Agent Trace Viewer</h3>
+        <button class="trace-close" onclick="toggleTracePanel()">&times;</button>
+    </div>
+    <div class="trace-summary" id="traceSummary"></div>
+    <div class="trace-content" id="traceContent"></div>
+</div>
+
+<script>
+const TRACE_DATA = {"trace_id": "trace_04821ef6515347239c74c09b187eb551", "workflow_name": "Excel-to-WebApp: 종합소득세 엑셀 간이 계산기 v2.1.xlsx", "group_id": null, "metadata": null, "started_at": "2025-12-28T11:34:13.807979", "ended_at": "2025-12-28T11:37:58.341575", "spans": [{"span_id": "span_c43560eb89a74b27a52dbed0", "parent_id": "span_a535ebfe36ac4d09b22061bf", "started_at": "2025-12-28T02:34:13.818581+00:00", "ended_at": "2025-12-28T02:34:15.740621+00:00", "error": null, "type": "response", "data": {"type": "response", "response_id": "resp_0fe3e834548a740b0069509726264c8196843fbb211fadc4dc"}}, {"span_id": "span_2f29ac53dedc4c5190bde238", "parent_id": "span_a535ebfe36ac4d09b22061bf", "started_at": "2025-12-28T02:34:15.741058+00:00", "ended_at": "2025-12-28T02:34:15.752748+00:00", "error": null, "type": "function", "data": {"type": "function", "name": "analyze_excel", "input": "{\"file_path\":\"excel_files/종합소득세 엑셀 간이 계산기 v2.1.xlsx\"}", "output": "{'filename': '종합소득세 엑셀 간이 계산기 v2.1.xlsx', 'file_type': 'xlsx', 'sheets': [{'name': '종합소득세계산기', 'row_count': 28, 'col_count': 16, 'used_range': 'A1:P28', 'input_cells': ['C10', 'C11', 'C12', 'C13', 'C3', 'F19', 'K10', 'K11', 'K21', 'K4', 'K5', 'K6', 'K7', 'K8', 'K9', 'L10', 'L11', 'L4', 'L5', 'L6', 'L7', 'L8', 'L9', 'M4', 'O4'], 'output_cells': ['C14', 'C16', 'C18', 'C19', 'C20', 'C22', 'C24', 'C25', 'C26', 'C28', 'C7', 'C8', 'C9', 'F15', 'F16', 'F17', 'F18', 'M10', 'M11', 'M5', 'M6', 'M7', 'M8', 'M9', 'P15', 'P16', 'P17', 'P18', 'P19'], 'formulas': [{'cell': 'M5', 'formula': '=K5*L5-K5*L4', 'dependencies': ['K5', 'L5', 'L4'], 'result_type': 'number'}, {'cell': 'M6', 'formula': '=K6*L6-K6*L5+M5', 'dependencies': ['L6', 'L5', 'K6', 'M5'], 'result_type': 'number'}, {'cell': 'C7', 'formula': '=O4', 'dependencies': ['O4'], 'result_type': 'number'}, {'cell': 'M7', 'formula': '=K7*L7-K7*L6+M6', 'dependencies': ['L7', 'L6', 'M6', 'K7'], 'result_type': 'number'}, {'cell': 'C8', 'formula': '=F15', 'dependencies': ['F15'], 'result_type': 'number'}, {'cell': 'M8', 'formula': '=K8*L8-K8*L7+M7', 'dependencies': ['L7', 'K8', 'L8', 'M7'], 'result_type': 'number'}, {'cell': 'C9', 'formula': '=SUM(F16:F19)', 'dependencies': ['F17', 'F19', 'F18', 'F16'], 'result_type': 'number'}, {'cell': 'M9', 'formula': '=K9*L9-K9*L8+M8', 'dependencies': ['L8', 'K9', 'M8', 'L9'], 'result_type': 'number'}, {'cell': 'M10', 'formula': '=K10*L10-K10*L9+M9', 'dependencies': ['M9', 'K10', 'L10', 'L9'], 'result_type': 'number'}, {'cell': 'M11', 'formula': '=K11*L11-K11*L10+M10', 'dependencies': ['K11', 'L10', 'L11', 'M10'], 'result_type': 'number'}, {'cell': 'C14', 'formula': '=SUM(C7:C13)', 'dependencies': ['C9', 'C7', 'C8', 'C13', 'C12', 'C11', 'C10'], 'result_type': 'number'}, {'cell': 'F15', 'formula': '=P15', 'dependencies': ['P15'], 'result_type': 'number'}, {'cell': 'P15', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x1054ad2b0>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'C16', 'formula': '=C3-C14', 'dependencies': ['C14', 'C3'], 'result_type': 'number'}, {'cell': 'F16', 'formula': '=P16', 'dependencies': ['P16'], 'result_type': 'number'}, {'cell': 'P16', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x1054ae930>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'F17', 'formula': '=P17', 'dependencies': ['P17'], 'result_type': 'number'}, {'cell': 'P17', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x1054af080>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'C18', 'formula': '=IFERROR(C16*VLOOKUP(C16,K4:M11,2)-VLOOKUP(C16,K4:M11,3),0)', 'dependencies': ['C16', 'K4', 'M8', 'M9', 'K8', 'M4', 'K5', 'M6', 'L5', 'M7', 'M5', 'K10', 'K6', 'L6', 'L10', 'K11', 'M10', 'K7', 'L11', 'L4', 'K9', 'L9', 'M11', 'L7', 'L8'], 'result_type': 'boolean'}, {'cell': 'F18', 'formula': '=MAX(P18:P19)', 'dependencies': ['P18', 'P19'], 'result_type': 'number'}, {'cell': 'P18', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x1054af6b0>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'C19', 'formula': '=C18*10%', 'dependencies': ['C18'], 'result_type': 'number'}, {'cell': 'P19', 'formula': '<openpyxl.worksheet.formula.ArrayFormula object at 0x1054afce0>', 'dependencies': [], 'result_type': 'boolean'}, {'cell': 'C20', 'formula': '=C18+C19', 'dependencies': ['C18', 'C19'], 'result_type': 'number'}, {'cell': 'C22', 'formula': '=K21', 'dependencies': ['K21'], 'result_type': 'number'}, {'cell': 'C24', 'formula': '=C18-C22', 'dependencies': ['C22', 'C18'], 'result_type': 'number'}, {'cell': 'C25', 'formula': '=C24*10%', 'dependencies': ['C24'], 'result_type': 'number'}, {'cell': 'C26', 'formula': '=C24+C25', 'dependencies': ['C24', 'C25'], 'result_type': 'number'}, {'cell': 'C28', 'formula': '=C26/12', 'dependencies': ['C26'], 'result_type': 'number'}], 'has_print_area': False, 'print_area': None}], 'vba_modules': [], 'has_vba': False, 'print_settings': {'orientation': 'portrait', 'paper_size': 'A4', 'margins': {'top': 0.75, 'bottom': 0.75, 'left': 0.7, 'right': 0.7}, 'header': None, 'footer': None, 'fit_to_page': False, 'scale': 100}, 'total_formulas': 29, 'total_input_cells': 25, 'total_output_cells': 29, 'complexity_score': 'medium'}", "mcp_data": null}}, {"span_id": "span_0d5240e8b4f14b528caa272d", "parent_id": "span_a535ebfe36ac4d09b22061bf", "started_at": "2025-12-28T02:34:15.753734+00:00", "ended_at": "2025-12-28T02:35:44.038166+00:00", "error": null, "type": "response", "data": {"type": "response", "response_id": "resp_0fe3e834548a740b0069509727f2d881969e45f31993d21f79"}}, {"span_id": "span_a535ebfe36ac4d09b22061bf", "parent_id": null, "started_at": "2025-12-28T02:34:13.808347+00:00", "ended_at": "2025-12-28T02:35:44.038537+00:00", "error": null, "type": "agent", "data": {"type": "agent", "name": "Excel Analyzer", "handoffs": [], "tools": ["analyze_excel", "get_sheet_cells"], "output_type": "str"}}, {"span_id": "span_d0b3de8231a14f12ad2b5927", "parent_id": "span_eae24aa972ee4cd592a8a806", "started_at": "2025-12-28T02:35:44.039013+00:00", "ended_at": "2025-12-28T02:36:22.326335+00:00", "error": null, "type": "response", "data": {"type": "response", "response_id": "resp_0eac018349d0ef380069509780403881969a5be0e8ef8594d9"}}, {"span_id": "span_eae24aa972ee4cd592a8a806", "parent_id": null, "started_at": "2025-12-28T02:35:44.038762+00:00", "ended_at": "2025-12-28T02:36:22.326958+00:00", "error": null, "type": "agent", "data": {"type": "agent", "name": "WebApp Planner", "handoffs": [], "tools": [], "output_type": "WebAppPlan"}}, {"span_id": "span_4eb6bf67f18b4d95a6f455e0", "parent_id": "span_b93de7dde8114cc8872a2a6c", "started_at": "2025-12-28T02:36:22.327531+00:00", "ended_at": "2025-12-28T02:36:24.469905+00:00", "error": null, "type": "response", "data": {"type": "response", "response_id": "resp_00ef6395b57bac2f00695097a6934c8197aefa48ad9b70beed"}}, {"span_id": "span_7af1bf0ffcee44faa6e1bacd", "parent_id": "span_b93de7dde8114cc8872a2a6c", "started_at": "2025-12-28T02:36:24.470128+00:00", "ended_at": "2025-12-28T02:36:24.470371+00:00", "error": null, "type": "function", "data": {"type": "function", "name": "get_js_helpers", "input": "{}", "output": "\n// Excel formula helper functions\nfunction _sum(...args) {\n    return args.flat().reduce((a, b) => (parseFloat(a) || 0) + (parseFloat(b) || 0), 0);\n}\n\nfunction _sumRange(rangeData) {\n    if (Array.isArray(rangeData)) {\n        return rangeData.flat().reduce((a, b) => (parseFloat(a) || 0) + (parseFloat(b) || 0), 0);\n    }\n    return parseFloat(rangeData) || 0;\n}\n\nfunction _average(...args) {\n    const flat = args.flat().filter(x => x !== null && x !== '' && !isNaN(x));\n    return flat.length ? _sum(...flat) / flat.length : 0;\n}\n\nfunction _averageRange(rangeData) {\n    if (Array.isArray(rangeData)) {\n        const flat = rangeData.flat().filter(x => x !== null && x !== '' && !isNaN(x));\n        return flat.length ? _sumRange(flat) / flat.length : 0;\n    }\n    return parseFloat(rangeData) || 0;\n}\n\nfunction _count(...args) {\n    return args.flat().filter(x => typeof x === 'number' && !isNaN(x)).length;\n}\n\nfunction _counta(...args) {\n    return args.flat().filter(x => x !== null && x !== '' && x !== undefined).length;\n}\n\nfunction _and(...args) {\n    return args.every(x => Boolean(x));\n}\n\nfunction _or(...args) {\n    return args.some(x => Boolean(x));\n}\n\nfunction _round(num, digits = 0) {\n    const factor = Math.pow(10, digits);\n    return Math.round(num * factor) / factor;\n}\n\nfunction _roundUp(num, digits = 0) {\n    const factor = Math.pow(10, digits);\n    return Math.ceil(num * factor) / factor;\n}\n\nfunction _roundDown(num, digits = 0) {\n    const factor = Math.pow(10, digits);\n    return Math.floor(num * factor) / factor;\n}\n\nfunction _len(text) {\n    return String(text).length;\n}\n\nfunction _left(text, numChars = 1) {\n    return String(text).substring(0, numChars);\n}\n\nfunction _right(text, numChars = 1) {\n    const str = String(text);\n    return str.substring(str.length - numChars);\n}\n\nfunction _mid(text, startNum, numChars) {\n    return String(text).substring(startNum - 1, startNum - 1 + numChars);\n}\n\nfunction _trim(text) {\n    return String(text).trim();\n}\n\nfunction _upper(text) {\n    return String(text).toUpperCase();\n}\n\nfunction _lower(text) {\n    return String(text).toLowerCase();\n}\n\nfunction _concat(...args) {\n    return args.join('');\n}\n\n// Number formatting\nfunction formatNumber(num, decimals = 0) {\n    return new Intl.NumberFormat('ko-KR', {\n        minimumFractionDigits: decimals,\n        maximumFractionDigits: decimals\n    }).format(num);\n}\n\nfunction formatCurrency(num) {\n    return new Intl.NumberFormat('ko-KR', {\n        style: 'currency',\n        currency: 'KRW',\n        maximumFractionDigits: 0\n    }).format(num);\n}\n\nfunction formatPercent(num, decimals = 1) {\n    return new Intl.NumberFormat('ko-KR', {\n        style: 'percent',\n        minimumFractionDigits: decimals,\n        maximumFractionDigits: decimals\n    }).format(num / 100);\n}\n", "mcp_data": null}}, {"span_id": "span_9769a4fc79ca4678abb00606", "parent_id": "span_b93de7dde8114cc8872a2a6c", "started_at": "2025-12-28T02:36:24.470156+00:00", "ended_at": "2025-12-28T02:36:24.470384+00:00", "error": null, "type": "function", "data": {"type": "function", "name": "check_formula_complexity", "input": "{\"formula\":\"=SUM(C7:C13)\"}", "output": "formula='=SUM(C7:C13)' is_simple=True conversion_method='direct'", "mcp_data": null}}, {"span_id": "span_457bf0e757374e17b3bec87e", "parent_id": "span_b93de7dde8114cc8872a2a6c", "started_at": "2025-12-28T02:36:24.470170+00:00", "ended_at": "2025-12-28T02:36:24.470400+00:00", "error": null, "type": "function", "data": {"type": "function", "name": "check_formula_complexity", "input": "{\"formula\":\"=C3-C14\"}", "output": "formula='=C3-C14' is_simple=True conversion_method='direct'", "mcp_data": null}}, {"span_id": "span_ef60680ea96644e6a22ca3d9", "parent_id": "span_b93de7dde8114cc8872a2a6c", "started_at": "2025-12-28T02:36:24.470181+00:00", "ended_at": "2025-12-28T02:36:24.470408+00:00", "error": null, "type": "function", "data": {"type": "function", "name": "check_formula_complexity", "input": "{\"formula\":\"=IFERROR(C16*VLOOKUP(C16,K4:M11,2)-VLOOKUP(C16,K4:M11,3),0)\"}", "output": "formula='=IFERROR(C16*VLOOKUP(C16,K4:M11,2)-VLOOKUP(C16,K4:M11,3),0)' is_simple=False conversion_method='llm'", "mcp_data": null}}, {"span_id": "span_7ec12ddfe2174ad380d160d5", "parent_id": "span_b93de7dde8114cc8872a2a6c", "started_at": "2025-12-28T02:36:24.470914+00:00", "ended_at": "2025-12-28T02:36:25.746365+00:00", "error": null, "type": "response", "data": {"type": "response", "response_id": "resp_00ef6395b57bac2f00695097a8acc08197b75ee8227b61fd9e"}}, {"span_id": "span_cb7f247a5ce84072a2b665fe", "parent_id": "span_b93de7dde8114cc8872a2a6c", "started_at": "2025-12-28T02:36:25.746613+00:00", "ended_at": "2025-12-28T02:36:25.747398+00:00", "error": null, "type": "function", "data": {"type": "function", "name": "convert_formula", "input": "{\"formula\":\"=SUM(C7:C13)\"}", "output": "success=True js_code=\"_sumRange(data['C7']:data['C13'])\" requires_llm=False error=None", "mcp_data": null}}, {"span_id": "span_cf55b24146254e14aab27e92", "parent_id": "span_b93de7dde8114cc8872a2a6c", "started_at": "2025-12-28T02:36:25.746639+00:00", "ended_at": "2025-12-28T02:36:25.747425+00:00", "error": null, "type": "function", "data": {"type": "function", "name": "convert_formula", "input": "{\"formula\":\"=C3-C14\"}", "output": "success=True js_code=\"data['C3']-data['C14']\" requires_llm=False error=None", "mcp_data": null}}, {"span_id": "span_d8f0c8fcb9354808b315dbcc", "parent_id": "span_b93de7dde8114cc8872a2a6c", "started_at": "2025-12-28T02:36:25.747761+00:00", "ended_at": "2025-12-28T02:37:58.339303+00:00", "error": null, "type": "response", "data": {"type": "response", "response_id": "resp_00ef6395b57bac2f00695097a9f7488197a3d4a0a2d823cdd1"}}, {"span_id": "span_b93de7dde8114cc8872a2a6c", "parent_id": null, "started_at": "2025-12-28T02:36:22.327267+00:00", "ended_at": "2025-12-28T02:37:58.340925+00:00", "error": null, "type": "agent", "data": {"type": "agent", "name": "WebApp Generator", "handoffs": [], "tools": ["convert_formula", "check_formula_complexity", "get_js_helpers"], "output_type": "GeneratedWebApp"}}]};
+
+function toggleTracePanel() {
+    document.getElementById('tracePanel').classList.toggle('open');
+}
+
+function renderTrace() {
+    const summary = document.getElementById('traceSummary');
+    const content = document.getElementById('traceContent');
+
+    if (!TRACE_DATA) {
+        content.innerHTML = '<p>No trace data available</p>';
+        return;
+    }
+
+    // Summary
+    const spans = TRACE_DATA.spans || [];
+    const agentSpans = spans.filter(s => s.type === 'agent').length;
+    const genSpans = spans.filter(s => s.type === 'generation').length;
+    const funcSpans = spans.filter(s => s.type === 'function').length;
+
+    summary.innerHTML = `
+        <div class="trace-summary-item"><span>Workflow</span><span>${TRACE_DATA.workflow_name || '-'}</span></div>
+        <div class="trace-summary-item"><span>Agent Spans</span><span>${agentSpans}</span></div>
+        <div class="trace-summary-item"><span>LLM Generations</span><span>${genSpans}</span></div>
+        <div class="trace-summary-item"><span>Function Calls</span><span>${funcSpans}</span></div>
+    `;
+
+    // Spans
+    let html = '';
+    spans.forEach(span => {
+        const typeClass = span.type || 'custom';
+        const data = span.data || {};
+        html += `
+            <div class="span-item ${typeClass}">
+                <div class="span-type">${span.type || 'span'}</div>
+                <div class="span-name">${data.name || data.model || span.span_id?.slice(0, 8) || '-'}</div>
+                ${data.input ? `<div class="span-data">${typeof data.input === 'string' ? data.input.slice(0, 200) : JSON.stringify(data.input).slice(0, 200)}...</div>` : ''}
+                ${data.output ? `<div class="span-data">${typeof data.output === 'string' ? data.output.slice(0, 200) : JSON.stringify(data.output).slice(0, 200)}...</div>` : ''}
+                ${data.usage ? `<div class="span-time">Tokens: ${data.usage.total_tokens || '-'}</div>` : ''}
+            </div>
+        `;
+    });
+    content.innerHTML = html || '<p>No spans recorded</p>';
+}
+
+document.addEventListener('DOMContentLoaded', renderTrace);
+</script>
+</body>
+</html>

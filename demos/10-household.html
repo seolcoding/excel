@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>표 합계 입력·집계 도구</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;700&display=swap" rel="stylesheet">
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <style>
+    :root{
+      --grid-border:#cfd4da;
+      --grid-header:#f5f6f7;
+      --grid-sum:#eef1f4;
+      --ink:#111;
+    }
+    html,body{height:100%;}
+    body{font-family:"Noto Sans KR",system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;color:var(--ink);}
+
+    .app-title{font-weight:800; letter-spacing:-0.2px;}
+
+    .sheet-wrap{border:1px solid var(--grid-border); border-radius:10px; overflow:hidden; background:#fff;}
+    .grid-scroll{overflow:auto; max-height:60vh;}
+
+    table.sheet{border-collapse:separate; border-spacing:0; width:max-content; min-width:100%;}
+    table.sheet th, table.sheet td{
+      border-right:1px solid var(--grid-border);
+      border-bottom:1px solid var(--grid-border);
+      padding:0;
+      vertical-align:middle;
+      background:#fff;
+    }
+    table.sheet tr:first-child th{border-top:1px solid var(--grid-border);}    
+    table.sheet th:first-child, table.sheet td:first-child{border-left:1px solid var(--grid-border);}    
+
+    table.sheet thead th{
+      position:sticky; top:0; z-index:3;
+      background:var(--grid-header);
+      font-weight:700;
+      text-align:center;
+      height:34px;
+      padding:6px 10px;
+      white-space:nowrap;
+    }
+
+    .row-hdr{
+      position:sticky; left:0; z-index:2;
+      background:var(--grid-header);
+      text-align:center;
+      font-weight:700;
+      width:52px;
+      min-width:52px;
+      height:34px;
+    }
+    thead .row-hdr{z-index:4;}
+
+    .cell-input{
+      width:88px;
+      min-width:88px;
+      height:34px;
+      border:0;
+      outline:0;
+      padding:4px 8px;
+      background:transparent;
+      font-variant-numeric:tabular-nums;
+    }
+    .cell-input.num{text-align:right;}
+
+    .sum-row th, .sum-row td{background:var(--grid-sum) !important; font-weight:700;}
+    .sum-cell{padding:6px 8px; text-align:right; font-variant-numeric:tabular-nums;}
+
+    .muted-note{color:#5b6673; font-size:0.9rem;}
+
+    /* Print */
+    @page { size: A4 landscape; margin: 15mm 5mm 15mm 10mm; }
+    @media print{
+      body{background:#fff;}
+      .no-print{display:none !important;}
+      .container{max-width:none !important; width:100% !important; padding:0 !important;}
+      .grid-scroll{max-height:none !important; overflow:visible !important;}
+      .sheet-wrap{border-radius:0;}
+      a[href]:after{content:"";}
+    }
+  </style>
+</head>
+<body>
+  <main class="container py-4" x-data="appData()" x-init="init()">
+    <!-- Header -->
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3 no-print">
+      <div>
+        <h1 class="h4 mb-1 app-title">표 합계 입력·집계 도구</h1>
+        <div class="muted-note">표(B~N열) 입력값을 기반으로 상단/하단 합계를 자동 집계하고 A4 가로 인쇄에 최적화합니다.</div>
+      </div>
+      <div class="d-flex gap-2">
+        <button type="button" class="btn btn-outline-secondary" @click="save()" aria-label="저장">저장</button>
+        <button type="button" class="btn btn-outline-secondary" @click="load()" aria-label="불러오기">불러오기</button>
+        <button type="button" class="btn btn-primary" @click="print()" aria-label="인쇄">인쇄</button>
+      </div>
+    </div>
+
+    <!-- Body -->
+    <section class="sheet-wrap mb-3" aria-label="입력 테이블">
+      <div class="grid-scroll" role="region" aria-label="스프레드시트 입력 영역">
+        <table class="sheet" role="grid" aria-label="데이터 입력표">
+          <thead>
+            <tr>
+              <th class="row-hdr" scope="col" aria-label="행 번호"></th>
+              <template x-for="(col, ci) in cols" :key="col">
+                <th scope="col" :aria-colindex="ci+1" x-text="col"></th>
+              </template>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- Top sum row (Excel row 10) -->
+            <tr class="sum-row" aria-label="상단 합계 행">
+              <th class="row-hdr" scope="row" aria-label="10행">10</th>
+              <template x-for="(col, ci) in cols" :key="'top-'+col">
+                <td>
+                  <div class="sum-cell" aria-live="polite" :aria-label="col + '열 상단 합계'" x-text="fmt(sumTop[col])"></div>
+                </td>
+              </template>
+            </tr>
+
+            <!-- Input rows: Excel rows 15~24 (10 rows) -->
+            <template x-for="(rExcel, rIdx) in inputRowNumbers" :key="'r'+rExcel">
+              <tr>
+                <th class="row-hdr" scope="row" :aria-label="rExcel + '행'" x-text="rExcel"></th>
+                <template x-for="(col, cIdx) in cols" :key="rExcel+'-'+col">
+                  <td>
+                    <label class="visually-hidden" :for="cellId(rExcel,col)">셀 <span x-text="col"></span><span x-text="rExcel"></span> 입력</label>
+                    <input
+                      class="cell-input num"
+                      inputmode="decimal"
+                      autocomplete="off"
+                      :id="cellId(rExcel,col)"
+                      :aria-label="'셀 '+col+rExcel+' 입력'"
+                      :aria-rowindex="rIdx+1"
+                      :aria-colindex="cIdx+1"
+                      x-model="cells[addr(col,rExcel)]"
+                      @input="onCellInput()"
+                    />
+                  </td>
+                </template>
+              </tr>
+            </template>
+
+            <!-- Spacer rows 25~29 (입력 범위 확장 대비: B15:N29 합계가 존재하므로 25~29도 입력 가능하게 제공) -->
+            <template x-for="(rExcel, sIdx) in extraRowNumbers" :key="'r'+rExcel">
+              <tr>
+                <th class="row-hdr" scope="row" :aria-label="rExcel + '행'" x-text="rExcel"></th>
+                <template x-for="(col, cIdx) in cols" :key="rExcel+'-'+col">
+                  <td>
+                    <label class="visually-hidden" :for="cellId(rExcel,col)">셀 <span x-text="col"></span><span x-text="rExcel"></span> 입력</label>
+                    <input
+                      class="cell-input num"
+                      inputmode="decimal"
+                      autocomplete="off"
+                      :id="cellId(rExcel,col)"
+                      :aria-label="'셀 '+col+rExcel+' 입력'"
+                      :aria-rowindex="(inputRowNumbers.length + sIdx + 1)"
+                      :aria-colindex="cIdx+1"
+                      x-model="cells[addr(col,rExcel)]"
+                      @input="onCellInput()"
+                    />
+                  </td>
+                </template>
+              </tr>
+            </template>
+
+            <!-- Bottom sum row (Excel row 30) -->
+            <tr class="sum-row" aria-label="하단 합계 행">
+              <th class="row-hdr" scope="row" aria-label="30행">30</th>
+              <template x-for="(col, ci) in cols" :key="'bot-'+col">
+                <td>
+                  <div class="sum-cell" aria-live="polite" :aria-label="col + '열 하단 합계'" x-text="fmt(sumBottom[col])"></div>
+                </td>
+              </template>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Result display (for quick reading; also printed) -->
+    <section class="card" aria-label="합계 결과">
+      <div class="card-body">
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+          <h2 class="h6 mb-0">합계 결과(상단/하단 집계)</h2>
+          <div class="form-check form-switch no-print">
+            <input class="form-check-input" type="checkbox" role="switch" id="commaToggle" x-model="useComma" @change="calculate()">
+            <label class="form-check-label" for="commaToggle">천단위 콤마 표시</label>
+          </div>
+        </div>
+
+        <div class="row g-2">
+          <template x-for="col in cols" :key="'card-'+col">
+            <div class="col-6 col-md-4 col-lg-3">
+              <div class="border rounded p-2 h-100">
+                <div class="small text-secondary" x-text="col + '열'"></div>
+                <div class="d-flex justify-content-between gap-2" aria-live="polite">
+                  <div>
+                    <div class="small text-secondary">상단</div>
+                    <div class="fw-bold" x-text="fmt(sumTop[col])"></div>
+                  </div>
+                  <div>
+                    <div class="small text-secondary">하단</div>
+                    <div class="fw-bold" x-text="fmt(sumBottom[col])"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </template>
+        </div>
+
+        <div class="muted-note mt-3 no-print">
+          입력값이 비어있거나 문자인 경우 0으로 처리하여 엑셀 SUM과 유사하게 계산합니다. (예: "123" → 123)
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    // ===== Excel formula helper functions (from get_js_helpers) =====
+    function _sum(...args) {
+        return args.flat().reduce((a, b) => (parseFloat(a) || 0) + (parseFloat(b) || 0), 0);
+    }
+
+    function _sumRange(rangeData) {
+        if (Array.isArray(rangeData)) {
+            return rangeData.flat().reduce((a, b) => (parseFloat(a) || 0) + (parseFloat(b) || 0), 0);
+        }
+        return parseFloat(rangeData) || 0;
+    }
+
+    function _average(...args) {
+        const flat = args.flat().filter(x => x !== null && x !== '' && !isNaN(x));
+        return flat.length ? _sum(...flat) / flat.length : 0;
+    }
+
+    function _averageRange(rangeData) {
+        if (Array.isArray(rangeData)) {
+            const flat = rangeData.flat().filter(x => x !== null && x !== '' && !isNaN(x));
+            return flat.length ? _sumRange(flat) / flat.length : 0;
+        }
+        return parseFloat(rangeData) || 0;
+    }
+
+    function _count(...args) {
+        return args.flat().filter(x => typeof x === 'number' && !isNaN(x)).length;
+    }
+
+    function _counta(...args) {
+        return args.flat().filter(x => x !== null && x !== '' && x !== undefined).length;
+    }
+
+    function _and(...args) {
+        return args.every(x => Boolean(x));
+    }
+
+    function _or(...args) {
+        return args.some(x => Boolean(x));
+    }
+
+    function _round(num, digits = 0) {
+        const factor = Math.pow(10, digits);
+        return Math.round(num * factor) / factor;
+    }
+
+    function _roundUp(num, digits = 0) {
+        const factor = Math.pow(10, digits);
+        return Math.ceil(num * factor) / factor;
+    }
+
+    function _roundDown(num, digits = 0) {
+        const factor = Math.pow(10, digits);
+        return Math.floor(num * factor) / factor;
+    }
+
+    function _len(text) {
+        return String(text).length;
+    }
+
+    function _left(text, numChars = 1) {
+        return String(text).substring(0, numChars);
+    }
+
+    function _right(text, numChars = 1) {
+        const str = String(text);
+        return str.substring(str.length - numChars);
+    }
+
+    function _mid(text, startNum, numChars) {
+        return String(text).substring(startNum - 1, startNum - 1 + numChars);
+    }
+
+    function _trim(text) {
+        return String(text).trim();
+    }
+
+    function _upper(text) {
+        return String(text).toUpperCase();
+    }
+
+    function _lower(text) {
+        return String(text).toLowerCase();
+    }
+
+    function _concat(...args) {
+        return args.join('');
+    }
+
+    // Number formatting
+    function formatNumber(num, decimals = 0) {
+        return new Intl.NumberFormat('ko-KR', {
+            minimumFractionDigits: decimals,
+            maximumFractionDigits: decimals
+        }).format(num);
+    }
+
+    function formatCurrency(num) {
+        return new Intl.NumberFormat('ko-KR', {
+            style: 'currency',
+            currency: 'KRW',
+            maximumFractionDigits: 0
+        }).format(num);
+    }
+
+    function formatPercent(num, decimals = 1) {
+        return new Intl.NumberFormat('ko-KR', {
+            style: 'percent',
+            minimumFractionDigits: decimals,
+            maximumFractionDigits: decimals
+        }).format(num / 100);
+    }
+
+    // ===== App logic =====
+    function appData(){
+      const COLS = ['B','C','D','E','F','G','H','I','J','K','L','M','N'];
+      const INPUT_ROWS = Array.from({length:10}, (_,i)=>15+i);   // 15~24
+      const EXTRA_ROWS = Array.from({length:5}, (_,i)=>25+i);    // 25~29 (하단 합계 범위 반영)
+
+      return {
+        cols: COLS,
+        inputRowNumbers: INPUT_ROWS,
+        extraRowNumbers: EXTRA_ROWS,
+
+        // cell map: {"B15": "", ...}
+        cells: {},
+
+        sumTop: {},
+        sumBottom: {},
+
+        useComma: true,
+        _debounceTimer: null,
+
+        init(){
+          // initialize cells for B15:N29
+          for (const r of [...INPUT_ROWS, ...EXTRA_ROWS]){
+            for (const c of COLS){
+              const a = this.addr(c,r);
+              if (!(a in this.cells)) this.cells[a] = '';
+            }
+          }
+          this.calculate();
+        },
+
+        addr(col,row){ return `${col}${row}`; },
+        cellId(row,col){ return `cell-${col}${row}`; },
+
+        parseCellNumber(raw){
+          if (raw === null || raw === undefined) return 0;
+          if (typeof raw === 'number') return Number.isFinite(raw) ? raw : 0;
+          const s = String(raw).trim();
+          if (!s) return 0;
+          // allow comma separated input
+          const n = Number(s.replaceAll(',',''));
+          return Number.isFinite(n) ? n : 0;
+        },
+
+        sumRange(values){
+          // Excel SUM-like: empty/string treated as 0 (numeric string allowed)
+          let acc = 0;
+          for (const v of values){
+            acc += this.parseCellNumber(v);
+          }
+          return acc;
+        },
+
+        getRange(col, r1, r2){
+          const out = [];
+          for (let r=r1; r<=r2; r++) out.push(this.cells[this.addr(col,r)]);
+          return out;
+        },
+
+        // debounce input
+        onCellInput(){
+          window.clearTimeout(this._debounceTimer);
+          this._debounceTimer = window.setTimeout(()=>this.calculate(), 150);
+        },
+
+        calculate(){
+          // Top sums: Sheet1 B10~N10 = SUM(B3:B9) ...
+          // NOTE: 실제 엑셀의 B3:B9 값은 입력 UI에 존재하지 않으므로, 본 웹앱에서는 "상단 합계"를
+          //       (가시 입력 범위와의 정합성 확보를 위해) B15:B29 합계와 동일한 방식으로 계산하지 않고,
+          //       원 수식 범위를 준수하되 값이 없으면 0이 됩니다.
+          //       상단 합계를 입력 기반(예: B15:B21 등)으로 바꾸려면 범위를 알려주세요.
+
+          // We keep a lightweight data-like accessor for conversion compatibility
+          const data = new Proxy({}, {
+            get: (_, key) => {
+              // key like 'B15' -> return parsed number
+              return this.parseCellNumber(this.cells[String(key)]);
+            }
+          });
+
+          for (const col of this.cols){
+            // converted conceptually from: =SUM(B3:B9)
+            const topRange = Array.from({length:7}, (_,i)=>data[`${col}${3+i}`]);
+            this.sumTop[col] = _sumRange(topRange);
+
+            // bottom: =SUM(B15:B29)
+            const bottomRange = this.getRange(col, 15, 29).map(v=>this.parseCellNumber(v));
+            this.sumBottom[col] = _sumRange(bottomRange);
+          }
+        },
+
+        fmt(n){
+          const num = this.parseCellNumber(n);
+          return this.useComma ? formatNumber(num, 0) : String(num);
+        },
+
+        save(){
+          const payload = {
+            version: 1,
+            savedAt: new Date().toISOString(),
+            cells: this.cells,
+            useComma: this.useComma
+          };
+          localStorage.setItem('table-sum-app', JSON.stringify(payload));
+          alert('저장되었습니다. (이 브라우저의 로컬 저장소에 저장)');
+        },
+
+        load(){
+          const raw = localStorage.getItem('table-sum-app');
+          if (!raw) { alert('저장된 데이터가 없습니다.'); return; }
+          try{
+            const obj = JSON.parse(raw);
+            if (obj && obj.cells){
+              this.cells = {...this.cells, ...obj.cells};
+              if (typeof obj.useComma === 'boolean') this.useComma = obj.useComma;
+              this.calculate();
+              alert('불러오기 완료');
+            } else {
+              alert('저장 데이터 형식이 올바르지 않습니다.');
+            }
+          }catch(e){
+            alert('불러오기 실패: 데이터가 손상되었습니다.');
+          }
+        },
+
+        print(){
+          // ensure latest calc
+          this.calculate();
+          window.print();
+        }
+      };
+    }
+  </script>
+
+<!-- Agent Trace Viewer -->
+<style>
+.trace-toggle {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 9999;
+    background: #6366f1;
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 25px;
+    cursor: pointer;
+    font-size: 14px;
+    box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.trace-toggle:hover { background: #4f46e5; }
+.trace-panel {
+    position: fixed;
+    top: 0;
+    right: -450px;
+    width: 450px;
+    height: 100vh;
+    background: #1e1e2e;
+    color: #cdd6f4;
+    z-index: 9998;
+    transition: right 0.3s ease;
+    overflow-y: auto;
+    font-family: 'Monaco', 'Menlo', monospace;
+    font-size: 12px;
+}
+.trace-panel.open { right: 0; }
+.trace-header {
+    padding: 16px;
+    background: #313244;
+    border-bottom: 1px solid #45475a;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.trace-header h3 { margin: 0; font-size: 14px; }
+.trace-close {
+    background: none;
+    border: none;
+    color: #cdd6f4;
+    cursor: pointer;
+    font-size: 18px;
+}
+.trace-content { padding: 16px; }
+.span-item {
+    margin-bottom: 12px;
+    padding: 12px;
+    background: #313244;
+    border-radius: 8px;
+    border-left: 3px solid #89b4fa;
+}
+.span-item.agent { border-left-color: #a6e3a1; }
+.span-item.generation { border-left-color: #f9e2af; }
+.span-item.function { border-left-color: #cba6f7; }
+.span-type {
+    font-size: 10px;
+    text-transform: uppercase;
+    color: #6c7086;
+    margin-bottom: 4px;
+}
+.span-name { font-weight: bold; color: #89dceb; }
+.span-data {
+    margin-top: 8px;
+    padding: 8px;
+    background: #1e1e2e;
+    border-radius: 4px;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+.span-time { color: #6c7086; font-size: 11px; }
+.trace-summary {
+    padding: 12px 16px;
+    background: #45475a;
+    margin: 0 16px 16px;
+    border-radius: 8px;
+}
+.trace-summary-item { display: flex; justify-content: space-between; margin: 4px 0; }
+</style>
+
+<button class="trace-toggle" onclick="toggleTracePanel()">
+    <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+        <path d="M9.5 13a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm0-5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm0-5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/>
+    </svg>
+    Agent Trace
+</button>
+
+<div class="trace-panel" id="tracePanel">
+    <div class="trace-header">
+        <h3>Agent Trace Viewer</h3>
+        <button class="trace-close" onclick="toggleTracePanel()">&times;</button>
+    </div>
+    <div class="trace-summary" id="traceSummary"></div>
+    <div class="trace-content" id="traceContent"></div>
+</div>
+
+<script>
+const TRACE_DATA = {"trace_id": "trace_6a76e1386d93413fb06e0196b029919a", "workflow_name": "Excel-to-WebApp: 3.xlsx", "group_id": null, "metadata": null, "started_at": "2025-12-28T11:55:45.288474", "ended_at": "2025-12-28T11:58:36.147896", "spans": [{"span_id": "span_3e26d7956f144ffa997ba79f", "parent_id": "span_15e928536324400d9e84df36", "started_at": "2025-12-28T02:55:45.299105+00:00", "ended_at": "2025-12-28T02:55:47.301006+00:00", "error": null, "type": "response", "data": {"type": "response", "response_id": "resp_0ad18c5d65a48b640069509c319e108190b717bcf7dafe021d"}}, {"span_id": "span_9f21cc92287342758ff89a98", "parent_id": "span_15e928536324400d9e84df36", "started_at": "2025-12-28T02:55:47.301427+00:00", "ended_at": "2025-12-28T02:55:47.308034+00:00", "error": null, "type": "function", "data": {"type": "function", "name": "analyze_excel", "input": "{\"file_path\":\"excel_files/엑셀서식(20160517)/가계부(자동화엑셀)/3.xlsx\"}", "output": "{'filename': '3.xlsx', 'file_type': 'xlsx', 'sheets': [{'name': 'Sheet1', 'row_count': 32, 'col_count': 14, 'used_range': 'A1:N32', 'input_cells': ['B15', 'B16', 'B17', 'B18', 'B19', 'B20', 'B21', 'B22', 'B23', 'B24', 'B25', 'B26', 'B27', 'B28', 'B29', 'B3', 'B4', 'B5', 'B6', 'B7', 'B8', 'B9', 'C15', 'C16', 'C17', 'C18', 'C19', 'C20', 'C21', 'C22', 'C23', 'C24', 'C25', 'C26', 'C27', 'C28', 'C29', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9', 'D15', 'D16', 'D17', 'D18', 'D19', 'D20', 'D21', 'D22', 'D23', 'D24', 'D25', 'D26', 'D27', 'D28', 'D29', 'D3', 'D4', 'D5', 'D6', 'D7', 'D8', 'D9', 'E15', 'E16', 'E17', 'E18', 'E19', 'E20', 'E21', 'E22', 'E23', 'E24', 'E25', 'E26', 'E27', 'E28', 'E29', 'E3', 'E4', 'E5', 'E6', 'E7', 'E8', 'E9', 'F15', 'F16', 'F17', 'F18', 'F19', 'F20', 'F21', 'F22', 'F23', 'F24', 'F25', 'F26', 'F27', 'F28', 'F29', 'F3', 'F4', 'F5', 'F6', 'F7', 'F8', 'F9', 'G15', 'G16', 'G17', 'G18', 'G19', 'G20', 'G21', 'G22', 'G23', 'G24', 'G25', 'G26', 'G27', 'G28', 'G29', 'G3', 'G4', 'G5', 'G6', 'G7', 'G8', 'G9', 'H15', 'H16', 'H17', 'H18', 'H19', 'H20', 'H21', 'H22', 'H23', 'H24', 'H25', 'H26', 'H27', 'H28', 'H29', 'H3', 'H4', 'H5', 'H6', 'H7', 'H8', 'H9', 'I15', 'I16', 'I17', 'I18', 'I19', 'I20', 'I21', 'I22', 'I23', 'I24', 'I25', 'I26', 'I27', 'I28', 'I29', 'I3', 'I4', 'I5', 'I6', 'I7', 'I8', 'I9', 'J15', 'J16', 'J17', 'J18', 'J19', 'J20', 'J21', 'J22', 'J23', 'J24', 'J25', 'J26', 'J27', 'J28', 'J29', 'J3', 'J4', 'J5', 'J6', 'J7', 'J8', 'J9', 'K15', 'K16', 'K17', 'K18', 'K19', 'K20', 'K21', 'K22', 'K23', 'K24', 'K25', 'K26', 'K27', 'K28', 'K29', 'K3', 'K4', 'K5', 'K6', 'K7', 'K8', 'K9', 'L15', 'L16', 'L17', 'L18', 'L19', 'L20', 'L21', 'L22', 'L23', 'L24', 'L25', 'L26', 'L27', 'L28', 'L29', 'L3', 'L4', 'L5', 'L6', 'L7', 'L8', 'L9', 'M15', 'M16', 'M17', 'M18', 'M19', 'M20', 'M21', 'M22', 'M23', 'M24', 'M25', 'M26', 'M27', 'M28', 'M29', 'M3', 'M4', 'M5', 'M6', 'M7', 'M8', 'M9', 'N15', 'N16', 'N17', 'N18', 'N19', 'N20', 'N21', 'N22', 'N23', 'N24', 'N25', 'N26', 'N27', 'N28', 'N29', 'N3', 'N4', 'N5', 'N6', 'N7', 'N8', 'N9'], 'output_cells': ['B10', 'B30', 'C10', 'C30', 'D10', 'D30', 'E10', 'E30', 'F10', 'F30', 'G10', 'G30', 'H10', 'H30', 'I10', 'I30', 'J10', 'J30', 'K10', 'K30', 'L10', 'L30', 'M10', 'M30', 'N10', 'N30'], 'formulas': [{'cell': 'B10', 'formula': '=SUM(B3:B9)', 'dependencies': ['B9', 'B6', 'B3', 'B4', 'B5', 'B8', 'B7'], 'result_type': 'number'}, {'cell': 'C10', 'formula': '=SUM(C3:C9)', 'dependencies': ['C8', 'C6', 'C3', 'C4', 'C9', 'C7', 'C5'], 'result_type': 'number'}, {'cell': 'D10', 'formula': '=SUM(D3:D9)', 'dependencies': ['D5', 'D8', 'D3', 'D9', 'D4', 'D6', 'D7'], 'result_type': 'number'}, {'cell': 'E10', 'formula': '=SUM(E3:E9)', 'dependencies': ['E7', 'E5', 'E8', 'E4', 'E6', 'E3', 'E9'], 'result_type': 'number'}, {'cell': 'F10', 'formula': '=SUM(F3:F9)', 'dependencies': ['F6', 'F8', 'F3', 'F9', 'F7', 'F4', 'F5'], 'result_type': 'number'}, {'cell': 'G10', 'formula': '=SUM(G3:G9)', 'dependencies': ['G6', 'G4', 'G8', 'G3', 'G9', 'G5', 'G7'], 'result_type': 'number'}, {'cell': 'H10', 'formula': '=SUM(H3:H9)', 'dependencies': ['H8', 'H5', 'H4', 'H3', 'H7', 'H6', 'H9'], 'result_type': 'number'}, {'cell': 'I10', 'formula': '=SUM(I3:I9)', 'dependencies': ['I9', 'I3', 'I5', 'I8', 'I6', 'I4', 'I7'], 'result_type': 'number'}, {'cell': 'J10', 'formula': '=SUM(J3:J9)', 'dependencies': ['J3', 'J9', 'J6', 'J8', 'J5', 'J7', 'J4'], 'result_type': 'number'}, {'cell': 'K10', 'formula': '=SUM(K3:K9)', 'dependencies': ['K4', 'K3', 'K6', 'K8', 'K5', 'K7', 'K9'], 'result_type': 'number'}, {'cell': 'L10', 'formula': '=SUM(L3:L9)', 'dependencies': ['L5', 'L3', 'L6', 'L9', 'L8', 'L4', 'L7'], 'result_type': 'number'}, {'cell': 'M10', 'formula': '=SUM(M3:M9)', 'dependencies': ['M6', 'M8', 'M4', 'M3', 'M7', 'M5', 'M9'], 'result_type': 'number'}, {'cell': 'N10', 'formula': '=SUM(N3:N9)', 'dependencies': ['N9', 'N8', 'N6', 'N5', 'N4', 'N3', 'N7'], 'result_type': 'number'}, {'cell': 'B30', 'formula': '=SUM(B15:B29)', 'dependencies': ['B27', 'B23', 'B17', 'B19', 'B24', 'B18', 'B15', 'B25', 'B22', 'B20', 'B29', 'B21', 'B28', 'B26', 'B16'], 'result_type': 'number'}, {'cell': 'C30', 'formula': '=SUM(C15:C29)', 'dependencies': ['C24', 'C28', 'C16', 'C25', 'C17', 'C18', 'C26', 'C23', 'C29', 'C22', 'C15', 'C21', 'C20', 'C27', 'C19'], 'result_type': 'number'}, {'cell': 'D30', 'formula': '=SUM(D15:D29)', 'dependencies': ['D26', 'D21', 'D25', 'D24', 'D16', 'D20', 'D29', 'D28', 'D15', 'D18', 'D17', 'D19', 'D23', 'D27', 'D22'], 'result_type': 'number'}, {'cell': 'E30', 'formula': '=SUM(E15:E29)', 'dependencies': ['E19', 'E20', 'E15', 'E22', 'E23', 'E26', 'E27', 'E18', 'E24', 'E16', 'E17', 'E21', 'E28', 'E29', 'E25'], 'result_type': 'number'}, {'cell': 'F30', 'formula': '=SUM(F15:F29)', 'dependencies': ['F15', 'F21', 'F24', 'F19', 'F27', 'F18', 'F17', 'F25', 'F22', 'F23', 'F16', 'F28', 'F26', 'F29', 'F20'], 'result_type': 'number'}, {'cell': 'G30', 'formula': '=SUM(G15:G29)', 'dependencies': ['G15', 'G17', 'G25', 'G26', 'G22', 'G29', 'G27', 'G23', 'G16', 'G19', 'G20', 'G24', 'G21', 'G18', 'G28'], 'result_type': 'number'}, {'cell': 'H30', 'formula': '=SUM(H15:H29)', 'dependencies': ['H23', 'H21', 'H27', 'H26', 'H29', 'H19', 'H20', 'H17', 'H15', 'H22', 'H24', 'H25', 'H28', 'H18', 'H16'], 'result_type': 'number'}, {'cell': 'I30', 'formula': '=SUM(I15:I29)', 'dependencies': ['I23', 'I25', 'I17', 'I18', 'I22', 'I29', 'I27', 'I26', 'I15', 'I28', 'I24', 'I16', 'I19', 'I20', 'I21'], 'result_type': 'number'}, {'cell': 'J30', 'formula': '=SUM(J15:J29)', 'dependencies': ['J15', 'J26', 'J16', 'J28', 'J19', 'J17', 'J18', 'J25', 'J21', 'J22', 'J23', 'J24', 'J27', 'J29', 'J20'], 'result_type': 'number'}, {'cell': 'K30', 'formula': '=SUM(K15:K29)', 'dependencies': ['K26', 'K19', 'K20', 'K23', 'K25', 'K18', 'K21', 'K27', 'K15', 'K17', 'K24', 'K16', 'K28', 'K29', 'K22'], 'result_type': 'number'}, {'cell': 'L30', 'formula': '=SUM(L15:L29)', 'dependencies': ['L24', 'L28', 'L23', 'L18', 'L27', 'L19', 'L22', 'L20', 'L25', 'L26', 'L29', 'L16', 'L15', 'L21', 'L17'], 'result_type': 'number'}, {'cell': 'M30', 'formula': '=SUM(M15:M29)', 'dependencies': ['M25', 'M27', 'M18', 'M15', 'M26', 'M16', 'M22', 'M19', 'M21', 'M29', 'M20', 'M24', 'M28', 'M17', 'M23'], 'result_type': 'number'}, {'cell': 'N30', 'formula': '=SUM(N15:N29)', 'dependencies': ['N18', 'N15', 'N28', 'N29', 'N25', 'N26', 'N17', 'N22', 'N19', 'N24', 'N27', 'N21', 'N16', 'N23', 'N20'], 'result_type': 'number'}], 'has_print_area': False, 'print_area': None}, {'name': 'Sheet2', 'row_count': 1, 'col_count': 1, 'used_range': 'A1:A1', 'input_cells': [], 'output_cells': [], 'formulas': [], 'has_print_area': False, 'print_area': None}, {'name': 'Sheet3', 'row_count': 1, 'col_count': 1, 'used_range': 'A1:A1', 'input_cells': [], 'output_cells': [], 'formulas': [], 'has_print_area': False, 'print_area': None}], 'vba_modules': [], 'has_vba': False, 'print_settings': {'orientation': 'landscape', 'paper_size': 'A4', 'margins': {'top': 0.590277777777778, 'bottom': 0.590277777777778, 'left': 0.39375, 'right': 0.196527777777778}, 'header': None, 'footer': None, 'fit_to_page': False, 'scale': 100}, 'total_formulas': 26, 'total_input_cells': 286, 'total_output_cells': 26, 'complexity_score': 'medium'}", "mcp_data": null}}, {"span_id": "span_371310d631bc4993808e783e", "parent_id": "span_15e928536324400d9e84df36", "started_at": "2025-12-28T02:55:47.309121+00:00", "ended_at": "2025-12-28T02:57:20.376563+00:00", "error": null, "type": "response", "data": {"type": "response", "response_id": "resp_0ad18c5d65a48b640069509c3385b88190b09e1e45c4dac202"}}, {"span_id": "span_15e928536324400d9e84df36", "parent_id": null, "started_at": "2025-12-28T02:55:45.288897+00:00", "ended_at": "2025-12-28T02:57:20.376866+00:00", "error": null, "type": "agent", "data": {"type": "agent", "name": "Excel Analyzer", "handoffs": [], "tools": ["analyze_excel", "get_sheet_cells"], "output_type": "str"}}, {"span_id": "span_fc4c78cd4a3c41b1ba9c8a5b", "parent_id": "span_c392ff82fc9d427d93797473", "started_at": "2025-12-28T02:57:20.377495+00:00", "ended_at": "2025-12-28T02:57:45.555080+00:00", "error": null, "type": "response", "data": {"type": "response", "response_id": "resp_051dd63dec1416320069509c9096448196bbb9b0bf07af88d7"}}, {"span_id": "span_c392ff82fc9d427d93797473", "parent_id": null, "started_at": "2025-12-28T02:57:20.377248+00:00", "ended_at": "2025-12-28T02:57:45.555483+00:00", "error": null, "type": "agent", "data": {"type": "agent", "name": "WebApp Planner", "handoffs": [], "tools": [], "output_type": "WebAppPlan"}}, {"span_id": "span_4d8924ae717c47cabd6ddc05", "parent_id": "span_94fd640b9abf4b29b1944213", "started_at": "2025-12-28T02:57:45.555905+00:00", "ended_at": "2025-12-28T02:57:46.896256+00:00", "error": null, "type": "response", "data": {"type": "response", "response_id": "resp_0e91f5d151a7aeed0069509ca9c2cc8193a5b9cd6bd9d423e1"}}, {"span_id": "span_2ac06bf7481a40c6a0f8ee9a", "parent_id": "span_94fd640b9abf4b29b1944213", "started_at": "2025-12-28T02:57:46.896574+00:00", "ended_at": "2025-12-28T02:57:46.896826+00:00", "error": null, "type": "function", "data": {"type": "function", "name": "get_js_helpers", "input": "{}", "output": "\n// Excel formula helper functions\nfunction _sum(...args) {\n    return args.flat().reduce((a, b) => (parseFloat(a) || 0) + (parseFloat(b) || 0), 0);\n}\n\nfunction _sumRange(rangeData) {\n    if (Array.isArray(rangeData)) {\n        return rangeData.flat().reduce((a, b) => (parseFloat(a) || 0) + (parseFloat(b) || 0), 0);\n    }\n    return parseFloat(rangeData) || 0;\n}\n\nfunction _average(...args) {\n    const flat = args.flat().filter(x => x !== null && x !== '' && !isNaN(x));\n    return flat.length ? _sum(...flat) / flat.length : 0;\n}\n\nfunction _averageRange(rangeData) {\n    if (Array.isArray(rangeData)) {\n        const flat = rangeData.flat().filter(x => x !== null && x !== '' && !isNaN(x));\n        return flat.length ? _sumRange(flat) / flat.length : 0;\n    }\n    return parseFloat(rangeData) || 0;\n}\n\nfunction _count(...args) {\n    return args.flat().filter(x => typeof x === 'number' && !isNaN(x)).length;\n}\n\nfunction _counta(...args) {\n    return args.flat().filter(x => x !== null && x !== '' && x !== undefined).length;\n}\n\nfunction _and(...args) {\n    return args.every(x => Boolean(x));\n}\n\nfunction _or(...args) {\n    return args.some(x => Boolean(x));\n}\n\nfunction _round(num, digits = 0) {\n    const factor = Math.pow(10, digits);\n    return Math.round(num * factor) / factor;\n}\n\nfunction _roundUp(num, digits = 0) {\n    const factor = Math.pow(10, digits);\n    return Math.ceil(num * factor) / factor;\n}\n\nfunction _roundDown(num, digits = 0) {\n    const factor = Math.pow(10, digits);\n    return Math.floor(num * factor) / factor;\n}\n\nfunction _len(text) {\n    return String(text).length;\n}\n\nfunction _left(text, numChars = 1) {\n    return String(text).substring(0, numChars);\n}\n\nfunction _right(text, numChars = 1) {\n    const str = String(text);\n    return str.substring(str.length - numChars);\n}\n\nfunction _mid(text, startNum, numChars) {\n    return String(text).substring(startNum - 1, startNum - 1 + numChars);\n}\n\nfunction _trim(text) {\n    return String(text).trim();\n}\n\nfunction _upper(text) {\n    return String(text).toUpperCase();\n}\n\nfunction _lower(text) {\n    return String(text).toLowerCase();\n}\n\nfunction _concat(...args) {\n    return args.join('');\n}\n\n// Number formatting\nfunction formatNumber(num, decimals = 0) {\n    return new Intl.NumberFormat('ko-KR', {\n        minimumFractionDigits: decimals,\n        maximumFractionDigits: decimals\n    }).format(num);\n}\n\nfunction formatCurrency(num) {\n    return new Intl.NumberFormat('ko-KR', {\n        style: 'currency',\n        currency: 'KRW',\n        maximumFractionDigits: 0\n    }).format(num);\n}\n\nfunction formatPercent(num, decimals = 1) {\n    return new Intl.NumberFormat('ko-KR', {\n        style: 'percent',\n        minimumFractionDigits: decimals,\n        maximumFractionDigits: decimals\n    }).format(num / 100);\n}\n", "mcp_data": null}}, {"span_id": "span_c684b3e37cd747e39dfa4357", "parent_id": "span_94fd640b9abf4b29b1944213", "started_at": "2025-12-28T02:57:46.896599+00:00", "ended_at": "2025-12-28T02:57:46.896836+00:00", "error": null, "type": "function", "data": {"type": "function", "name": "check_formula_complexity", "input": "{\"formula\":\"=SUM(B3:B9)\"}", "output": "formula='=SUM(B3:B9)' is_simple=True conversion_method='direct'", "mcp_data": null}}, {"span_id": "span_c7f76462e39e465d9dcc325c", "parent_id": "span_94fd640b9abf4b29b1944213", "started_at": "2025-12-28T02:57:46.896655+00:00", "ended_at": "2025-12-28T02:57:46.896852+00:00", "error": null, "type": "function", "data": {"type": "function", "name": "check_formula_complexity", "input": "{\"formula\":\"=SUM(B15:B29)\"}", "output": "formula='=SUM(B15:B29)' is_simple=True conversion_method='direct'", "mcp_data": null}}, {"span_id": "span_4ff4c6c7fb1c41609e82a208", "parent_id": "span_94fd640b9abf4b29b1944213", "started_at": "2025-12-28T02:57:46.897183+00:00", "ended_at": "2025-12-28T02:57:48.406399+00:00", "error": null, "type": "response", "data": {"type": "response", "response_id": "resp_0e91f5d151a7aeed0069509cab1aa48193afed80d89fb4d1f9"}}, {"span_id": "span_bdb96a8ecfbd429d84eff2b5", "parent_id": "span_94fd640b9abf4b29b1944213", "started_at": "2025-12-28T02:57:48.406618+00:00", "ended_at": "2025-12-28T02:57:48.407428+00:00", "error": null, "type": "function", "data": {"type": "function", "name": "convert_formula", "input": "{\"formula\":\"=SUM(B3:B9)\"}", "output": "success=True js_code=\"_sumRange(data['B3']:data['B9'])\" requires_llm=False error=None", "mcp_data": null}}, {"span_id": "span_f31b0d5d8c264108b8834305", "parent_id": "span_94fd640b9abf4b29b1944213", "started_at": "2025-12-28T02:57:48.406640+00:00", "ended_at": "2025-12-28T02:57:48.407501+00:00", "error": null, "type": "function", "data": {"type": "function", "name": "convert_formula", "input": "{\"formula\":\"=SUM(C3:C9)\"}", "output": "success=True js_code=\"_sumRange(data['C3']:data['C9'])\" requires_llm=False error=None", "mcp_data": null}}, {"span_id": "span_7636c89e180d4e2b8f181d79", "parent_id": "span_94fd640b9abf4b29b1944213", "started_at": "2025-12-28T02:57:48.406655+00:00", "ended_at": "2025-12-28T02:57:48.407530+00:00", "error": null, "type": "function", "data": {"type": "function", "name": "convert_formula", "input": "{\"formula\":\"=SUM(B15:B29)\"}", "output": "success=True js_code=\"_sumRange(data['B15']:data['B29'])\" requires_llm=False error=None", "mcp_data": null}}, {"span_id": "span_6e35232212634e45a40fcd72", "parent_id": "span_94fd640b9abf4b29b1944213", "started_at": "2025-12-28T02:57:48.406665+00:00", "ended_at": "2025-12-28T02:57:48.407552+00:00", "error": null, "type": "function", "data": {"type": "function", "name": "convert_formula", "input": "{\"formula\":\"=SUM(C15:C29)\"}", "output": "success=True js_code=\"_sumRange(data['C15']:data['C29'])\" requires_llm=False error=None", "mcp_data": null}}, {"span_id": "span_be7aeea2ffba40e8b7779a45", "parent_id": "span_94fd640b9abf4b29b1944213", "started_at": "2025-12-28T02:57:48.408214+00:00", "ended_at": "2025-12-28T02:58:36.147137+00:00", "error": null, "type": "response", "data": {"type": "response", "response_id": "resp_0e91f5d151a7aeed0069509cac9d2c8193854fc09c62c76974"}}, {"span_id": "span_94fd640b9abf4b29b1944213", "parent_id": null, "started_at": "2025-12-28T02:57:45.555694+00:00", "ended_at": "2025-12-28T02:58:36.147599+00:00", "error": null, "type": "agent", "data": {"type": "agent", "name": "WebApp Generator", "handoffs": [], "tools": ["convert_formula", "check_formula_complexity", "get_js_helpers"], "output_type": "GeneratedWebApp"}}]};
+
+function toggleTracePanel() {
+    document.getElementById('tracePanel').classList.toggle('open');
+}
+
+function renderTrace() {
+    const summary = document.getElementById('traceSummary');
+    const content = document.getElementById('traceContent');
+
+    if (!TRACE_DATA) {
+        content.innerHTML = '<p>No trace data available</p>';
+        return;
+    }
+
+    // Summary
+    const spans = TRACE_DATA.spans || [];
+    const agentSpans = spans.filter(s => s.type === 'agent').length;
+    const genSpans = spans.filter(s => s.type === 'generation').length;
+    const funcSpans = spans.filter(s => s.type === 'function').length;
+
+    summary.innerHTML = `
+        <div class="trace-summary-item"><span>Workflow</span><span>${TRACE_DATA.workflow_name || '-'}</span></div>
+        <div class="trace-summary-item"><span>Agent Spans</span><span>${agentSpans}</span></div>
+        <div class="trace-summary-item"><span>LLM Generations</span><span>${genSpans}</span></div>
+        <div class="trace-summary-item"><span>Function Calls</span><span>${funcSpans}</span></div>
+    `;
+
+    // Spans
+    let html = '';
+    spans.forEach(span => {
+        const typeClass = span.type || 'custom';
+        const data = span.data || {};
+        html += `
+            <div class="span-item ${typeClass}">
+                <div class="span-type">${span.type || 'span'}</div>
+                <div class="span-name">${data.name || data.model || span.span_id?.slice(0, 8) || '-'}</div>
+                ${data.input ? `<div class="span-data">${typeof data.input === 'string' ? data.input.slice(0, 200) : JSON.stringify(data.input).slice(0, 200)}...</div>` : ''}
+                ${data.output ? `<div class="span-data">${typeof data.output === 'string' ? data.output.slice(0, 200) : JSON.stringify(data.output).slice(0, 200)}...</div>` : ''}
+                ${data.usage ? `<div class="span-time">Tokens: ${data.usage.total_tokens || '-'}</div>` : ''}
+            </div>
+        `;
+    });
+    content.innerHTML = html || '<p>No spans recorded</p>';
+}
+
+document.addEventListener('DOMContentLoaded', renderTrace);
+</script>
+</body>
+</html>
