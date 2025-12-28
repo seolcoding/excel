@@ -1,5 +1,7 @@
 # Project Instructions
 
+> **Current Time**: Run `date '+%Y-%m-%d %H:%M:%S'` or `date +%s` (Unix timestamp)
+
 ## Core Requirements
 
 ### OpenAI Agent SDK
