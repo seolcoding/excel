@@ -36,12 +36,8 @@ test_with_trace.html
 conversion.log
 conversion_results.json
 
-# Traces (keep structure, ignore generated files)
-traces/*.json
-
 # MCP cache
 .playwright-mcp/
 
-# Excel test files (large)
-excel_files/엑셀서식*/
-excel_index.json
+# Large Excel folder (only demo files tracked via force add)
+excel_files/엑셀서식(20160517)/
