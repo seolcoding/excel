@@ -1,10 +1,14 @@
 """Agents for Excel to Web App conversion.
 
-Agent Pipeline (LLM-as-a-Judge pattern):
+TDD Pipeline Flow:
 1. Analyzer Agent: Extract structure from Excel
-2. Planner Agent: Design web app architecture
-3. Generator Agent: Produce HTML/CSS/JS code
-4. Tester Agent: Evaluate code and provide feedback (LLM-as-a-Judge)
+2. Spec Agent: Create testable WebAppSpec (TDD)
+3. Test Generator: Generate failing tests from Spec
+4. Generator Agent: Produce HTML/CSS/JS code to pass tests
+5. Tester Agent: Evaluate code and provide feedback (LLM-as-a-Judge)
+
+Legacy flow (deprecated):
+1. Analyzer → 2. Planner → 3. Generator → 4. Tester
 """
 
 from .analyzer_agent import (
@@ -16,6 +20,7 @@ from .analyzer_agent import (
     analyze_vba_cell_mapping,
 )
 from .planner_agent import create_planner_agent, create_plan_prompt
+from .spec_agent import create_spec_agent, create_spec_prompt
 from .generator_agent import (
     create_generator_agent,
     create_generation_prompt,
@@ -41,9 +46,12 @@ __all__ = [
     "analyze_io_mapping",
     "build_formula_dependency_graph",
     "analyze_vba_cell_mapping",
-    # Planner
+    # Planner (legacy)
     "create_planner_agent",
     "create_plan_prompt",
+    # Spec Agent (TDD)
+    "create_spec_agent",
+    "create_spec_prompt",
     # Generator
     "create_generator_agent",
     "create_generation_prompt",

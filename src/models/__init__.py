@@ -24,6 +24,8 @@ from .output import (
     GeneratedCode,
     GeneratedWebApp,
     ImprovementFeedback,
+    WebAppSpec,
+    VerificationReport,
     ConversionResult,
 )
 from .test_case import (
@@ -59,6 +61,8 @@ __all__ = [
     "GeneratedCode",
     "GeneratedWebApp",
     "ImprovementFeedback",
+    "WebAppSpec",
+    "VerificationReport",
     "ConversionResult",
     # Test case models
     "CellValue",
