@@ -1,11 +1,12 @@
 """Orchestrator - Coordinates the Excel to WebApp conversion pipeline."""
 
 import asyncio
+import json
 from pathlib import Path
 from typing import Optional, Callable
 from dataclasses import dataclass
 
-from agents import Runner
+from agents import Runner, trace
 
 from src.models import (
     ExcelAnalysis,
@@ -109,62 +110,64 @@ class ExcelToWebAppOrchestrator:
                 message=f"Unsupported file type: {path.suffix}. Use .xlsx or .xlsm",
             )
 
-        try:
-            # Stage 1: Analyze
-            self._report_progress("analyze", "Excel 파일 분석 중...", 0.1)
-            analysis = await self._analyze(excel_path)
+        # Wrap entire pipeline in a trace for observability
+        with trace(f"Excel-to-WebApp: {path.name}"):
+            try:
+                # Stage 1: Analyze
+                self._report_progress("analyze", "Excel 파일 분석 중...", 0.1)
+                analysis = await self._analyze(excel_path)
 
-            if analysis is None:
-                return ConversionResult(
-                    success=False,
-                    iterations_used=0,
-                    final_pass_rate=0.0,
-                    message="Failed to analyze Excel file",
+                if analysis is None:
+                    return ConversionResult(
+                        success=False,
+                        iterations_used=0,
+                        final_pass_rate=0.0,
+                        message="Failed to analyze Excel file",
+                    )
+
+                # Stage 2: Plan
+                self._report_progress("plan", "웹 앱 구조 설계 중...", 0.3)
+                plan = await self._plan(analysis)
+
+                if plan is None:
+                    return ConversionResult(
+                        success=False,
+                        iterations_used=0,
+                        final_pass_rate=0.0,
+                        message="Failed to create web app plan",
+                    )
+
+                # Stage 3: Generate (with iterations)
+                self._report_progress("generate", "코드 생성 중...", 0.5)
+                webapp, iterations, pass_rate = await self._generate_with_iterations(
+                    plan, analysis
                 )
 
-            # Stage 2: Plan
-            self._report_progress("plan", "웹 앱 구조 설계 중...", 0.3)
-            plan = await self._plan(analysis)
+                if webapp is None:
+                    return ConversionResult(
+                        success=False,
+                        iterations_used=iterations,
+                        final_pass_rate=pass_rate,
+                        message="Failed to generate web application",
+                    )
 
-            if plan is None:
+                self._report_progress("complete", "변환 완료!", 1.0)
+
                 return ConversionResult(
-                    success=False,
-                    iterations_used=0,
-                    final_pass_rate=0.0,
-                    message="Failed to create web app plan",
-                )
-
-            # Stage 3: Generate (with iterations)
-            self._report_progress("generate", "코드 생성 중...", 0.5)
-            webapp, iterations, pass_rate = await self._generate_with_iterations(
-                plan, analysis
-            )
-
-            if webapp is None:
-                return ConversionResult(
-                    success=False,
+                    success=True,
+                    app=webapp,
                     iterations_used=iterations,
                     final_pass_rate=pass_rate,
-                    message="Failed to generate web application",
+                    message="Successfully converted Excel to web application",
                 )
 
-            self._report_progress("complete", "변환 완료!", 1.0)
-
-            return ConversionResult(
-                success=True,
-                app=webapp,
-                iterations_used=iterations,
-                final_pass_rate=pass_rate,
-                message="Successfully converted Excel to web application",
-            )
-
-        except Exception as e:
-            return ConversionResult(
-                success=False,
-                iterations_used=0,
-                final_pass_rate=0.0,
-                message=f"Conversion error: {str(e)}",
-            )
+            except Exception as e:
+                return ConversionResult(
+                    success=False,
+                    iterations_used=0,
+                    final_pass_rate=0.0,
+                    message=f"Conversion error: {str(e)}",
+                )
 
     async def _analyze(self, excel_path: str) -> Optional[ExcelAnalysis]:
         """Analyze Excel file using direct tool call (no agent needed)."""
