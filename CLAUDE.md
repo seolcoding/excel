@@ -56,3 +56,21 @@ from agents import Agent, Runner, function_tool
 - VBA macro → JS function accuracy
 - Input validation
 - Calculation result verification
+
+## Deployment
+
+### GitHub Pages
+- **Repository**: seolcoding/excel
+- **Deployed URL**: https://seolcoding.github.io/excel/
+- **Custom Domain**: excel.seolcoding.com
+- **CNAME file**: `excel.seolcoding.com`
+
+### DNS Configuration (Cloudflare)
+```
+Type: CNAME
+Name: excel
+Target: seolcoding.github.io
+Proxy: ON or OFF
+```
+
+GitHub handles routing from `excel.seolcoding.com` → `seolcoding.github.io/excel/` automatically.
