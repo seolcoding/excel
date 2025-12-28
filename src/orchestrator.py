@@ -25,6 +25,7 @@ from src.agents import (
     create_generator_agent,
     create_generation_prompt,
 )
+from src.tracing import ConversationCaptureHooks, ConversationTrace
 
 
 @dataclass
@@ -112,48 +113,58 @@ class ExcelToWebAppOrchestrator:
                 message=f"Unsupported file type: {path.suffix}. Use .xlsx or .xlsm",
             )
 
+        # Create conversation hooks to capture all LLM interactions
+        hooks = ConversationCaptureHooks(f"Excel-to-WebApp: {path.name}")
+
         # Wrap entire pipeline in a trace for observability
         with trace(f"Excel-to-WebApp: {path.name}"):
             try:
                 # Stage 1: Analyze
                 self._report_progress("analyze", "Excel 파일 분석 중...", 0.1)
-                analysis = await self._analyze(excel_path)
+                analysis = await self._analyze(excel_path, hooks)
 
                 if analysis is None:
+                    hooks.finalize()
                     return ConversionResult(
                         success=False,
                         iterations_used=0,
                         final_pass_rate=0.0,
                         message="Failed to analyze Excel file",
+                        conversation_trace=hooks.get_trace().to_dict(),
                     )
 
                 # Stage 2: Plan
                 self._report_progress("plan", "웹 앱 구조 설계 중...", 0.3)
-                plan = await self._plan(analysis)
+                plan = await self._plan(analysis, hooks)
 
                 if plan is None:
+                    hooks.finalize()
                     return ConversionResult(
                         success=False,
                         iterations_used=0,
                         final_pass_rate=0.0,
                         message="Failed to create web app plan",
+                        conversation_trace=hooks.get_trace().to_dict(),
                     )
 
                 # Stage 3: Generate (with iterations)
                 self._report_progress("generate", "코드 생성 중...", 0.5)
                 webapp, iterations, pass_rate = await self._generate_with_iterations(
-                    plan, analysis
+                    plan, analysis, hooks
                 )
 
                 if webapp is None:
+                    hooks.finalize()
                     return ConversionResult(
                         success=False,
                         iterations_used=iterations,
                         final_pass_rate=pass_rate,
                         message="Failed to generate web application",
+                        conversation_trace=hooks.get_trace().to_dict(),
                     )
 
                 self._report_progress("complete", "변환 완료!", 1.0)
+                hooks.finalize()
 
                 return ConversionResult(
                     success=True,
@@ -161,17 +172,22 @@ class ExcelToWebAppOrchestrator:
                     iterations_used=iterations,
                     final_pass_rate=pass_rate,
                     message="Successfully converted Excel to web application",
+                    conversation_trace=hooks.get_trace().to_dict(),
                 )
 
             except Exception as e:
+                hooks.finalize()
                 return ConversionResult(
                     success=False,
                     iterations_used=0,
                     final_pass_rate=0.0,
                     message=f"Conversion error: {str(e)}",
+                    conversation_trace=hooks.get_trace().to_dict(),
                 )
 
-    async def _analyze(self, excel_path: str) -> Optional[ExcelAnalysis]:
+    async def _analyze(
+        self, excel_path: str, hooks: ConversationCaptureHooks
+    ) -> Optional[ExcelAnalysis]:
         """Run the Analyzer agent to extract Excel structure."""
         try:
             prompt = create_analyze_prompt(excel_path)
@@ -179,6 +195,7 @@ class ExcelToWebAppOrchestrator:
             result = await Runner.run(
                 self.analyzer,
                 prompt,
+                run_hooks=hooks,
             )
 
             # The agent returns the analysis via tool call result
@@ -200,7 +217,9 @@ class ExcelToWebAppOrchestrator:
             print(f"Analysis error: {e}")
             return None
 
-    async def _plan(self, analysis: ExcelAnalysis) -> Optional[WebAppPlan]:
+    async def _plan(
+        self, analysis: ExcelAnalysis, hooks: ConversationCaptureHooks
+    ) -> Optional[WebAppPlan]:
         """Run the Planner agent to design the web app."""
         try:
             # Convert analysis to dict for prompt
@@ -210,6 +229,7 @@ class ExcelToWebAppOrchestrator:
             result = await Runner.run(
                 self.planner,
                 prompt,
+                run_hooks=hooks,
             )
 
             if result.final_output:
@@ -228,6 +248,7 @@ class ExcelToWebAppOrchestrator:
         self,
         plan: WebAppPlan,
         analysis: ExcelAnalysis,
+        hooks: ConversationCaptureHooks,
     ) -> tuple[Optional[GeneratedWebApp], int, float]:
         """
         Generate web app with test-driven iterations.
@@ -247,7 +268,7 @@ class ExcelToWebAppOrchestrator:
             )
 
             # Generate code
-            webapp = await self._generate(plan, analysis, iteration)
+            webapp = await self._generate(plan, analysis, iteration, hooks)
 
             if webapp is None:
                 continue
@@ -279,6 +300,7 @@ class ExcelToWebAppOrchestrator:
         plan: WebAppPlan,
         analysis: ExcelAnalysis,
         iteration: int,
+        hooks: ConversationCaptureHooks,
     ) -> Optional[GeneratedWebApp]:
         """Run the Generator agent to produce code."""
         try:
@@ -292,6 +314,7 @@ class ExcelToWebAppOrchestrator:
             result = await Runner.run(
                 self.generator,
                 prompt,
+                run_hooks=hooks,
             )
 
             if result.final_output:

@@ -477,6 +477,206 @@
             transform: rotate(180deg);
         }
 
+        /* Search Box */
+        .search-container {
+            margin-bottom: 1.5rem;
+            position: relative;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 1rem 1.5rem 1rem 3rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            color: var(--text-primary);
+            font-size: 1rem;
+            font-family: inherit;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .search-input::placeholder {
+            color: var(--text-secondary);
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-secondary);
+        }
+
+        .search-results {
+            margin-top: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .highlight {
+            background: rgba(249, 115, 22, 0.3);
+            color: var(--warning);
+            padding: 0 2px;
+            border-radius: 2px;
+        }
+
+        /* LLM Conversation Card */
+        .llm-card {
+            background: rgba(168, 85, 247, 0.1);
+            border: 1px solid rgba(168, 85, 247, 0.3);
+            border-radius: 12px;
+            margin-bottom: 1rem;
+            overflow: hidden;
+        }
+
+        .llm-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1rem 1.25rem;
+            background: rgba(168, 85, 247, 0.1);
+            border-bottom: 1px solid rgba(168, 85, 247, 0.2);
+            cursor: pointer;
+        }
+
+        .llm-header:hover {
+            background: rgba(168, 85, 247, 0.15);
+        }
+
+        .llm-meta {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .llm-agent-name {
+            font-weight: 600;
+            color: var(--response);
+        }
+
+        .llm-model {
+            font-size: 0.75rem;
+            padding: 0.2rem 0.5rem;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            color: var(--text-secondary);
+        }
+
+        .llm-tokens {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        .llm-body {
+            padding: 1.25rem;
+        }
+
+        .llm-body.collapsed {
+            display: none;
+        }
+
+        .message-block {
+            margin-bottom: 1rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .message-block:last-child {
+            margin-bottom: 0;
+            padding-bottom: 0;
+            border-bottom: none;
+        }
+
+        .message-role {
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .message-role.system { color: #f59e0b; }
+        .message-role.user { color: #3b82f6; }
+        .message-role.assistant { color: #22c55e; }
+
+        .message-content {
+            background: var(--bg-code);
+            border-radius: 8px;
+            padding: 1rem;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            word-break: break-word;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .message-content.truncated::after {
+            content: '... (더 보기)';
+            color: var(--primary);
+            cursor: pointer;
+        }
+
+        .tool-calls-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+
+        .tool-call-badge {
+            font-size: 0.75rem;
+            padding: 0.25rem 0.75rem;
+            background: rgba(20, 184, 166, 0.2);
+            color: var(--tool);
+            border-radius: 6px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .tab-container {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 0.5rem;
+        }
+
+        .tab-btn {
+            padding: 0.5rem 1rem;
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 0.9rem;
+            border-radius: 6px 6px 0 0;
+            transition: all 0.2s;
+        }
+
+        .tab-btn:hover {
+            color: var(--text-primary);
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .tab-btn.active {
+            color: var(--primary);
+            background: rgba(99, 102, 241, 0.1);
+            border-bottom: 2px solid var(--primary);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
         @media (max-width: 768px) {
             .stats-grid { grid-template-columns: repeat(2, 1fr); }
             .pipeline-steps { flex-direction: column; }
@@ -507,19 +707,51 @@
             'insurance-calculator': 'traces/trace_20251228_095309_trace_04.json',
         };
 
+        let currentTrace = null;
+        let searchQuery = '';
+
         function getQueryParam(param) {
             return new URLSearchParams(window.location.search).get(param);
         }
 
         function formatDuration(start, end) {
+            if (!start || !end) return '-';
             const duration = (new Date(end) - new Date(start)) / 1000;
             if (duration < 1) return `${Math.round(duration * 1000)}ms`;
             if (duration < 60) return `${duration.toFixed(1)}s`;
             return `${Math.floor(duration / 60)}m ${Math.round(duration % 60)}s`;
         }
 
+        function formatDurationMs(ms) {
+            if (ms < 1000) return `${Math.round(ms)}ms`;
+            if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
+            return `${Math.floor(ms / 60000)}m ${Math.round((ms % 60000) / 1000)}s`;
+        }
+
         function formatTime(dateStr) {
+            if (!dateStr) return '-';
             return new Date(dateStr).toLocaleTimeString('ko-KR');
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+        }
+
+        function highlightText(text, query) {
+            if (!query || !text) return escapeHtml(text);
+            const escaped = escapeHtml(text);
+            const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+            return escaped.replace(regex, '<span class="highlight">$1</span>');
+        }
+
+        function truncateText(text, maxLen = 500) {
+            if (!text || text.length <= maxLen) return text;
+            return text.substring(0, maxLen) + '...';
         }
 
         async function loadTrace(demoId) {
@@ -535,10 +767,19 @@
         }
 
         function analyzeTrace(trace) {
+            // Handle both old format (spans) and new format (conversation_trace)
             const spans = trace.spans || [];
+            const conversationTrace = trace.conversation_trace || {};
+
             const agents = spans.filter(s => s.type === 'agent');
             const responses = spans.filter(s => s.type === 'response');
             const functions = spans.filter(s => s.type === 'function');
+
+            // New conversation data
+            const llmCalls = conversationTrace.llm_calls || [];
+            const toolCalls = conversationTrace.tool_calls || [];
+            const agentsUsed = conversationTrace.agents_used || [];
+            const totalTokens = conversationTrace.total_tokens || 0;
 
             // Group functions by name
             const functionGroups = {};
@@ -563,7 +804,58 @@
                 generator: agents.find(a => a.data?.name?.includes('Generator'))
             };
 
-            return { agents, responses, functions, functionGroups, formulaConversions, stages };
+            return {
+                agents, responses, functions, functionGroups, formulaConversions, stages,
+                llmCalls, toolCalls, agentsUsed, totalTokens, conversationTrace
+            };
+        }
+
+        function searchInTrace(trace, query) {
+            if (!query) return { matches: 0, sections: [] };
+
+            const analysis = analyzeTrace(trace);
+            let matches = 0;
+            const sections = [];
+
+            // Search in LLM calls
+            analysis.llmCalls.forEach((call, idx) => {
+                let found = false;
+                const searchables = [
+                    call.system_prompt || '',
+                    call.output_content || '',
+                    ...(call.input_messages || []).map(m => m.content || '')
+                ];
+
+                searchables.forEach(text => {
+                    if (text.toLowerCase().includes(query.toLowerCase())) {
+                        found = true;
+                        matches++;
+                    }
+                });
+
+                if (found) {
+                    sections.push({ type: 'llm', index: idx, name: call.agent_name });
+                }
+            });
+
+            // Search in tool calls
+            analysis.toolCalls.forEach((call, idx) => {
+                const searchables = [call.name, call.input, call.output].filter(Boolean);
+                let found = false;
+
+                searchables.forEach(text => {
+                    if (text.toLowerCase().includes(query.toLowerCase())) {
+                        found = true;
+                        matches++;
+                    }
+                });
+
+                if (found) {
+                    sections.push({ type: 'tool', index: idx, name: call.name });
+                }
+            });
+
+            return { matches, sections };
         }
 
         function renderNoTrace() {
@@ -579,9 +871,72 @@
             `;
         }
 
+        function renderLLMConversations(llmCalls, query) {
+            if (!llmCalls || llmCalls.length === 0) return '';
+
+            return llmCalls.map((call, idx) => `
+                <div class="llm-card" id="llm-${idx}">
+                    <div class="llm-header" onclick="toggleLLM(this)">
+                        <div class="llm-meta">
+                            <span class="llm-agent-name">💬 ${call.agent_name}</span>
+                            ${call.model ? `<span class="llm-model">${call.model}</span>` : ''}
+                        </div>
+                        <div class="d-flex align-items-center gap-3">
+                            <span class="llm-tokens">
+                                ${call.usage?.total_tokens ? `🔢 ${call.usage.total_tokens} tokens` : ''}
+                                ⏱️ ${formatDurationMs(call.duration_ms)}
+                            </span>
+                            <svg class="expand-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M6 9l6 6 6-6"/>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="llm-body collapsed">
+                        ${call.system_prompt ? `
+                            <div class="message-block">
+                                <div class="message-role system">⚙️ System Prompt</div>
+                                <div class="message-content">${highlightText(truncateText(call.system_prompt, 1000), query)}</div>
+                            </div>
+                        ` : ''}
+
+                        ${(call.input_messages || []).map(msg => `
+                            <div class="message-block">
+                                <div class="message-role ${msg.role}">
+                                    ${msg.role === 'user' ? '👤' : msg.role === 'assistant' ? '🤖' : '📝'} ${msg.role}
+                                </div>
+                                <div class="message-content">${highlightText(truncateText(msg.content, 1000), query)}</div>
+                            </div>
+                        `).join('')}
+
+                        ${call.output_content ? `
+                            <div class="message-block">
+                                <div class="message-role assistant">🤖 Assistant Output</div>
+                                <div class="message-content">${highlightText(truncateText(call.output_content, 2000), query)}</div>
+                            </div>
+                        ` : ''}
+
+                        ${call.output_tool_calls?.length ? `
+                            <div class="message-block">
+                                <div class="message-role" style="color: var(--tool);">🔧 Tool Calls</div>
+                                <div class="tool-calls-list">
+                                    ${call.output_tool_calls.map(tc => `
+                                        <span class="tool-call-badge">${tc.name}()</span>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
+
         function renderTrace(trace) {
+            currentTrace = trace;
             const analysis = analyzeTrace(trace);
-            const totalDuration = formatDuration(trace.started_at, trace.ended_at);
+            const totalDuration = formatDuration(
+                trace.started_at || analysis.conversationTrace?.started_at,
+                trace.ended_at || analysis.conversationTrace?.ended_at
+            );
 
             const plannerDuration = analysis.stages.planner
                 ? formatDuration(analysis.stages.planner.started_at, analysis.stages.planner.ended_at)
@@ -590,7 +945,24 @@
                 ? formatDuration(analysis.stages.generator.started_at, analysis.stages.generator.ended_at)
                 : '-';
 
+            // Use new conversation data if available
+            const llmCount = analysis.llmCalls.length || analysis.responses.length;
+            const toolCount = analysis.toolCalls.length || analysis.functions.length;
+            const agentCount = analysis.agentsUsed.length || analysis.agents.length;
+
             return `
+                <!-- Search Box -->
+                <div class="search-container">
+                    <svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8"/>
+                        <path d="m21 21-4.35-4.35"/>
+                    </svg>
+                    <input type="text" class="search-input" id="searchInput"
+                        placeholder="대화 내용 검색... (예: Excel, 수식, 함수명)"
+                        oninput="handleSearch(this.value)">
+                    <div class="search-results" id="searchResults"></div>
+                </div>
+
                 <!-- Pipeline Steps -->
                 <div class="pipeline-steps">
                     <div class="pipeline-step completed">
@@ -613,35 +985,91 @@
                 <!-- Stats -->
                 <div class="stats-grid">
                     <div class="stat-card">
-                        <div class="value">${analysis.agents.length}</div>
-                        <div class="label">🤖 에이전트 호출</div>
+                        <div class="value">${agentCount}</div>
+                        <div class="label">🤖 에이전트</div>
                     </div>
                     <div class="stat-card">
-                        <div class="value">${analysis.responses.length}</div>
-                        <div class="label">💬 LLM 응답</div>
+                        <div class="value">${llmCount}</div>
+                        <div class="label">💬 LLM 호출</div>
                     </div>
                     <div class="stat-card">
-                        <div class="value">${analysis.functions.length}</div>
-                        <div class="label">🔧 함수 호출</div>
+                        <div class="value">${toolCount}</div>
+                        <div class="label">🔧 도구 호출</div>
                     </div>
                     <div class="stat-card">
-                        <div class="value">${totalDuration}</div>
-                        <div class="label">⏱️ 총 소요시간</div>
+                        <div class="value">${analysis.totalTokens > 0 ? analysis.totalTokens.toLocaleString() : totalDuration}</div>
+                        <div class="label">${analysis.totalTokens > 0 ? '🔢 총 토큰' : '⏱️ 소요시간'}</div>
                     </div>
                 </div>
 
-                <!-- Agent Details -->
+                <!-- LLM Conversations (New Feature) -->
+                ${analysis.llmCalls.length > 0 ? `
+                <div class="detail-section">
+                    <div class="section-header" onclick="toggleSection(this)">
+                        <h4>
+                            💬 LLM 대화 기록
+                            <span class="badge bg-primary">${analysis.llmCalls.length}개</span>
+                        </h4>
+                        <svg class="expand-icon expanded" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M6 9l6 6 6-6"/>
+                        </svg>
+                    </div>
+                    <div class="section-content" id="llmConversations">
+                        ${renderLLMConversations(analysis.llmCalls, searchQuery)}
+                    </div>
+                </div>
+                ` : ''}
+
+                <!-- Tool Calls (New Format) -->
+                ${analysis.toolCalls.length > 0 ? `
+                <div class="detail-section">
+                    <div class="section-header" onclick="toggleSection(this)">
+                        <h4>
+                            🔧 도구 호출 기록
+                            <span class="badge bg-success">${analysis.toolCalls.length}개</span>
+                        </h4>
+                        <svg class="expand-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M6 9l6 6 6-6"/>
+                        </svg>
+                    </div>
+                    <div class="section-content collapsed">
+                        <div class="accordion" id="toolAccordion">
+                            ${analysis.toolCalls.map((tc, idx) => `
+                                <div class="function-item" id="tool-${idx}">
+                                    <div class="function-header" onclick="toggleFunction(this)">
+                                        <span class="function-name">${tc.name}()</span>
+                                        <span class="function-duration">${formatDurationMs(tc.duration_ms)}</span>
+                                    </div>
+                                    <div class="function-body collapsed">
+                                        <div class="io-block">
+                                            <div class="io-label input">INPUT</div>
+                                            <div class="code-block">${highlightText(truncateText(tc.input, 500), searchQuery)}</div>
+                                        </div>
+                                        <div class="io-block">
+                                            <div class="io-label output">OUTPUT</div>
+                                            <div class="code-block">${highlightText(truncateText(tc.output, 500), searchQuery)}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+                ` : ''}
+
+                <!-- Agent Details (Legacy Format) -->
+                ${analysis.agents.length > 0 ? `
                 <div class="detail-section">
                     <div class="section-header" onclick="toggleSection(this)">
                         <h4>
                             🤖 에이전트 실행 정보
                             <span class="badge">${analysis.agents.length}개</span>
                         </h4>
-                        <svg class="expand-icon expanded" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <svg class="expand-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M6 9l6 6 6-6"/>
                         </svg>
                     </div>
-                    <div class="section-content">
+                    <div class="section-content collapsed">
                         ${analysis.agents.map(agent => `
                             <div class="agent-card">
                                 <div class="agent-header">
@@ -656,12 +1084,6 @@
                                         </div>
                                     </div>
                                 </div>
-                                ${agent.data?.output_type ? `
-                                    <div style="margin-top: 0.5rem; font-size: 0.85rem;">
-                                        <strong>Output Type:</strong>
-                                        <code style="background: var(--bg-code); padding: 0.2rem 0.5rem; border-radius: 4px;">${agent.data.output_type}</code>
-                                    </div>
-                                ` : ''}
                                 ${agent.data?.tools?.length ? `
                                     <div class="agent-tools">
                                         ${agent.data.tools.map(t => `<span class="tool-badge">${t}</span>`).join('')}
@@ -671,6 +1093,7 @@
                         `).join('')}
                     </div>
                 </div>
+                ` : ''}
 
                 <!-- Formula Conversions -->
                 ${analysis.formulaConversions.length > 0 ? `
@@ -680,11 +1103,11 @@
                             📊 수식 변환 결과
                             <span class="badge">${analysis.formulaConversions.length}개</span>
                         </h4>
-                        <svg class="expand-icon expanded" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <svg class="expand-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M6 9l6 6 6-6"/>
                         </svg>
                     </div>
-                    <div class="section-content">
+                    <div class="section-content collapsed">
                         ${analysis.formulaConversions.map(conv => `
                             <div class="formula-conversion">
                                 <div class="formula-box excel">
@@ -702,86 +1125,10 @@
                 </div>
                 ` : ''}
 
-                <!-- Function Calls -->
-                <div class="detail-section">
-                    <div class="section-header" onclick="toggleSection(this)">
-                        <h4>
-                            ⚙️ 함수 호출 상세
-                            <span class="badge">${analysis.functions.length}개</span>
-                        </h4>
-                        <svg class="expand-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M6 9l6 6 6-6"/>
-                        </svg>
-                    </div>
-                    <div class="section-content collapsed">
-                        <div class="function-list">
-                            ${Object.entries(analysis.functionGroups).map(([name, calls]) => `
-                                <div class="function-item">
-                                    <div class="function-header" onclick="toggleFunction(this)">
-                                        <span class="function-name">${name}()</span>
-                                        <span class="function-duration">${calls.length}회 호출</span>
-                                    </div>
-                                    <div class="function-body collapsed">
-                                        ${calls.map((call, idx) => `
-                                            <div style="margin-bottom: 1rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border);">
-                                                <div style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 0.5rem;">
-                                                    호출 #${idx + 1} - ${formatDuration(call.started_at, call.ended_at)}
-                                                </div>
-                                                <div class="io-block">
-                                                    <div class="io-label input">INPUT</div>
-                                                    <div class="code-block">${call.data?.input || '-'}</div>
-                                                </div>
-                                                <div class="io-block">
-                                                    <div class="io-label output">OUTPUT</div>
-                                                    <div class="code-block">${call.data?.output || '-'}</div>
-                                                </div>
-                                            </div>
-                                        `).join('')}
-                                    </div>
-                                </div>
-                            `).join('')}
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Timeline -->
-                <div class="detail-section">
-                    <div class="section-header" onclick="toggleSection(this)">
-                        <h4>
-                            📅 실행 타임라인
-                        </h4>
-                        <svg class="expand-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M6 9l6 6 6-6"/>
-                        </svg>
-                    </div>
-                    <div class="section-content collapsed">
-                        <div class="timeline">
-                            ${trace.spans.slice(0, 20).map(span => `
-                                <div class="timeline-item ${span.type}">
-                                    <div class="timeline-content">
-                                        <div class="timeline-title">
-                                            <span style="color: ${span.type === 'agent' ? 'var(--agent)' : span.type === 'response' ? 'var(--response)' : 'var(--tool)'}">
-                                                [${span.type.toUpperCase()}]
-                                            </span>
-                                            ${span.data?.name || span.data?.type || span.type}
-                                        </div>
-                                        <div class="timeline-meta">
-                                            ${formatTime(span.started_at)} - ${formatDuration(span.started_at, span.ended_at)}
-                                        </div>
-                                    </div>
-                                </div>
-                            `).join('')}
-                            ${trace.spans.length > 20 ? `<div style="text-align: center; color: var(--text-secondary); padding: 1rem;">... 외 ${trace.spans.length - 20}개 항목</div>` : ''}
-                        </div>
-                    </div>
-                </div>
-
                 <!-- Raw JSON -->
                 <div class="detail-section">
                     <div class="section-header" onclick="toggleSection(this)">
-                        <h4>
-                            📄 원본 Trace JSON
-                        </h4>
+                        <h4>📄 원본 Trace JSON</h4>
                         <svg class="expand-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M6 9l6 6 6-6"/>
                         </svg>
@@ -791,6 +1138,36 @@
                     </div>
                 </div>
             `;
+        }
+
+        function handleSearch(query) {
+            searchQuery = query;
+            if (!currentTrace) return;
+
+            const results = searchInTrace(currentTrace, query);
+            const resultsDiv = document.getElementById('searchResults');
+
+            if (query && results.matches > 0) {
+                resultsDiv.innerHTML = `🔍 "${query}" - ${results.matches}개 결과 발견`;
+
+                // Re-render LLM conversations with highlights
+                const llmDiv = document.getElementById('llmConversations');
+                if (llmDiv) {
+                    const analysis = analyzeTrace(currentTrace);
+                    llmDiv.innerHTML = renderLLMConversations(analysis.llmCalls, query);
+                }
+            } else if (query) {
+                resultsDiv.innerHTML = `🔍 "${query}" - 결과 없음`;
+            } else {
+                resultsDiv.innerHTML = '';
+            }
+        }
+
+        function toggleLLM(header) {
+            const body = header.nextElementSibling;
+            const icon = header.querySelector('.expand-icon');
+            body.classList.toggle('collapsed');
+            icon.classList.toggle('expanded');
         }
 
         function toggleSection(header) {

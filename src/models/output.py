@@ -73,3 +73,4 @@ class ConversionResult(BaseModel):
     iterations_used: int
     final_pass_rate: float
     message: str
+    conversation_trace: Optional[dict] = None  # Full LLM conversation history
