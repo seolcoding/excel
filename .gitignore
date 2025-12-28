@@ -31,5 +31,4 @@ htmlcov/
 .temp/
 refs/
 test_output.html
-traces/
 test_with_trace.html
