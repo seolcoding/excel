@@ -31,4 +31,17 @@ htmlcov/
 .temp/
 refs/
 test_output.html
+test_output_*.html
 test_with_trace.html
+conversion.log
+conversion_results.json
+
+# Traces (keep structure, ignore generated files)
+traces/*.json
+
+# MCP cache
+.playwright-mcp/
+
+# Excel test files (large)
+excel_files/엑셀서식*/
+excel_index.json
