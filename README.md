@@ -35,31 +35,55 @@
 
 ## Architecture
 
+### TDD Pipeline (Current)
+
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    Orchestrator                              │
-├─────────────────────────────────────────────────────────────┤
-│                                                              │
-│  1. Excel Analyzer Agent                                     │
-│     └─ Excel 파일 분석 → ExcelAnalysis                      │
-│                         ↓                                    │
-│  2. WebApp Planner Agent                                     │
-│     └─ 웹앱 설계 → WebAppPlan                               │
-│                         ↓                                    │
-│  3. Code Generator Agent                                     │
-│     └─ 코드 생성 → HTML/CSS/JS                              │
-│                                                              │
-│  [Tracing: Full LLM conversation capture]                    │
-│                                                              │
-└─────────────────────────────────────────────────────────────┘
+Excel File (.xlsx/.xlsm)
+         │
+         ▼
+┌─────────────────┐
+│  Analyzer Agent │ ← gpt-5-mini
+│  (Excel 분석)    │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│   Spec Agent    │ ← gpt-5.2
+│  (TDD 스펙 생성) │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│  Test Generator │ ← gpt-5-mini
+│ (테스트 케이스)   │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐     ┌─────────────────┐
+│ Generator Agent │◄────│  Tester Agent   │
+│  (코드 생성)     │     │ (LLM-as-a-Judge)│
+│  gpt-5.1-codex  │     │   gpt-5-mini    │
+└────────┬────────┘     └─────────────────┘
+         │
+         ▼
+   pass_rate >= 90%?
+   ├── YES → Output HTML + VerificationReport
+   └── NO  → Iterate (max 3회)
 ```
+
+### Key Features
+
+- **TDD-Driven**: Spec → Tests → Code → Verify
+- **LLM-as-a-Judge**: AI-powered code evaluation
+- **Combined Testing**: Static (60%) + LLM (40%) weighted scoring
+- **160 Unit Tests**: Comprehensive SDK-aligned test coverage
 
 ## Tech Stack
 
 - **Backend**: Python 3.12+, OpenAI Agents SDK
 - **Excel Parsing**: openpyxl, xlrd (for .xls), LibreOffice (xls→xlsx conversion)
 - **Frontend Output**: Bootstrap 5, Alpine.js (CDN-based, no build)
-- **LLM**: GPT-4o (via OpenAI Agents SDK)
+- **LLM**: gpt-5.2, gpt-5.1-codex, gpt-5-mini (via OpenAI Agents SDK)
 - **Tracing**: Custom ConversationCaptureHooks + JsonTracingProcessor
 
 ## Installation
@@ -106,27 +130,37 @@ asyncio.run(main())
 ```
 xls_agent/
 ├── src/
+│   ├── agents/                # OpenAI Agents SDK agents
+│   │   ├── analyzer_agent.py  # Excel structure extraction
+│   │   ├── spec_agent.py      # TDD specification generation
+│   │   ├── generator_agent.py # HTML/CSS/JS generation
+│   │   ├── tester_agent.py    # LLM-as-a-Judge evaluation
+│   │   └── test_generator_agent.py # Test case generation
 │   ├── models/                # Pydantic data models
-│   │   ├── analysis.py        # ExcelAnalysis
-│   │   ├── plan.py            # WebAppPlan
-│   │   └── output.py          # GeneratedWebApp, ConversionResult
+│   │   ├── analysis.py        # ExcelAnalysis, SheetInfo
+│   │   ├── plan.py            # WebAppPlan, ComponentSpec
+│   │   ├── output.py          # WebAppSpec, VerificationReport
+│   │   └── test_case.py       # TestSuite, StaticTestSuite
 │   ├── tools/                 # Core utilities
-│   │   ├── excel_analyzer.py  # Excel parsing
-│   │   └── formula_converter.py # Formula → JS
-│   ├── agents/                # OpenAI Agents
-│   │   ├── analyzer.py        # Excel Analyzer Agent
-│   │   ├── planner.py         # WebApp Planner Agent
-│   │   └── generator.py       # Code Generator Agent
-│   ├── tracing/               # Conversation capture
-│   │   ├── conversation_hooks.py  # RunHooks for LLM capture
-│   │   └── json_processor.py  # Trace export
-│   └── orchestrator.py        # Pipeline coordination
-├── demos/                     # Generated demo pages (10 demos)
-├── traces/                    # Agent trace viewer & JSON files
-│   ├── trace-viewer.html      # Full-page trace viewer
-│   └── *.json                 # Trace data per demo
-├── excel_files/               # Source Excel files
-└── index.html                 # Landing page
+│   │   ├── excel_analyzer.py  # openpyxl-based parsing
+│   │   ├── formula_converter.py # Excel formula → JavaScript
+│   │   ├── static_test_runner.py # Node.js test execution
+│   │   └── test_generator.py  # Test case extraction
+│   ├── tracing/               # Observability
+│   │   ├── conversation_hooks.py  # LLM conversation capture
+│   │   └── streaming_monitor.py   # Real-time monitoring
+│   └── orchestrator.py        # TDD Pipeline coordination
+├── tests/                     # 160 unit tests
+│   ├── agents/                # Agent unit tests
+│   ├── fake_model.py          # FakeModel for mocking
+│   └── conftest.py            # Pytest fixtures
+├── docs/                      # Documentation
+│   ├── PROJECT_INDEX.md       # Project index
+│   ├── API_REFERENCE.md       # API documentation
+│   └── TDD_PIPELINE_ARCHITECTURE.md
+├── demos/                     # Generated demo pages
+├── traces/                    # Agent trace viewer & JSON
+└── excel_files/               # Source Excel files
 ```
 
 ## Agent Trace Viewer
